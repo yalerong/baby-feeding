@@ -1,0 +1,42 @@
+<view class="container">
+  <!-- 日期选择 -->
+  <view class="card">
+    <view class="form-item">
+      <view class="form-label">补录日期</view>
+      <picker mode="date" value="{{date}}" bindchange="bindDateChange">
+        <view class="picker-value">{{date}}</view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 批量录入列表 -->
+  <view class="card">
+    <view class="list-header">
+      <text class="list-title">记录明细</text>
+      <text class="add-row" bindtap="addRow">+ 添加一行</text>
+    </view>
+
+    <view class="batch-row" wx:for="{{rows}}" wx:key="index">
+      <view class="row-main">
+        <picker class="time-picker" mode="time" value="{{item.time}}" data-index="{{index}}" bindchange="bindTimeChange">
+          <view class="time-value {{item.time ? '' : 'placeholder'}}">{{item.time || '时间'}}</view>
+        </picker>
+        <input class="milk-input" type="digit" value="{{item.breastMilk}}" data-index="{{index}}" bindinput="bindBreastInput" placeholder="母乳" />
+        <input class="milk-input" type="digit" value="{{item.formula}}" data-index="{{index}}" bindinput="bindFormulaInput" placeholder="奶粉" />
+        <switch class="stool-switch" checked="{{item.stool}}" data-index="{{index}}" bindchange="bindStoolChange" color="#4CAF50" />
+        <text class="delete-btn" data-index="{{index}}" bindtap="deleteRow" wx:if="{{rows.length > 1}}">删除</text>
+      </view>
+      <view class="row-desc" wx:if="{{item.stool}}">
+        <input type="text" value="{{item.stoolDesc}}" data-index="{{index}}" bindinput="bindStoolDescInput" placeholder="大便描述，如：稀 黄 少量" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 预览 -->
+  <view class="card preview-card" wx:if="{{validCount > 0}}">
+    <view class="preview-title">即将保存 {{validCount}} 条记录，总奶量 {{validTotal}}ml</view>
+  </view>
+
+  <button class="btn-primary" bindtap="submitBatch">批量保存</button>
+  <button class="btn-secondary" bindtap="goBack">取消</button>
+</view>

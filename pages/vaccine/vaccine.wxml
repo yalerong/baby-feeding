@@ -1,0 +1,76 @@
+<view class="container">
+  <!-- 出生日期 -->
+  <view class="card birth-card">
+    <view class="birth-row">
+      <text class="birth-label">宝宝出生日期</text>
+      <picker mode="date" value="{{birthDate}}" end="{{today}}" bindchange="onBirthDateChange">
+        <view class="birth-value {{birthDate ? '' : 'placeholder'}}">{{birthDate || '点击设置'}}</view>
+      </picker>
+    </view>
+    <view wx:if="{{birthDate}}" class="birth-month">当前月龄：{{currentMonth}} 个月</view>
+  </view>
+
+  <!-- 统计 -->
+  <view class="card summary-card">
+    <view class="summary-row">
+      <view class="summary-item">
+        <view class="summary-num">{{stats.completed}}</view>
+        <view class="summary-label">已接种</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-num">{{stats.pending}}</view>
+        <view class="summary-label">待接种</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-num" style="color:{{stats.overdue > 0 ? '#ff4d4f' : '#333'}}">{{stats.overdue}}</view>
+        <view class="summary-label" style="color:{{stats.overdue > 0 ? '#ff4d4f' : '#999'}}">已逾期</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 筛选 -->
+  <view class="card filter-card">
+    <picker bindchange="filterChange" value="{{filterIndex}}" range="{{filters}}">
+      <view class="filter-row">
+        <text>筛选：</text>
+        <text class="filter-value">{{filters[filterIndex]}}</text>
+        <text class="arrow-down">▼</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 疫苗列表 -->
+  <view class="card">
+    <view class="list-header">
+      <text class="list-title">接种计划</text>
+      <text class="list-count">{{displayRecords.length}} 剂</text>
+    </view>
+    
+    <block wx:if="{{displayRecords.length > 0}}">
+      <view class="vaccine-item {{item.status}} {{item.isOverdue ? 'overdue-item' : ''}}" 
+            wx:for="{{displayRecords}}" wx:key="_id" 
+            bindtap="goEdit" data-id="{{item._id}}"
+            bindlongpress="showActions" data-item="{{item}}">
+        <view class="vaccine-main">
+          <view class="vaccine-name-row">
+            <text class="vaccine-name">{{item.vaccineName}}</text>
+            <text class="dose-tag">第{{item.dose}}剂</text>
+            <text class="category-tag {{item.category === '一类' ? 'cat1' : (item.category === '二类' ? 'cat2' : 'cat-custom')}}">{{item.category}}</text>
+          </view>
+          <view class="vaccine-date">
+            <text wx:if="{{item.status === 'completed'}}" class="completed-text">✅ 已接种：{{item.actualDate}}</text>
+            <text wx:else class="pending-text">📅 预计：{{item.plannedDate}}</text>
+          </view>
+          <view class="vaccine-note" wx:if="{{item.note}}">{{item.note}}</view>
+        </view>
+        <view class="vaccine-action">
+          <text wx:if="{{item.isOverdue}}" class="overdue-badge">逾期</text>
+          <text class="arrow">›</text>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="empty-tip">暂无记录</view>
+  </view>
+
+  <button class="btn-primary" bindtap="goAddCustom">+ 添加自定义疫苗</button>
+</view>

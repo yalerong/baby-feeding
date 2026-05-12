@@ -1,0 +1,304 @@
+.range-bar {
+  display: flex;
+  background: #fff;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+}
+
+.range-item {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+}
+
+.range-item.active {
+  color: #4CAF50;
+  font-weight: 600;
+  background: #E8F5E9;
+}
+
+.chart-card {
+  padding: 20rpx;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.chart-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.chart-back {
+  font-size: 26rpx;
+  color: #4CAF50;
+}
+
+.chart-empty {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  padding: 40rpx 0;
+}
+
+.month-card {
+  padding: 20rpx 30rpx;
+}
+
+.month-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.month-item:last-child {
+  border-bottom: none;
+}
+
+.month-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.month-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.month-days {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.month-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 16rpx;
+}
+
+.month-count {
+  font-size: 26rpx;
+  color: #333;
+}
+
+.month-milk {
+  font-size: 24rpx;
+  color: #666;
+  margin-top: 4rpx;
+}
+
+.month-ratio {
+  font-size: 24rpx;
+  color: #4CAF50;
+  margin-top: 4rpx;
+}
+
+.month-arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+
+.summary-card {
+  text-align: center;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 24rpx;
+}
+
+.summary-item {
+  flex: 1;
+}
+
+.summary-num {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.2;
+}
+
+.summary-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+.summary-ratio {
+  font-size: 28rpx;
+  color: #666;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.ratio-num {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.list-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.day-item {
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.day-item:last-child {
+  border-bottom: none;
+}
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.day-date {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.day-count {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.day-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx 20rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.day-milk {
+  display: flex;
+  gap: 16rpx;
+  width: 100%;
+}
+
+.breast-text {
+  color: #2E7D32;
+}
+
+.formula-text {
+  color: #1565C0;
+}
+
+.total-text {
+  color: #333;
+  font-weight: 500;
+}
+
+.day-ratio {
+  color: #999;
+}
+
+.day-stool {
+  color: #8D6E63;
+  background: #FFF3E0;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  font-size: 24rpx;
+}
+
+.chart-selection {
+  margin-top: 16rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 8rpx;
+  background: #F7FAFC;
+  border-left: 8rpx solid #64B5F6;
+}
+
+.chart-selection.breast-selected {
+  border-left-color: #81C784;
+}
+
+.selection-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.selection-date {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.selection-type {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.selection-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 20rpx;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+
+.avg-box {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.avg-title {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 12rpx;
+}
+
+.avg-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 12rpx;
+}
+
+.avg-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avg-num {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.2;
+}
+
+.avg-label {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #999;
+}

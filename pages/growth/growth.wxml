@@ -1,0 +1,58 @@
+<view class="container">
+  <!-- 最新数据卡片 -->
+  <view class="card latest-card">
+    <view class="latest-row">
+      <view class="latest-item">
+        <view class="latest-value">{{latest.weight}} <text class="unit">kg</text></view>
+        <view class="latest-label">最新体重</view>
+        <view class="latest-change {{latest.weightDiff >= 0 ? 'up' : 'down'}}" wx:if="{{latest.weightDiff !== '-'}}">
+          {{latest.weightDiff > 0 ? '+' : ''}}{{latest.weightDiff}} kg
+        </view>
+      </view>
+      <view class="latest-item">
+        <view class="latest-value">{{latest.height}} <text class="unit">cm</text></view>
+        <view class="latest-label">最新身高</view>
+        <view class="latest-change {{latest.heightDiff >= 0 ? 'up' : 'down'}}" wx:if="{{latest.heightDiff !== '-'}}">
+          {{latest.heightDiff > 0 ? '+' : ''}}{{latest.heightDiff}} cm
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 图表切换 -->
+  <view class="chart-toggle">
+    <view class="toggle-item {{viewMode === 'weight' ? 'active' : ''}}" bindtap="switchMode" data-mode="weight">体重曲线</view>
+    <view class="toggle-item {{viewMode === 'height' ? 'active' : ''}}" bindtap="switchMode" data-mode="height">身高曲线</view>
+  </view>
+
+  <!-- Canvas 图表 -->
+  <view class="card chart-card">
+    <canvas type="2d" id="growthCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"></canvas>
+    <view wx:if="{{records.length === 0}}" class="chart-empty">暂无数据，请先添加记录</view>
+  </view>
+
+  <!-- 记录列表 -->
+  <view class="card">
+    <view class="list-header">
+      <text class="list-title">历史记录</text>
+      <text class="list-count">{{records.length}} 条</text>
+    </view>
+    <block wx:if="{{records.length > 0}}">
+      <view class="record-item" wx:for="{{records}}" wx:key="_id" bindtap="goEdit" data-id="{{item._id}}">
+        <view class="record-left">
+          <view class="record-date">{{item.date}}</view>
+          <view class="record-note" wx:if="{{item.note}}">{{item.note}}</view>
+        </view>
+        <view class="record-right">
+          <view class="tag-wrap">
+            <text class="tag weight-tag" wx:if="{{item.weight > 0}}">{{item.weight}} kg</text>
+            <text class="tag height-tag" wx:if="{{item.height > 0}}">{{item.height}} cm</text>
+          </view>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="empty-tip">还没有记录，点击下方按钮添加</view>
+  </view>
+
+  <button class="btn-primary" bindtap="goAdd">+ 记录身高体重</button>
+</view>

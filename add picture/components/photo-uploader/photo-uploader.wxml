@@ -1,0 +1,30 @@
+<view class="photo-card">
+  <view class="title-row">
+    <text class="title">宝宝图片</text>
+    <text class="counter">{{imageList.length}}/{{maxCount}}</text>
+  </view>
+
+  <view class="grid">
+    <block wx:for="{{imageList}}" wx:key="*this">
+      <view class="image-item">
+        <image
+          class="thumb"
+          src="{{item}}"
+          mode="aspectFill"
+          data-url="{{item}}"
+          bindtap="previewImage"
+        />
+        <view class="delete-btn" data-index="{{index}}" bindtap="removeImage">×</view>
+      </view>
+    </block>
+
+    <view
+      class="upload-btn"
+      wx:if="{{imageList.length < maxCount}}"
+      bindtap="chooseAndUpload"
+    >
+      <text class="plus">+</text>
+      <text class="hint">{{uploading ? '上传中...' : '添加图片'}}</text>
+    </view>
+  </view>
+</view>

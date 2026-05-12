@@ -1,0 +1,66 @@
+<view class="container">
+  <view class="card form-card">
+    <view class="form-item">
+      <view class="form-label">日期</view>
+      <picker mode="date" value="{{date}}" bindchange="bindDateChange">
+        <view class="picker-value">{{date}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">时间</view>
+      <picker mode="time" value="{{time}}" bindchange="bindTimeChange">
+        <view class="picker-value">{{time}}</view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">母乳 (ml)</view>
+      <input type="digit" value="{{breastMilk}}" bindinput="bindBreastInput" placeholder="0" />
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">奶粉 (ml)</view>
+      <input type="digit" value="{{formula}}" bindinput="bindFormulaInput" placeholder="0" />
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">有大便</view>
+      <switch checked="{{stool}}" bindchange="bindStoolChange" color="#4CAF50" />
+    </view>
+
+    <block wx:if="{{stool}}">
+      <view class="form-item">
+        <view class="form-label">性状</view>
+        <picker bindchange="bindStoolTextureChange" value="{{stoolTextureIndex}}" range="{{stoolTextures}}">
+          <view class="picker-value {{stoolTextureIndex === -1 ? 'placeholder' : ''}}">{{stoolTextureIndex !== -1 ? stoolTextures[stoolTextureIndex] : '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="form-item">
+        <view class="form-label">颜色</view>
+        <picker bindchange="bindStoolColorChange" value="{{stoolColorIndex}}" range="{{stoolColors}}">
+          <view class="picker-value {{stoolColorIndex === -1 ? 'placeholder' : ''}}">{{stoolColorIndex !== -1 ? stoolColors[stoolColorIndex] : '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="form-item">
+        <view class="form-label">量</view>
+        <picker bindchange="bindStoolAmountChange" value="{{stoolAmountIndex}}" range="{{stoolAmounts}}">
+          <view class="picker-value {{stoolAmountIndex === -1 ? 'placeholder' : ''}}">{{stoolAmountIndex !== -1 ? stoolAmounts[stoolAmountIndex] : '请选择'}}</view>
+        </picker>
+      </view>
+    </block>
+  </view>
+
+  <view class="preview-card card" wx:if="{{breastMilk > 0 || formula > 0}}">
+    <view class="preview-title">本次录入预览</view>
+    <view class="preview-content">
+      <text wx:if="{{breastMilk > 0}}">母乳 {{breastMilk}}ml </text>
+      <text wx:if="{{formula > 0}}">奶粉 {{formula}}ml </text>
+      <text>，合计 {{total}}ml</text>
+    </view>
+  </view>
+
+  <button class="btn-primary" bindtap="submit">{{isEdit ? '保存修改' : '保存记录'}}</button>
+  <button wx:if="{{isEdit}}" class="btn-danger" bindtap="deleteRecord">删除记录</button>
+  <button class="btn-secondary" bindtap="goBack">取消</button>
+</view>

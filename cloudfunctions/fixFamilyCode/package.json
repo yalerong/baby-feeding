@@ -1,0 +1,8 @@
+{
+  "name": "fixFamilyCode",
+  "version": "1.0.0",
+  "description": "统一所有记录的 familyCode 为 FAMILY",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

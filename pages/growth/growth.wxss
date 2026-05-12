@@ -1,0 +1,111 @@
+.latest-card {
+  background: linear-gradient(135deg, #4CAF50 0%, #81C784 100%);
+  color: #fff;
+}
+
+.latest-row {
+  display: flex;
+  justify-content: space-around;
+}
+
+.latest-item {
+  text-align: center;
+  flex: 1;
+}
+
+.latest-value {
+  font-size: 48rpx;
+  font-weight: bold;
+}
+
+.unit {
+  font-size: 24rpx;
+  font-weight: normal;
+  opacity: 0.9;
+}
+
+.latest-label {
+  font-size: 26rpx;
+  opacity: 0.9;
+  margin-top: 8rpx;
+}
+
+.latest-change {
+  font-size: 24rpx;
+  margin-top: 8rpx;
+  opacity: 0.95;
+}
+
+.latest-change.up {
+  color: #C8E6C9;
+}
+
+.latest-change.down {
+  color: #FFCDD2;
+}
+
+.chart-toggle {
+  display: flex;
+  background: #fff;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.toggle-item {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+}
+
+.toggle-item.active {
+  color: #4CAF50;
+  font-weight: 600;
+  background: #E8F5E9;
+}
+
+.chart-card {
+  position: relative;
+  padding: 20rpx;
+}
+
+.chart-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #999;
+  font-size: 28rpx;
+}
+
+.record-date {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6rpx;
+}
+
+.record-note {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.tag-wrap {
+  display: flex;
+  gap: 10rpx;
+  justify-content: flex-end;
+}
+
+.weight-tag {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.height-tag {
+  background: #E3F2FD;
+  color: #1565C0;
+}

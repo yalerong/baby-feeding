@@ -1,0 +1,8 @@
+{
+  "name": "fixDates",
+  "version": "1.0.0",
+  "description": "批量修改记录年份",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

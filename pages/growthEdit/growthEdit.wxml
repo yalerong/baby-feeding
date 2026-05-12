@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="card form-card">
+    <view class="form-item">
+      <text class="form-label">日期</text>
+      <picker mode="date" value="{{date}}" end="{{today}}" bindchange="bindDateChange">
+        <view class="picker-value {{date ? '' : 'placeholder'}}">{{date || '请选择日期'}}</view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="form-label">体重 (kg)</text>
+      <input type="digit" value="{{weight}}" placeholder="如 8.5" bindinput="bindWeightInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">身高 (cm)</text>
+      <input type="digit" value="{{height}}" placeholder="如 68" bindinput="bindHeightInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">备注</text>
+      <input type="text" value="{{note}}" placeholder="可选，如：体检记录" bindinput="bindNoteInput" />
+    </view>
+  </view>
+
+  <button class="btn-primary" bindtap="submit">{{isEdit ? '保存修改' : '保存记录'}}</button>
+  <button wx:if="{{isEdit}}" class="btn-danger" bindtap="deleteRecord">删除记录</button>
+</view>

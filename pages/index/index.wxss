@@ -1,0 +1,184 @@
+.family-card {
+  background: linear-gradient(135deg, #4CAF50 0%, #81C784 100%);
+  color: #fff;
+  text-align: center;
+}
+
+.family-label {
+  font-size: 26rpx;
+  opacity: 0.9;
+  margin-bottom: 10rpx;
+}
+
+.family-code {
+  font-size: 56rpx;
+  font-weight: bold;
+  letter-spacing: 8rpx;
+  margin-bottom: 10rpx;
+}
+
+.family-tip {
+  font-size: 24rpx;
+  opacity: 0.85;
+  margin-bottom: 20rpx;
+}
+
+.family-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20rpx;
+}
+
+.mini-btn {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  font-size: 26rpx;
+  padding: 10rpx 30rpx;
+  line-height: 1.6;
+  border-radius: 8rpx;
+  border: none;
+}
+
+.mini-btn::after {
+  border: none;
+}
+
+.summary-card {
+  text-align: center;
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.summary-title {
+  font-size: 30rpx;
+  color: #666;
+}
+
+.date-picker {
+  font-size: 26rpx;
+  color: #4CAF50;
+  background: #E8F5E9;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 24rpx;
+}
+
+.summary-item {
+  flex: 1;
+}
+
+.summary-num {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.2;
+}
+
+.summary-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+.summary-ratio {
+  font-size: 28rpx;
+  color: #666;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.ratio-num {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.stool-info {
+  color: #999;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.list-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.list-count {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.record-time {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6rpx;
+}
+
+.record-desc {
+  font-size: 24rpx;
+  color: #8D6E63;
+  background: #FFF3E0;
+  display: inline-block;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  margin-top: 4rpx;
+}
+
+.milk-tags {
+  display: flex;
+  gap: 10rpx;
+  justify-content: flex-end;
+  margin-bottom: 6rpx;
+}
+
+.tag {
+  font-size: 24rpx;
+  padding: 6rpx 14rpx;
+  border-radius: 8rpx;
+}
+
+.breast-tag {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.formula-tag {
+  background: #E3F2FD;
+  color: #1565C0;
+}
+
+.record-total {
+  font-size: 26rpx;
+  color: #999;
+  text-align: right;
+}

@@ -1,0 +1,42 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/add/add",
+    "pages/stats/stats",
+    "pages/batch/batch",
+    "pages/growth/growth",
+    "pages/growthEdit/growthEdit",
+    "pages/vaccine/vaccine",
+    "pages/vaccineEdit/vaccineEdit"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#4CAF50",
+    "navigationBarTitleText": "彬彬喂养记录",
+    "navigationBarTextStyle": "white"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#4CAF50",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "今日"
+      },
+      {
+        "pagePath": "pages/stats/stats",
+        "text": "统计"
+      },
+      {
+        "pagePath": "pages/growth/growth",
+        "text": "生长"
+      },
+      {
+        "pagePath": "pages/vaccine/vaccine",
+        "text": "疫苗"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,111 @@
+<view class="container">
+  <!-- 范围选择 -->
+  <view class="range-bar">
+    <view class="range-item {{range === '7' ? 'active' : ''}}" data-range="7" bindtap="switchRange">近7天</view>
+    <view class="range-item {{range === '30' ? 'active' : ''}}" data-range="30" bindtap="switchRange">近30天</view>
+    <view class="range-item {{range === 'all' ? 'active' : ''}}" data-range="all" bindtap="switchRange">全部</view>
+  </view>
+
+  <!-- 图表（近7天/近30天/月明细） -->
+  <view class="card chart-card" wx:if="{{viewMode === 'chart' || viewMode === 'monthDetail'}}">
+    <view class="chart-header" wx:if="{{viewMode === 'monthDetail'}}">
+      <text class="chart-title">{{selectedMonth}} 每日明细</text>
+      <text class="chart-back" bindtap="backToMonthList">← 返回月份列表</text>
+    </view>
+    <canvas type="2d" id="chartCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;" bindtap="onChartTap" bindtouchstart="onChartTouch" catchtouchmove="onChartTouch"></canvas>
+    <view class="chart-empty" wx:if="{{dailyStats.length === 0}}">暂无数据</view>
+    <view class="chart-selection {{selectedChartItem && selectedChartItem.type === 'breast' ? 'breast-selected' : 'formula-selected'}}" wx:if="{{selectedChartItem}}">
+      <view class="selection-main">
+        <text class="selection-date">{{selectedChartItem.date}}</text>
+        <text class="selection-type">{{selectedChartItem.typeLabel}} {{selectedChartItem.value}}ml</text>
+      </view>
+      <view class="selection-detail">
+        <text>喂养 {{selectedChartItem.feedingCount}} 次</text>
+        <text>大便 {{selectedChartItem.stoolCount}} 次</text>
+        <text>母乳 {{selectedChartItem.breast}}ml</text>
+        <text>奶粉 {{selectedChartItem.formula}}ml</text>
+        <text>合计 {{selectedChartItem.total}}ml</text>
+        <text>占比 {{selectedChartItem.ratio}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 月份列表（全部模式） -->
+  <view class="card month-card" wx:if="{{viewMode === 'monthList'}}">
+    <view class="list-title">每月明细</view>
+    <block wx:if="{{monthList.length > 0}}">
+      <view class="month-item" wx:for="{{monthList}}" wx:key="month" bindtap="onMonthTap" data-month="{{item.month}}">
+        <view class="month-info">
+          <text class="month-name">{{item.monthLabel}}</text>
+          <text class="month-days">{{item.days}} 天有记录</text>
+        </view>
+        <view class="month-detail">
+          <text class="month-count">喂养 {{item.count}} 次</text>
+          <text class="month-stool" wx:if="{{item.stool > 0}}">大便 {{item.stool}} 次</text>
+          <text class="month-milk">奶量 {{item.total}}ml</text>
+          <text class="month-ratio">母乳 {{item.ratio}}</text>
+        </view>
+        <view class="month-arrow">›</view>
+      </view>
+    </block>
+    <view wx:else class="empty-tip">暂无记录</view>
+  </view>
+
+  <!-- 总汇总 -->
+  <view class="card summary-card">
+    <view class="summary-row">
+      <view class="summary-item">
+        <view class="summary-num">{{stats.totalCount}}</view>
+        <view class="summary-label">喂养次数</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-num">{{stats.totalMilk}}</view>
+        <view class="summary-label">总奶量(ml)</view>
+      </view>
+      <view class="summary-item">
+        <view class="summary-num">{{stats.totalStool}}</view>
+        <view class="summary-label">大便次数</view>
+      </view>
+    </view>
+    <view class="summary-ratio">
+      母乳总量 {{stats.totalBreast}}ml，占比 <text class="ratio-num">{{stats.ratio}}</text>
+    </view>
+    <view class="avg-box">
+      <view class="avg-title">平均每日（{{avgStats.days}}天）</view>
+      <view class="avg-row">
+        <view class="avg-item">
+          <text class="avg-num">{{avgStats.milk}}</text>
+          <text class="avg-label">总奶量 ml</text>
+        </view>
+        <view class="avg-item">
+          <text class="avg-num breast-text">{{avgStats.breast}}</text>
+          <text class="avg-label">母乳 ml</text>
+        </view>
+        <view class="avg-item">
+          <text class="avg-num formula-text">{{avgStats.formula}}</text>
+          <text class="avg-label">奶粉 ml</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 每日明细 -->
+  <view class="card" wx:if="{{displayDailyStats.length > 0}}">
+    <view class="list-title">{{viewMode === 'monthDetail' ? selectedMonth + ' 每日明细' : '每日明细'}}</view>
+    <view class="day-item" wx:for="{{displayDailyStats}}" wx:key="date">
+      <view class="day-header">
+        <text class="day-date">{{item.date}}</text>
+        <text class="day-count">喂养 {{item.feedingCount}} 次</text>
+      </view>
+      <view class="day-body">
+        <view class="day-milk">
+          <text class="breast-text" wx:if="{{item.breast > 0}}">母乳 {{item.breast}}ml</text>
+          <text class="formula-text" wx:if="{{item.formula > 0}}">奶粉 {{item.formula}}ml</text>
+          <text class="total-text">合计 {{item.total}}ml</text>
+        </view>
+        <view class="day-ratio">母乳占比 {{item.ratio}}</view>
+        <view class="day-stool" wx:if="{{item.stoolCount > 0}}">大便 {{item.stoolCount}} 次</view>
+      </view>
+    </view>
+  </view>
+</view>

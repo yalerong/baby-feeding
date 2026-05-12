@@ -1,0 +1,46 @@
+.form-card {
+  padding: 10rpx 30rpx;
+}
+
+.form-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.form-item:last-child {
+  border-bottom: none;
+}
+
+.form-label {
+  font-size: 30rpx;
+  color: #333;
+  flex-shrink: 0;
+  width: 180rpx;
+}
+
+.picker-value {
+  font-size: 30rpx;
+  color: #4CAF50;
+  text-align: right;
+  min-width: 200rpx;
+}
+
+.picker-value.placeholder {
+  color: #bbb;
+}
+
+input {
+  font-size: 30rpx;
+  color: #333;
+  text-align: right;
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+input[disabled] {
+  color: #999;
+  background: transparent;
+}
