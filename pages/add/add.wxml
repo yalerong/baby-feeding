@@ -26,7 +26,7 @@
 
     <view class="form-item">
       <view class="form-label">有大便</view>
-      <switch checked="{{stool}}" bindchange="bindStoolChange" color="#88C9A1" />
+      <switch checked="{{stool}}" bindchange="bindStoolChange" color="#5BC58F" />
     </view>
 
     <block wx:if="{{stool}}">

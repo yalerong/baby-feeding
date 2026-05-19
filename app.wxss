@@ -12,11 +12,11 @@ page {
   border-radius: 24rpx;
   padding: 32rpx;
   margin-bottom: 24rpx;
-  box-shadow: 0 6rpx 20rpx rgba(255, 181, 167, 0.08);
+  box-shadow: 0 6rpx 20rpx rgba(91, 197, 143, 0.10);
 }
 
 .btn-primary {
-  background: #FFB5A7;
+  background: #5BC58F;
   color: #fff;
   border-radius: 20rpx;
   height: 92rpx;
@@ -24,7 +24,7 @@ page {
   font-size: 32rpx;
   text-align: center;
   border: none;
-  box-shadow: 0 4rpx 12rpx rgba(255, 181, 167, 0.25);
+  box-shadow: 0 4rpx 12rpx rgba(91, 197, 143, 0.28);
 }
 
 .btn-primary::after {
@@ -33,13 +33,13 @@ page {
 
 .btn-secondary {
   background: #fff;
-  color: #88C9A1;
+  color: #5BC58F;
   border-radius: 20rpx;
   height: 92rpx;
   line-height: 92rpx;
   font-size: 30rpx;
   text-align: center;
-  border: 2rpx solid #D4F1E0;
+  border: 2rpx solid #C6EDD4;
   margin-top: 20rpx;
 }
 

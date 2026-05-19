@@ -271,13 +271,13 @@ Page({
         hitAreas.push(this.createHitArea(slotX, padding.top, slotWidth, chartH + padding.bottom, d))
 
         if (d.breast > 0) {
-          ctx.fillStyle = isSelected ? '#FFD580' : '#A8D8B9'
+          ctx.fillStyle = isSelected ? '#FFC940' : '#8AD8AE'
           const y = padding.top + chartH - breastH
           this.roundRect(ctx, x, y, barWidth, breastH, { tl: 3, tr: 3, bl: 0, br: 0 }, true)
         }
 
         if (d.formula > 0) {
-          ctx.fillStyle = isSelected ? '#FFC966' : '#9CC9E8'
+          ctx.fillStyle = isSelected ? '#FFBA33' : '#7DBBE8'
           const y = padding.top + chartH - breastH - formulaH
           const r = d.breast > 0 ? { tl: 0, tr: 0, bl: 3, br: 3 } : { tl: 3, tr: 3, bl: 3, br: 3 }
           this.roundRect(ctx, x, y, barWidth, formulaH, r, true)
@@ -294,7 +294,7 @@ Page({
       })
 
       const legendY = 8
-      ctx.fillStyle = '#A8D8B9'
+      ctx.fillStyle = '#8AD8AE'
       ctx.fillRect(width - 115, legendY, 12, 12)
       ctx.fillStyle = '#666'
       ctx.textAlign = 'left'
@@ -302,7 +302,7 @@ Page({
       ctx.font = '11px sans-serif'
       ctx.fillText('母乳', width - 99, legendY + 6)
 
-      ctx.fillStyle = '#9CC9E8'
+      ctx.fillStyle = '#7DBBE8'
       ctx.fillRect(width - 55, legendY, 12, 12)
       ctx.fillStyle = '#666'
       ctx.fillText('奶粉', width - 39, legendY + 6)

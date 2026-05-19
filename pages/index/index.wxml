@@ -1,4 +1,32 @@
 <view class="container">
+  <!-- 宝宝陪伴卡 -->
+  <view class="card baby-card">
+    <block wx:if="{{babyBirthDate}}">
+      <view class="baby-header">
+        <text class="baby-emoji">👶</text>
+        <view class="baby-info">
+          <view class="baby-days-row">
+            宝宝已经呱呱坠地 <text class="baby-days">{{babyDays}}</text> 天了
+          </view>
+          <view class="baby-meta">{{babyAgeText}} · {{babyBirthDate}}</view>
+        </view>
+        <picker mode="date" value="{{babyBirthDate}}" end="{{todayDate}}" bindchange="onBirthDateChange">
+          <text class="baby-edit">✎</text>
+        </picker>
+      </view>
+      <view wx:if="{{babyMilestone}}" class="baby-milestone">{{babyMilestone}}</view>
+    </block>
+    <picker wx:else mode="date" end="{{todayDate}}" bindchange="onBirthDateChange">
+      <view class="baby-empty">
+        <text class="baby-emoji">👶</text>
+        <view>
+          <view class="baby-empty-title">点击设置宝宝生日</view>
+          <view class="baby-empty-sub">每天看看宝宝的天数与月龄</view>
+        </view>
+      </view>
+    </picker>
+  </view>
+
   <!-- 日期汇总 -->
   <view class="card summary-card">
     <view class="summary-header">

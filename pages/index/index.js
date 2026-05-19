@@ -11,6 +11,10 @@ Page({
     quickBreast: '',
     quickFormula: '',
     quickSaving: false,
+    babyBirthDate: '',
+    babyDays: 0,
+    babyAgeText: '',
+    babyMilestone: '',
     todayStats: {
       count: 0,
       total: 0,
@@ -32,7 +36,29 @@ Page({
       currentDate
     })
 
+    this.refreshBaby(today)
     this.fetchRecords(currentDate)
+  },
+
+  refreshBaby(today) {
+    const birth = wx.getStorageSync('babyBirthDate') || ''
+    if (!birth) {
+      this.setData({ babyBirthDate: '', babyDays: 0, babyAgeText: '', babyMilestone: '' })
+      return
+    }
+    const days = dateUtil.daysBetween(birth, today)
+    this.setData({
+      babyBirthDate: birth,
+      babyDays: days,
+      babyAgeText: dateUtil.ageText(birth, today),
+      babyMilestone: dateUtil.milestone(days)
+    })
+  },
+
+  onBirthDateChange(e) {
+    const date = e.detail.value
+    wx.setStorageSync('babyBirthDate', date)
+    this.refreshBaby(this.data.todayDate)
   },
 
   bindDateChange(e) {

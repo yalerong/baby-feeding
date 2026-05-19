@@ -14,6 +14,11 @@ App({
     // 家庭码固定，家人自动共享数据
     const familyCode = localConfig.familyCode || 'FAMILY'
     wx.setStorageSync('familyCode', familyCode)
+
+    // 首次启动写入默认出生日期，用户可在首页 picker 修改
+    if (!wx.getStorageSync('babyBirthDate')) {
+      wx.setStorageSync('babyBirthDate', '2026-02-24')
+    }
   },
 
   globalData: {

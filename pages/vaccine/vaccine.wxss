@@ -1,5 +1,5 @@
 .birth-card {
-  background: linear-gradient(135deg, #88C9A1 0%, #A8D8B9 100%);
+  background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
   color: #fff;
 }
 
@@ -48,7 +48,7 @@
 }
 
 .filter-value {
-  color: #88C9A1;
+  color: #5BC58F;
   font-weight: 500;
   margin-left: 10rpx;
 }
@@ -113,13 +113,13 @@
 }
 
 .cat1 {
-  background: #D4F1E0;
-  color: #4A8A60;
+  background: #C6EDD4;
+  color: #2E8753;
 }
 
 .cat2 {
-  background: #D6E9FF;
-  color: #3F7DBF;
+  background: #C7E2FF;
+  color: #2D72BF;
 }
 
 .cat-custom {
@@ -133,7 +133,7 @@
 }
 
 .completed-text {
-  color: #88C9A1;
+  color: #5BC58F;
 }
 
 .pending-text {

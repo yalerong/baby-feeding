@@ -1,5 +1,5 @@
 .latest-card {
-  background: linear-gradient(135deg, #88C9A1 0%, #A8D8B9 100%);
+  background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
   color: #fff;
 }
 
@@ -50,7 +50,7 @@
   border-radius: 24rpx;
   margin-bottom: 24rpx;
   padding: 6rpx;
-  box-shadow: 0 6rpx 20rpx rgba(255, 181, 167, 0.08);
+  box-shadow: 0 6rpx 20rpx rgba(91, 197, 143, 0.10);
 }
 
 .toggle-item {
@@ -66,7 +66,7 @@
 .toggle-item.active {
   color: #fff;
   font-weight: 600;
-  background: #88C9A1;
+  background: #5BC58F;
 }
 
 .chart-card {
@@ -103,11 +103,11 @@
 }
 
 .weight-tag {
-  background: #D4F1E0;
-  color: #4A8A60;
+  background: #C6EDD4;
+  color: #2E8753;
 }
 
 .height-tag {
-  background: #D6E9FF;
-  color: #3F7DBF;
+  background: #C7E2FF;
+  color: #2D72BF;
 }

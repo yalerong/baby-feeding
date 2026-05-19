@@ -4,7 +4,7 @@
   border-radius: 24rpx;
   margin-bottom: 24rpx;
   padding: 6rpx;
-  box-shadow: 0 6rpx 20rpx rgba(255, 181, 167, 0.08);
+  box-shadow: 0 6rpx 20rpx rgba(91, 197, 143, 0.10);
 }
 
 .range-item {
@@ -20,7 +20,7 @@
 .range-item.active {
   color: #fff;
   font-weight: 600;
-  background: #88C9A1;
+  background: #5BC58F;
 }
 
 .chart-card {
@@ -42,7 +42,7 @@
 
 .chart-back {
   font-size: 26rpx;
-  color: #88C9A1;
+  color: #5BC58F;
 }
 
 .chart-empty {
@@ -105,7 +105,7 @@
 
 .month-ratio {
   font-size: 24rpx;
-  color: #88C9A1;
+  color: #5BC58F;
   margin-top: 4rpx;
 }
 
@@ -149,7 +149,7 @@
 }
 
 .ratio-num {
-  color: #88C9A1;
+  color: #5BC58F;
   font-weight: 600;
 }
 
@@ -203,11 +203,11 @@
 }
 
 .breast-text {
-  color: #4A8A60;
+  color: #2E8753;
 }
 
 .formula-text {
-  color: #3F7DBF;
+  color: #2D72BF;
 }
 
 .total-text {
@@ -232,11 +232,11 @@
   padding: 18rpx 20rpx;
   border-radius: 8rpx;
   background: #F7FAFC;
-  border-left: 8rpx solid #9CC9E8;
+  border-left: 8rpx solid #7DBBE8;
 }
 
 .chart-selection.breast-selected {
-  border-left-color: #A8D8B9;
+  border-left-color: #8AD8AE;
 }
 
 .selection-main {
