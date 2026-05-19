@@ -1,0 +1,9 @@
+{
+  "name": "batchVaccine",
+  "version": "1.0.0",
+  "description": "疫苗计划批量初始化/清空",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

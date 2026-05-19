@@ -1,3 +1,5 @@
+const { todayStr } = require('../../utils/date.js')
+
 Page({
   data: {
     isEdit: false,
@@ -10,14 +12,14 @@ Page({
   },
 
   onLoad(options) {
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const dateStr = todayStr()
     this.setData({ today: dateStr })
 
     if (options.id) {
+      const id = decodeURIComponent(options.id)
       wx.setNavigationBarTitle({ title: '编辑记录' })
-      this.setData({ isEdit: true, _id: options.id })
-      this.loadRecord(options.id)
+      this.setData({ isEdit: true, _id: id })
+      this.loadRecord(id)
     } else {
       wx.setNavigationBarTitle({ title: '记录身高体重' })
       this.setData({ date: dateStr })

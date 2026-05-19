@@ -16,12 +16,7 @@ const VACCINE_SCHEDULES = [
   { name: 'Hib疫苗', category: '二类', doses: [{ dose: 1, minAgeMonth: 2, intervalDays: 0 }, { dose: 2, minAgeMonth: 3, intervalDays: 28 }, { dose: 3, minAgeMonth: 4, intervalDays: 28 }, { dose: 4, minAgeMonth: 18, intervalDays: 180 }] }
 ]
 
-function formatDate(d) {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+const { formatDate } = require('../../utils/date.js')
 
 Page({
   data: {

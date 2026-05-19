@@ -1,3 +1,5 @@
+const { todayStr, nowTimeStr } = require('../../utils/date.js')
+
 Page({
   data: {
     isEdit: false,
@@ -18,19 +20,16 @@ Page({
   },
 
   onLoad(options) {
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-
     if (options.id) {
+      const id = decodeURIComponent(options.id)
       wx.setNavigationBarTitle({ title: '编辑记录' })
-      this.setData({ isEdit: true, _id: options.id })
-      this.loadRecord(options.id)
+      this.setData({ isEdit: true, _id: id })
+      this.loadRecord(id)
     } else {
       wx.setNavigationBarTitle({ title: '添加记录' })
       this.setData({
-        date: dateStr,
-        time: timeStr
+        date: todayStr(),
+        time: nowTimeStr()
       })
     }
   },
@@ -199,7 +198,7 @@ Page({
           wx.showLoading({ title: '删除中...', mask: true })
           wx.cloud.callFunction({
             name: 'deleteRecord',
-            data: { _id: this.data._id }
+            data: { _id: this.data._id, familyCode: wx.getStorageSync('familyCode') }
           }).then(() => {
             wx.hideLoading()
             wx.showToast({ title: '已删除', icon: 'success' })

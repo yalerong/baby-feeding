@@ -2,8 +2,13 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
-exports.main = async (event, context) => {
+exports.main = async (event) => {
   const { familyCode, date, time, breastMilk, formula, total, stool, stoolDesc } = event
+  const { OPENID } = cloud.getWXContext()
+
+  if (!familyCode || !date || !time) {
+    return { success: false, error: 'familyCode/date/time required' }
+  }
 
   try {
     const res = await db.collection('feeding_records').add({
@@ -16,6 +21,7 @@ exports.main = async (event, context) => {
         total: Number(total) || 0,
         stool: Boolean(stool),
         stoolDesc: stoolDesc || '',
+        createBy: OPENID || '',
         createTime: db.serverDate()
       }
     })

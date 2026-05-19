@@ -2,8 +2,12 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
-exports.main = async (event, context) => {
+exports.main = async (event) => {
   const { familyCode, date, _id } = event
+
+  if (!familyCode) {
+    return { success: false, error: 'familyCode required', data: [] }
+  }
 
   try {
     const conditions = { familyCode }
@@ -13,7 +17,11 @@ exports.main = async (event, context) => {
       conditions.date = date
     }
 
-    const res = await db.collection('feeding_records').where(conditions).orderBy('time', 'asc').get()
+    const res = await db.collection('feeding_records')
+      .where(conditions)
+      .orderBy('time', 'asc')
+      .limit(200)
+      .get()
     return { success: true, data: res.data }
   } catch (err) {
     console.error(err)

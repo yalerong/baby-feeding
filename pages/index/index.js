@@ -1,9 +1,14 @@
+const { todayStr, nowTimeStr } = require('../../utils/date.js')
+
 Page({
   data: {
     familyCode: '',
     todayDate: '',
     currentDate: '',
     records: [],
+    quickBreast: '',
+    quickFormula: '',
+    quickSaving: false,
     todayStats: {
       count: 0,
       total: 0,
@@ -16,14 +21,12 @@ Page({
 
   onShow() {
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    
-    const currentDate = this.data.currentDate || todayStr
+    const today = todayStr()
+    const currentDate = this.data.currentDate || today
 
     this.setData({
       familyCode,
-      todayDate: todayStr,
+      todayDate: today,
       currentDate
     })
 
@@ -91,8 +94,68 @@ Page({
 
   goEdit(e) {
     const id = e.currentTarget.dataset.id
-    wx.navigateTo({ url: '/pages/add/add?id=' + id })
+    wx.navigateTo({ url: '/pages/add/add?id=' + encodeURIComponent(id) })
   },
 
+  goToday() {
+    if (this.data.currentDate === this.data.todayDate) return
+    this.setData({ currentDate: this.data.todayDate })
+    this.fetchRecords(this.data.todayDate)
+  },
 
+  onQuickBreast(e) {
+    this.setData({ quickBreast: e.detail.value })
+  },
+
+  onQuickFormula(e) {
+    this.setData({ quickFormula: e.detail.value })
+  },
+
+  quickSave() {
+    if (this.data.quickSaving) return
+    const breast = parseFloat(this.data.quickBreast) || 0
+    const formula = parseFloat(this.data.quickFormula) || 0
+    if (breast === 0 && formula === 0) {
+      wx.showToast({ title: '请填写母乳或奶粉', icon: 'none' })
+      return
+    }
+
+    const familyCode = this.data.familyCode
+    if (!familyCode) {
+      wx.showToast({ title: '缺少家庭码', icon: 'none' })
+      return
+    }
+
+    this.setData({ quickSaving: true })
+    wx.showLoading({ title: '保存中...', mask: true })
+    wx.cloud.callFunction({
+      name: 'addRecord',
+      data: {
+        familyCode,
+        date: this.data.todayDate,
+        time: nowTimeStr(),
+        breastMilk: breast,
+        formula: formula,
+        total: breast + formula,
+        stool: false,
+        stoolDesc: ''
+      }
+    }).then(res => {
+      wx.hideLoading()
+      if (res.result && res.result.success) {
+        wx.showToast({ title: '已保存', icon: 'success' })
+        this.setData({ quickBreast: '', quickFormula: '', quickSaving: false })
+        if (this.data.currentDate === this.data.todayDate) {
+          this.fetchRecords(this.data.todayDate)
+        }
+      } else {
+        this.setData({ quickSaving: false })
+        wx.showToast({ title: '保存失败', icon: 'none' })
+      }
+    }).catch(() => {
+      wx.hideLoading()
+      this.setData({ quickSaving: false })
+      wx.showToast({ title: '保存失败', icon: 'none' })
+    })
+  }
 })

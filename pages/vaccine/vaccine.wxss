@@ -165,3 +165,21 @@
   font-size: 40rpx;
   color: #ccc;
 }
+
+.more-btn {
+  font-size: 36rpx;
+  color: #999;
+  padding: 0 16rpx;
+  letter-spacing: 1rpx;
+  line-height: 1;
+}
+
+.overdue-sub {
+  color: #ff4d4f;
+  margin-left: 4rpx;
+  font-size: 22rpx;
+}
+
+.vaccine-item:active {
+  background: #fafafa;
+}

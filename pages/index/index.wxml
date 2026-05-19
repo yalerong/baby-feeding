@@ -3,9 +3,12 @@
   <view class="card summary-card">
     <view class="summary-header">
       <view class="summary-title">{{currentDate === todayDate ? '今日' : currentDate}} 汇总</view>
-      <picker mode="date" value="{{currentDate}}" end="{{todayDate}}" bindchange="bindDateChange">
-        <view class="date-picker">📅 切换日期</view>
-      </picker>
+      <view class="date-actions">
+        <view wx:if="{{currentDate !== todayDate}}" class="today-btn" bindtap="goToday">今天</view>
+        <picker mode="date" value="{{currentDate}}" end="{{todayDate}}" bindchange="bindDateChange">
+          <view class="date-picker">📅 切换日期</view>
+        </picker>
+      </view>
     </view>
     <view class="summary-row">
       <view class="summary-item">
@@ -31,13 +34,23 @@
     </view>
   </view>
 
-  <!-- 今日记录列表 -->
+  <!-- 快速录入（仅在查看今日时显示） -->
+  <view wx:if="{{currentDate === todayDate}}" class="card quick-card">
+    <view class="quick-title">⚡ 快速录入（当前时间）</view>
+    <view class="quick-row">
+      <input class="quick-input" type="digit" placeholder="母乳 ml" value="{{quickBreast}}" bindinput="onQuickBreast" />
+      <input class="quick-input" type="digit" placeholder="奶粉 ml" value="{{quickFormula}}" bindinput="onQuickFormula" />
+      <button class="quick-btn" disabled="{{quickSaving}}" bindtap="quickSave">保存</button>
+    </view>
+  </view>
+
+  <!-- 当日记录列表 -->
   <view class="card">
     <view class="list-header">
       <text class="list-title">{{currentDate === todayDate ? '今日' : currentDate}} 记录</text>
       <text class="list-count">{{records.length}} 条</text>
     </view>
-    
+
     <block wx:if="{{records.length > 0}}">
       <view class="record-item" wx:for="{{records}}" wx:key="_id" bindtap="goEdit" data-id="{{item._id}}">
         <view class="record-left">
@@ -45,11 +58,14 @@
           <view class="record-desc" wx:if="{{item.stool}}">{{item.stoolDesc || '大便'}}</view>
         </view>
         <view class="record-right">
-          <view class="milk-tags">
-            <text class="tag breast-tag" wx:if="{{item.breastMilk > 0}}">母乳 {{item.breastMilk}}</text>
-            <text class="tag formula-tag" wx:if="{{item.formula > 0}}">奶粉 {{item.formula}}</text>
+          <view class="record-right-inner">
+            <view class="milk-tags">
+              <text class="tag breast-tag" wx:if="{{item.breastMilk > 0}}">母乳 {{item.breastMilk}}</text>
+              <text class="tag formula-tag" wx:if="{{item.formula > 0}}">奶粉 {{item.formula}}</text>
+            </view>
+            <view class="record-total">{{item.total}}ml</view>
           </view>
-          <view class="record-total">{{item.total}}ml</view>
+          <text class="record-arrow">›</text>
         </view>
       </view>
     </block>
@@ -57,6 +73,6 @@
   </view>
 
   <!-- 添加按钮 -->
-  <button class="btn-primary" bindtap="goAdd">+ 添加喂养记录</button>
+  <button class="btn-primary" bindtap="goAdd">+ 添加详细记录</button>
   <button class="btn-secondary" bindtap="goBatch">批量补录历史数据</button>
 </view>

@@ -19,7 +19,7 @@
       </view>
       <view class="summary-item">
         <view class="summary-num">{{stats.pending}}</view>
-        <view class="summary-label">待接种</view>
+        <view class="summary-label">待接种<text wx:if="{{stats.overdue > 0}}" class="overdue-sub">（含逾期{{stats.overdue}}）</text></view>
       </view>
       <view class="summary-item">
         <view class="summary-num" style="color:{{stats.overdue > 0 ? '#ff4d4f' : '#333'}}">{{stats.overdue}}</view>
@@ -47,8 +47,8 @@
     </view>
     
     <block wx:if="{{displayRecords.length > 0}}">
-      <view class="vaccine-item {{item.status}} {{item.isOverdue ? 'overdue-item' : ''}}" 
-            wx:for="{{displayRecords}}" wx:key="_id" 
+      <view class="vaccine-item {{item.status}} {{item.isOverdue ? 'overdue-item' : ''}}"
+            wx:for="{{displayRecords}}" wx:key="_id"
             bindtap="goEdit" data-id="{{item._id}}"
             bindlongpress="showActions" data-item="{{item}}">
         <view class="vaccine-main">
@@ -65,6 +65,7 @@
         </view>
         <view class="vaccine-action">
           <text wx:if="{{item.isOverdue}}" class="overdue-badge">逾期</text>
+          <text class="more-btn" catchtap="showActions" data-item="{{item}}">···</text>
           <text class="arrow">›</text>
         </view>
       </view>

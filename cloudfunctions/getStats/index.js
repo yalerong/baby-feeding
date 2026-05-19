@@ -3,24 +3,52 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
 
-exports.main = async (event, context) => {
+const PAGE_SIZE = 100
+
+async function fetchAll(conditions) {
+  const records = []
+  let skip = 0
+  while (true) {
+    const res = await db.collection('feeding_records')
+      .where(conditions)
+      .orderBy('date', 'desc')
+      .orderBy('time', 'desc')
+      .skip(skip)
+      .limit(PAGE_SIZE)
+      .get()
+    const batch = res.data || []
+    records.push(...batch)
+    if (batch.length < PAGE_SIZE) break
+    skip += PAGE_SIZE
+    if (skip > 50000) break
+  }
+  return records
+}
+
+exports.main = async (event) => {
   const { familyCode, range } = event
+
+  if (!familyCode) {
+    return { success: false, error: 'familyCode required', stats: empty(), dailyStats: [] }
+  }
 
   try {
     const conditions = { familyCode }
 
     if (range !== 'all') {
       const days = parseInt(range)
+      if (isNaN(days) || days <= 0) {
+        return { success: false, error: 'invalid range', stats: empty(), dailyStats: [] }
+      }
       const now = new Date()
       const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
-      const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`
+      const pad = n => String(n).padStart(2, '0')
+      const startStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`
       conditions.date = _.gte(startStr)
     }
 
-    const res = await db.collection('feeding_records').where(conditions).orderBy('date', 'desc').orderBy('time', 'desc').limit(500).get()
-    const list = res.data || []
+    const list = await fetchAll(conditions)
 
-    // 按日期分组聚合
     const dayMap = {}
     let totalCount = 0
     let totalMilk = 0
@@ -63,17 +91,15 @@ exports.main = async (event, context) => {
 
     return {
       success: true,
-      stats: {
-        totalCount,
-        totalMilk,
-        totalBreast,
-        totalStool,
-        ratio
-      },
+      stats: { totalCount, totalMilk, totalBreast, totalStool, ratio },
       dailyStats
     }
   } catch (err) {
     console.error(err)
-    return { success: false, error: err.message, stats: { totalCount: 0, totalMilk: 0, totalBreast: 0, totalStool: 0, ratio: '0%' }, dailyStats: [] }
+    return { success: false, error: err.message, stats: empty(), dailyStats: [] }
   }
+}
+
+function empty() {
+  return { totalCount: 0, totalMilk: 0, totalBreast: 0, totalStool: 0, ratio: '0%' }
 }

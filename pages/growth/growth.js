@@ -4,15 +4,20 @@ Page({
     viewMode: 'weight',
     latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' },
     canvasWidth: 345,
-    canvasHeight: 280
+    canvasHeight: 280,
+    pixelRatio: 1
   },
 
-  onShow() {
+  onLoad() {
     const sys = wx.getSystemInfoSync()
     this.setData({
       canvasWidth: sys.windowWidth - 60,
-      canvasHeight: 280
+      canvasHeight: 280,
+      pixelRatio: sys.pixelRatio || 1
     })
+  },
+
+  onShow() {
     this.loadRecords()
   },
 
@@ -26,10 +31,9 @@ Page({
       .then(res => {
         const records = res.data || []
         this.calculateLatest(records)
-        this.setData({ records })
-        if (records.length > 0) {
-          setTimeout(() => this.drawChart(records), 100)
-        }
+        this.setData({ records }, () => {
+          if (records.length > 0) this.drawChart(records)
+        })
       })
       .catch(err => {
         console.error(err)
@@ -63,7 +67,7 @@ Page({
     const mode = e.currentTarget.dataset.mode
     this.setData({ viewMode: mode })
     if (this.data.records.length > 0) {
-      setTimeout(() => this.drawChart(this.data.records), 100)
+      this.drawChart(this.data.records)
     }
   },
 
@@ -83,7 +87,7 @@ Page({
       const ctx = canvas.getContext('2d')
       const width = res[0].width
       const height = res[0].height
-      const dpr = wx.getSystemInfoSync().pixelRatio
+      const dpr = this.data.pixelRatio
       canvas.width = width * dpr
       canvas.height = height * dpr
       ctx.scale(dpr, dpr)

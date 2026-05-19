@@ -1,3 +1,5 @@
+const { todayStr } = require('../../utils/date.js')
+
 Page({
   data: {
     date: '',
@@ -7,10 +9,8 @@ Page({
   },
 
   onLoad() {
-    const now = new Date()
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const rows = this.createEmptyRows(4)
-    this.setData({ date: dateStr, rows })
+    this.setData({ date: todayStr(), rows })
   },
 
   createEmptyRows(n) {
@@ -106,7 +106,6 @@ Page({
       const formula = parseFloat(r.formula) || 0
       if (r.time && (breast > 0 || formula > 0 || r.stool)) {
         validRows.push({
-          familyCode,
           date: this.data.date,
           time: r.time,
           breastMilk: breast,
@@ -125,26 +124,22 @@ Page({
 
     wx.showLoading({ title: `保存 ${validRows.length} 条...`, mask: true })
 
-    const promises = validRows.map(row => {
-      return wx.cloud.callFunction({
-        name: 'addRecord',
-        data: row
-      })
-    })
-
-    Promise.all(promises)
-      .then(() => {
-        wx.hideLoading()
+    wx.cloud.callFunction({
+      name: 'batchFeeding',
+      data: { familyCode, records: validRows }
+    }).then(res => {
+      wx.hideLoading()
+      if (res.result && res.result.success) {
         wx.showToast({ title: '保存成功', icon: 'success' })
-        setTimeout(() => {
-          wx.switchTab({ url: '/pages/index/index' })
-        }, 800)
-      })
-      .catch(err => {
-        wx.hideLoading()
-        console.error(err)
-        wx.showToast({ title: '部分保存失败', icon: 'none' })
-      })
+        setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 800)
+      } else {
+        wx.showToast({ title: '保存失败', icon: 'none' })
+      }
+    }).catch(err => {
+      wx.hideLoading()
+      console.error(err)
+      wx.showToast({ title: '部分保存失败', icon: 'none' })
+    })
   },
 
   goBack() {

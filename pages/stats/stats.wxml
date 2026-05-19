@@ -1,8 +1,10 @@
 <view class="container">
   <!-- 范围选择 -->
   <view class="range-bar">
-    <view class="range-item {{range === '7' ? 'active' : ''}}" data-range="7" bindtap="switchRange">近7天</view>
-    <view class="range-item {{range === '30' ? 'active' : ''}}" data-range="30" bindtap="switchRange">近30天</view>
+    <view class="range-item {{range === '7' ? 'active' : ''}}" data-range="7" bindtap="switchRange">7天</view>
+    <view class="range-item {{range === '14' ? 'active' : ''}}" data-range="14" bindtap="switchRange">14天</view>
+    <view class="range-item {{range === '30' ? 'active' : ''}}" data-range="30" bindtap="switchRange">30天</view>
+    <view class="range-item {{range === '90' ? 'active' : ''}}" data-range="90" bindtap="switchRange">90天</view>
     <view class="range-item {{range === 'all' ? 'active' : ''}}" data-range="all" bindtap="switchRange">全部</view>
   </view>
 

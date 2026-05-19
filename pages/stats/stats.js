@@ -23,13 +23,17 @@ Page({
     canvasWidth: 345,
     canvasHeight: 260,
     selectedChartItem: null,
-    chartHitAreas: []
+    chartHitAreas: [],
+    pixelRatio: 1
   },
 
   onLoad() {
     const sys = wx.getSystemInfoSync()
-    const canvasWidth = sys.windowWidth - 30
-    this.setData({ canvasWidth, canvasHeight: 260 })
+    this.setData({
+      canvasWidth: sys.windowWidth - 30,
+      canvasHeight: 260,
+      pixelRatio: sys.pixelRatio || 1
+    })
     this.loadStats()
   },
 
@@ -48,15 +52,15 @@ Page({
 
     wx.showLoading({ title: '加载中...' })
 
-    const familyCodeValue = familyCode
     wx.cloud.callFunction({
       name: 'getStats',
       data: {
-        familyCode: familyCodeValue,
+        familyCode,
         range: this.data.range
       }
-    }).then(res => this.refreshDailyStatsFromRecords(this.normalizeDailyStats((res.result || {}).dailyStats || []), familyCodeValue).then(dailyStats => {
+    }).then(res => {
       wx.hideLoading()
+      const dailyStats = this.normalizeDailyStats(((res.result || {}).dailyStats) || [])
       const stats = this.calculateStatsFromDaily(dailyStats)
       const avgStats = this.calculateAverageStats(dailyStats)
 
@@ -86,60 +90,13 @@ Page({
           monthList: [],
           selectedChartItem: null,
           chartHitAreas: []
-        })
-        setTimeout(() => this.drawChart(dailyStats), 100)
+        }, () => this.drawChart(dailyStats))
       }
-    })).catch(err => {
+    }).catch(err => {
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '加载失败', icon: 'none' })
     })
-  },
-
-  refreshDailyStatsFromRecords(dailyStats, familyCode) {
-    if (!dailyStats.length) return Promise.resolve(dailyStats)
-
-    const tasks = dailyStats.map(day => wx.cloud.callFunction({
-      name: 'getRecords',
-      data: {
-        familyCode,
-        date: day.date
-      }
-    }).then(res => this.buildDailyStatFromRecords(day.date, (res.result || {}).data || []))
-      .catch(() => day))
-
-    return Promise.all(tasks).then(list => list
-      .filter(item => this.hasDailyRecord(item))
-      .sort((a, b) => b.date.localeCompare(a.date)))
-  },
-
-  buildDailyStatFromRecords(date, records) {
-    let feedingCount = 0
-    let stoolCount = 0
-    let breast = 0
-    let formula = 0
-
-    records.forEach(record => {
-      const breastMilk = Number(record.breastMilk) || 0
-      const formulaMilk = Number(record.formula) || 0
-      if (breastMilk > 0 || formulaMilk > 0) feedingCount += 1
-      if (record.stool) stoolCount += 1
-      breast += breastMilk
-      formula += formulaMilk
-    })
-
-    const total = breast + formula
-    return {
-      date,
-      count: feedingCount,
-      feedingCount,
-      breast,
-      formula,
-      total,
-      stool: stoolCount,
-      stoolCount,
-      ratio: total === 0 ? '0%' : (breast / total * 100).toFixed(1) + '%'
-    }
   },
 
   calculateStatsFromDaily(dailyStats) {
@@ -190,6 +147,7 @@ Page({
       formula: Math.round(totalFormula / milkDays)
     }
   },
+
   generateMonthList(dailyStats) {
     const monthMap = {}
     dailyStats.forEach(item => {
@@ -235,9 +193,7 @@ Page({
       displayDailyStats: monthData,
       selectedChartItem: null,
       chartHitAreas: []
-    }, () => {
-      setTimeout(() => this.drawChart(this.data.dailyStats), 100)
-    })
+    }, () => this.drawChart(monthData))
   },
 
   backToMonthList() {
@@ -259,6 +215,7 @@ Page({
       return
     }
     const data = [...dailyStats].sort((a, b) => a.date.localeCompare(b.date))
+    const dpr = this.data.pixelRatio
 
     const query = wx.createSelectorQuery()
     query.select('#chartCanvas').fields({ node: true, size: true }).exec((res) => {
@@ -267,13 +224,12 @@ Page({
       const ctx = canvas.getContext('2d')
       const width = res[0].width
       const height = res[0].height
-      const dpr = wx.getSystemInfoSync().pixelRatio
       canvas.width = width * dpr
       canvas.height = height * dpr
       ctx.scale(dpr, dpr)
       ctx.clearRect(0, 0, width, height)
 
-      const padding = { top: 58, right: 15, bottom: 50, left: 45 }
+      const padding = { top: 30, right: 15, bottom: 50, left: 45 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom
 
@@ -335,13 +291,9 @@ Page({
           ctx.font = '10px sans-serif'
           ctx.fillText(dateLabel, x + barWidth / 2, padding.top + chartH + 6)
         }
-
-        if (this.data.selectedChartItem && this.data.selectedChartItem.date === d.date) {
-          this.drawSelectedBarLabel(ctx, d, x + barWidth / 2, padding.top + chartH - breastH - formulaH, width)
-        }
       })
 
-      const legendY = 10
+      const legendY = 8
       ctx.fillStyle = '#81C784'
       ctx.fillRect(width - 115, legendY, 12, 12)
       ctx.fillStyle = '#666'
@@ -354,7 +306,7 @@ Page({
       ctx.fillRect(width - 55, legendY, 12, 12)
       ctx.fillStyle = '#666'
       ctx.fillText('奶粉', width - 39, legendY + 6)
-    this.setData({ chartHitAreas: hitAreas })
+      this.setData({ chartHitAreas: hitAreas })
     })
   },
 
@@ -435,40 +387,14 @@ Page({
       const isEdge = index === 0 || index === barCount - 1
       return isEdge || index % step === 0 ? item.date.substring(5) : ''
     }
-    if (this.data.range === '30' && barCount > 10) {
+    if (barCount > 14) {
+      const step = barCount > 60 ? 14 : (barCount > 30 ? 7 : 5)
       const dayIndex = index + 1
-      return dayIndex % 5 === 0 ? item.date.substring(5) : ''
+      return dayIndex % step === 0 ? item.date.substring(5) : ''
     }
     return item.date.substring(5)
   },
-  drawSelectedBarLabel(ctx, item, centerX, topY, canvasWidth) {
-    const boxW = 96
-    const boxH = 44
-    const boxX = Math.max(4, Math.min(centerX - boxW / 2, canvasWidth - boxW - 4))
-    const boxY = Math.max(6, topY - boxH - 8)
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.96)'
-    this.roundRect(ctx, boxX, boxY, boxW, boxH, 4, true)
-    ctx.strokeStyle = '#e6e6e6'
-    ctx.lineWidth = 1
-    ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1)
-
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'middle'
-    ctx.font = '11px sans-serif'
-    ctx.fillStyle = '#2E7D32'
-    ctx.fillText(`母乳 ${item.breast || 0}ml`, boxX + 8, boxY + 14)
-    ctx.fillStyle = '#1565C0'
-    ctx.fillText(`奶粉 ${item.formula || 0}ml`, boxX + 8, boxY + 31)
-
-    ctx.beginPath()
-    ctx.moveTo(centerX - 5, boxY + boxH)
-    ctx.lineTo(centerX + 5, boxY + boxH)
-    ctx.lineTo(centerX, boxY + boxH + 6)
-    ctx.closePath()
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.96)'
-    ctx.fill()
-  },
   roundRect(ctx, x, y, w, h, r, fill) {
     if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r }
     ctx.beginPath()
