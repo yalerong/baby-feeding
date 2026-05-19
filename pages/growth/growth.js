@@ -134,7 +134,7 @@ Page({
       const xCenter = padding.left + chartW / 2
 
       ctx.beginPath()
-      ctx.strokeStyle = isWeight ? '#4CAF50' : '#2196F3'
+      ctx.strokeStyle = isWeight ? '#88C9A1' : '#7FB3D5'
       ctx.lineWidth = 2
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -160,7 +160,7 @@ Page({
         ctx.fill()
         // 内圈色点
         ctx.beginPath()
-        ctx.fillStyle = isWeight ? '#4CAF50' : '#2196F3'
+        ctx.fillStyle = isWeight ? '#88C9A1' : '#7FB3D5'
         ctx.arc(x, y, 3.5, 0, Math.PI * 2)
         ctx.fill()
 

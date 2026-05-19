@@ -28,7 +28,10 @@
   <!-- Canvas 图表 -->
   <view class="card chart-card">
     <canvas type="2d" id="growthCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"></canvas>
-    <view wx:if="{{records.length === 0}}" class="chart-empty">暂无数据，请先添加记录</view>
+    <view wx:if="{{records.length === 0}}" class="chart-empty">
+      <text class="empty-emoji">📏</text>
+      还没有数据，添加一条试试吧
+    </view>
   </view>
 
   <!-- 记录列表 -->
@@ -51,8 +54,12 @@
         </view>
       </view>
     </block>
-    <view wx:else class="empty-tip">还没有记录，点击下方按钮添加</view>
+    <view wx:else class="empty-tip">
+      <text class="empty-emoji">🌱</text>
+      还没有记录哦
+      <view class="empty-sub">点击下方按钮记一下吧</view>
+    </view>
   </view>
 
-  <button class="btn-primary" bindtap="goAdd">+ 记录身高体重</button>
+  <button class="btn-primary" bindtap="goAdd">📏 记录身高体重</button>
 </view>

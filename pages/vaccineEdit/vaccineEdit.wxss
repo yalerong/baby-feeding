@@ -23,7 +23,7 @@
 
 .picker-value {
   font-size: 30rpx;
-  color: #4CAF50;
+  color: #88C9A1;
   text-align: right;
   min-width: 200rpx;
 }

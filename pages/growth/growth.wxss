@@ -1,5 +1,5 @@
 .latest-card {
-  background: linear-gradient(135deg, #4CAF50 0%, #81C784 100%);
+  background: linear-gradient(135deg, #88C9A1 0%, #A8D8B9 100%);
   color: #fff;
 }
 
@@ -47,25 +47,26 @@
 .chart-toggle {
   display: flex;
   background: #fff;
-  border-radius: 12rpx;
-  margin-bottom: 20rpx;
-  overflow: hidden;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  border-radius: 24rpx;
+  margin-bottom: 24rpx;
+  padding: 6rpx;
+  box-shadow: 0 6rpx 20rpx rgba(255, 181, 167, 0.08);
 }
 
 .toggle-item {
   flex: 1;
   text-align: center;
-  padding: 24rpx 0;
+  padding: 18rpx 0;
   font-size: 28rpx;
-  color: #666;
-  position: relative;
+  color: #888;
+  border-radius: 18rpx;
+  transition: all .15s;
 }
 
 .toggle-item.active {
-  color: #4CAF50;
+  color: #fff;
   font-weight: 600;
-  background: #E8F5E9;
+  background: #88C9A1;
 }
 
 .chart-card {
@@ -78,8 +79,9 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #999;
+  color: #B0A89F;
   font-size: 28rpx;
+  text-align: center;
 }
 
 .record-date {
@@ -101,11 +103,11 @@
 }
 
 .weight-tag {
-  background: #E8F5E9;
-  color: #2E7D32;
+  background: #D4F1E0;
+  color: #4A8A60;
 }
 
 .height-tag {
-  background: #E3F2FD;
-  color: #1565C0;
+  background: #D6E9FF;
+  color: #3F7DBF;
 }

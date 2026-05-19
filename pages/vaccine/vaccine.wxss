@@ -1,5 +1,5 @@
 .birth-card {
-  background: linear-gradient(135deg, #4CAF50 0%, #81C784 100%);
+  background: linear-gradient(135deg, #88C9A1 0%, #A8D8B9 100%);
   color: #fff;
 }
 
@@ -48,7 +48,7 @@
 }
 
 .filter-value {
-  color: #4CAF50;
+  color: #88C9A1;
   font-weight: 500;
   margin-left: 10rpx;
 }
@@ -64,7 +64,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 24rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid #FFFAF5;
 }
 
 .vaccine-item:last-child {
@@ -113,17 +113,17 @@
 }
 
 .cat1 {
-  background: #E8F5E9;
-  color: #2E7D32;
+  background: #D4F1E0;
+  color: #4A8A60;
 }
 
 .cat2 {
-  background: #E3F2FD;
-  color: #1565C0;
+  background: #D6E9FF;
+  color: #3F7DBF;
 }
 
 .cat-custom {
-  background: #FFF3E0;
+  background: #FFF1E0;
   color: #E65100;
 }
 
@@ -133,7 +133,7 @@
 }
 
 .completed-text {
-  color: #4CAF50;
+  color: #88C9A1;
 }
 
 .pending-text {

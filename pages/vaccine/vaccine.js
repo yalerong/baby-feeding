@@ -16,7 +16,8 @@ const VACCINE_SCHEDULES = [
   { name: 'Hib疫苗', category: '二类', doses: [{ dose: 1, minAgeMonth: 2, intervalDays: 0 }, { dose: 2, minAgeMonth: 3, intervalDays: 28 }, { dose: 3, minAgeMonth: 4, intervalDays: 28 }, { dose: 4, minAgeMonth: 18, intervalDays: 180 }] }
 ]
 
-const { formatDate } = require('../../utils/date.js')
+const dateUtil = require('../../utils/date.js')
+const formatDate = dateUtil.formatDate
 
 Page({
   data: {

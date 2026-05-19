@@ -1,24 +1,26 @@
 .range-bar {
   display: flex;
   background: #fff;
-  border-radius: 12rpx;
-  margin-bottom: 20rpx;
-  overflow: hidden;
+  border-radius: 24rpx;
+  margin-bottom: 24rpx;
+  padding: 6rpx;
+  box-shadow: 0 6rpx 20rpx rgba(255, 181, 167, 0.08);
 }
 
 .range-item {
   flex: 1;
   text-align: center;
-  padding: 24rpx 0;
-  font-size: 28rpx;
-  color: #666;
-  position: relative;
+  padding: 18rpx 0;
+  font-size: 26rpx;
+  color: #888;
+  border-radius: 18rpx;
+  transition: all .15s;
 }
 
 .range-item.active {
-  color: #4CAF50;
+  color: #fff;
   font-weight: 600;
-  background: #E8F5E9;
+  background: #88C9A1;
 }
 
 .chart-card {
@@ -40,7 +42,7 @@
 
 .chart-back {
   font-size: 26rpx;
-  color: #4CAF50;
+  color: #88C9A1;
 }
 
 .chart-empty {
@@ -58,7 +60,7 @@
   display: flex;
   align-items: center;
   padding: 28rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid #FFFAF5;
 }
 
 .month-item:last-child {
@@ -103,7 +105,7 @@
 
 .month-ratio {
   font-size: 24rpx;
-  color: #4CAF50;
+  color: #88C9A1;
   margin-top: 4rpx;
 }
 
@@ -147,7 +149,7 @@
 }
 
 .ratio-num {
-  color: #4CAF50;
+  color: #88C9A1;
   font-weight: 600;
 }
 
@@ -161,7 +163,7 @@
 
 .day-item {
   padding: 24rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid #FFFAF5;
 }
 
 .day-item:last-child {
@@ -201,11 +203,11 @@
 }
 
 .breast-text {
-  color: #2E7D32;
+  color: #4A8A60;
 }
 
 .formula-text {
-  color: #1565C0;
+  color: #3F7DBF;
 }
 
 .total-text {
@@ -219,7 +221,7 @@
 
 .day-stool {
   color: #8D6E63;
-  background: #FFF3E0;
+  background: #FFF1E0;
   padding: 2rpx 10rpx;
   border-radius: 6rpx;
   font-size: 24rpx;
@@ -230,11 +232,11 @@
   padding: 18rpx 20rpx;
   border-radius: 8rpx;
   background: #F7FAFC;
-  border-left: 8rpx solid #64B5F6;
+  border-left: 8rpx solid #9CC9E8;
 }
 
 .chart-selection.breast-selected {
-  border-left-color: #81C784;
+  border-left-color: #A8D8B9;
 }
 
 .selection-main {

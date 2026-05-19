@@ -23,7 +23,7 @@
         </picker>
         <input class="milk-input" type="digit" value="{{item.breastMilk}}" data-index="{{index}}" bindinput="bindBreastInput" placeholder="母乳" />
         <input class="milk-input" type="digit" value="{{item.formula}}" data-index="{{index}}" bindinput="bindFormulaInput" placeholder="奶粉" />
-        <switch class="stool-switch" checked="{{item.stool}}" data-index="{{index}}" bindchange="bindStoolChange" color="#4CAF50" />
+        <switch class="stool-switch" checked="{{item.stool}}" data-index="{{index}}" bindchange="bindStoolChange" color="#88C9A1" />
         <text class="delete-btn" data-index="{{index}}" bindtap="deleteRow" wx:if="{{rows.length > 1}}">删除</text>
       </view>
       <view class="row-desc" wx:if="{{item.stool}}">

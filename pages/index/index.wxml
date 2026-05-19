@@ -53,9 +53,14 @@
 
     <block wx:if="{{records.length > 0}}">
       <view class="record-item" wx:for="{{records}}" wx:key="_id" bindtap="goEdit" data-id="{{item._id}}">
+        <view class="record-icon">
+          <text wx:if="{{item.breastMilk > 0 || item.formula > 0}}">🍼</text>
+          <text wx:elif="{{item.stool}}">💩</text>
+          <text wx:else>📝</text>
+        </view>
         <view class="record-left">
           <view class="record-time">{{item.time}}</view>
-          <view class="record-desc" wx:if="{{item.stool}}">{{item.stoolDesc || '大便'}}</view>
+          <view class="record-desc" wx:if="{{item.stool}}">💩 {{item.stoolDesc || '大便'}}</view>
         </view>
         <view class="record-right">
           <view class="record-right-inner">
@@ -69,10 +74,14 @@
         </view>
       </view>
     </block>
-    <view wx:else class="empty-tip">{{currentDate === todayDate ? '今天' : currentDate}}还没有记录，点击下方按钮添加</view>
+    <view wx:else class="empty-tip">
+      <text class="empty-emoji">🍼</text>
+      {{currentDate === todayDate ? '今天还没有喂养记录哦' : currentDate + '没有记录'}}
+      <view class="empty-sub">下方按钮一键记下来吧～</view>
+    </view>
   </view>
 
   <!-- 添加按钮 -->
-  <button class="btn-primary" bindtap="goAdd">+ 添加详细记录</button>
-  <button class="btn-secondary" bindtap="goBatch">批量补录历史数据</button>
+  <button class="btn-primary" bindtap="goAdd">🍼 添加详细记录</button>
+  <button class="btn-secondary" bindtap="goBatch">📋 批量补录历史数据</button>
 </view>

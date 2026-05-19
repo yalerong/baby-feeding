@@ -1,4 +1,5 @@
-const { todayStr } = require('../../utils/date.js')
+const dateUtil = require('../../utils/date.js')
+const todayStr = dateUtil.todayStr
 
 Page({
   data: {

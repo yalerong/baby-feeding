@@ -15,7 +15,10 @@
       <text class="chart-back" bindtap="backToMonthList">← 返回月份列表</text>
     </view>
     <canvas type="2d" id="chartCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;" bindtap="onChartTap" bindtouchstart="onChartTouch" catchtouchmove="onChartTouch"></canvas>
-    <view class="chart-empty" wx:if="{{dailyStats.length === 0}}">暂无数据</view>
+    <view class="chart-empty" wx:if="{{dailyStats.length === 0}}">
+      <text class="empty-emoji">📊</text>
+      还没有足够数据，多记几天就有图啦
+    </view>
     <view class="chart-selection {{selectedChartItem && selectedChartItem.type === 'breast' ? 'breast-selected' : 'formula-selected'}}" wx:if="{{selectedChartItem}}">
       <view class="selection-main">
         <text class="selection-date">{{selectedChartItem.date}}</text>
@@ -50,7 +53,10 @@
         <view class="month-arrow">›</view>
       </view>
     </block>
-    <view wx:else class="empty-tip">暂无记录</view>
+    <view wx:else class="empty-tip">
+      <text class="empty-emoji">📅</text>
+      还没有月度数据
+    </view>
   </view>
 
   <!-- 总汇总 -->

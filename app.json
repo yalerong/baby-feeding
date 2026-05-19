@@ -11,30 +11,32 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#4CAF50",
+    "navigationBarBackgroundColor": "#88C9A1",
     "navigationBarTitleText": "彬彬喂养记录",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#FFFAF5"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#4CAF50",
+    "color": "#B0A89F",
+    "selectedColor": "#88C9A1",
     "backgroundColor": "#ffffff",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "今日"
+        "text": "🍼 今日"
       },
       {
         "pagePath": "pages/stats/stats",
-        "text": "统计"
+        "text": "📊 统计"
       },
       {
         "pagePath": "pages/growth/growth",
-        "text": "生长"
+        "text": "📏 生长"
       },
       {
         "pagePath": "pages/vaccine/vaccine",
-        "text": "疫苗"
+        "text": "💉 疫苗"
       }
     ]
   },

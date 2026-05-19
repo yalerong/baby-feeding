@@ -1,4 +1,6 @@
-const { todayStr, nowTimeStr } = require('../../utils/date.js')
+const dateUtil = require('../../utils/date.js')
+const todayStr = dateUtil.todayStr
+const nowTimeStr = dateUtil.nowTimeStr
 
 Page({
   data: {

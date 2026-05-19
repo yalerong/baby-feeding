@@ -2,7 +2,7 @@
   <!-- 出生日期 -->
   <view class="card birth-card">
     <view class="birth-row">
-      <text class="birth-label">宝宝出生日期</text>
+      <text class="birth-label">👶 宝宝出生日期</text>
       <picker mode="date" value="{{birthDate}}" end="{{today}}" bindchange="onBirthDateChange">
         <view class="birth-value {{birthDate ? '' : 'placeholder'}}">{{birthDate || '点击设置'}}</view>
       </picker>
@@ -42,7 +42,7 @@
   <!-- 疫苗列表 -->
   <view class="card">
     <view class="list-header">
-      <text class="list-title">接种计划</text>
+      <text class="list-title">💉 接种计划</text>
       <text class="list-count">{{displayRecords.length}} 剂</text>
     </view>
     
@@ -70,8 +70,12 @@
         </view>
       </view>
     </block>
-    <view wx:else class="empty-tip">暂无记录</view>
+    <view wx:else class="empty-tip">
+      <text class="empty-emoji">💉</text>
+      还没有疫苗计划
+      <view class="empty-sub">请先在上方设置宝宝出生日期</view>
+    </view>
   </view>
 
-  <button class="btn-primary" bindtap="goAddCustom">+ 添加自定义疫苗</button>
+  <button class="btn-primary" bindtap="goAddCustom">💉 添加自定义疫苗</button>
 </view>
