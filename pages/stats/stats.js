@@ -229,7 +229,7 @@ Page({
       ctx.scale(dpr, dpr)
       ctx.clearRect(0, 0, width, height)
 
-      const padding = { top: 30, right: 15, bottom: 50, left: 45 }
+      const padding = { top: 60, right: 15, bottom: 50, left: 45 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom
 
@@ -261,6 +261,7 @@ Page({
       const barWidth = Math.min(slotWidth * 0.65, 28)
       const barOffset = (slotWidth - barWidth) / 2
       const hitAreas = []
+      let tooltipInfo = null
 
       data.forEach((d, i) => {
         const x = padding.left + i * slotWidth + barOffset
@@ -283,6 +284,17 @@ Page({
           this.roundRect(ctx, x, y, barWidth, formulaH, r, true)
         }
 
+        if (isSelected) {
+          const barTopY = padding.top + chartH - breastH - formulaH
+          tooltipInfo = {
+            barCenterX: x + barWidth / 2,
+            barTopY: (d.breast > 0 || d.formula > 0) ? barTopY : padding.top + chartH,
+            breast: d.breast || 0,
+            formula: d.formula || 0,
+            total: d.total || 0
+          }
+        }
+
         const dateLabel = this.getXAxisLabel(d, i, barCount)
         if (dateLabel) {
           ctx.fillStyle = '#666'
@@ -292,6 +304,10 @@ Page({
           ctx.fillText(dateLabel, x + barWidth / 2, padding.top + chartH + 6)
         }
       })
+
+      if (tooltipInfo) {
+        this.drawTooltip(ctx, tooltipInfo, width)
+      }
 
       const legendY = 8
       ctx.fillStyle = '#8AD8AE'
@@ -393,6 +409,43 @@ Page({
       return dayIndex % step === 0 ? item.date.substring(5) : ''
     }
     return item.date.substring(5)
+  },
+
+  drawTooltip(ctx, info, canvasWidth) {
+    const W = 88
+    const H = 56
+    const arrowH = 6
+    const gap = 4
+    let tx = info.barCenterX - W / 2
+    let ty = info.barTopY - arrowH - gap - H
+    let showArrow = true
+    if (ty < 4) {
+      ty = 4
+      showArrow = false
+    }
+    if (tx < 2) tx = 2
+    if (tx + W > canvasWidth - 2) tx = canvasWidth - 2 - W
+
+    ctx.fillStyle = 'rgba(50, 50, 50, 0.92)'
+    this.roundRect(ctx, tx, ty, W, H, 6, true)
+
+    if (showArrow) {
+      const ax = Math.max(tx + 10, Math.min(info.barCenterX, tx + W - 10))
+      ctx.beginPath()
+      ctx.moveTo(ax - 5, ty + H)
+      ctx.lineTo(ax + 5, ty + H)
+      ctx.lineTo(ax, ty + H + arrowH)
+      ctx.closePath()
+      ctx.fill()
+    }
+
+    ctx.fillStyle = '#fff'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.font = '11px sans-serif'
+    ctx.fillText('母乳 ' + info.breast, tx + 8, ty + 6)
+    ctx.fillText('奶粉 ' + info.formula, tx + 8, ty + 22)
+    ctx.fillText('共 ' + info.total + 'ml', tx + 8, ty + 38)
   },
 
   roundRect(ctx, x, y, w, h, r, fill) {

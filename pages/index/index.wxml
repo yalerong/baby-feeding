@@ -76,7 +76,10 @@
   <view class="card">
     <view class="list-header">
       <text class="list-title">{{currentDate === todayDate ? '今日' : currentDate}} 记录</text>
-      <text class="list-count">{{records.length}} 条</text>
+      <view class="list-header-right">
+        <text class="since-pill" wx:if="{{currentDate === todayDate && sinceLastFeedingText}}">⏱ 距上次 {{sinceLastFeedingText}}</text>
+        <text class="list-count">{{records.length}} 条</text>
+      </view>
     </view>
 
     <block wx:if="{{records.length > 0}}">
@@ -88,6 +91,7 @@
         </view>
         <view class="record-left">
           <view class="record-time">{{item.time}}</view>
+          <view class="record-interval" wx:if="{{item.intervalText}}">距上次 {{item.intervalText}}</view>
           <view class="record-desc" wx:if="{{item.stool}}">💩 {{item.stoolDesc || '大便'}}</view>
         </view>
         <view class="record-right">

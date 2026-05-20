@@ -2,6 +2,30 @@ const dateUtil = require('../../utils/date.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
+function toTimestamp(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null
+  const dParts = dateStr.split('-')
+  const tParts = timeStr.split(':')
+  if (dParts.length < 3 || tParts.length < 2) return null
+  const y = parseInt(dParts[0], 10)
+  const mo = parseInt(dParts[1], 10)
+  const d = parseInt(dParts[2], 10)
+  const h = parseInt(tParts[0], 10)
+  const mi = parseInt(tParts[1], 10)
+  if (!y || !mo || !d || isNaN(h) || isNaN(mi)) return null
+  return new Date(y, mo - 1, d, h, mi, 0).getTime()
+}
+
+function formatIntervalText(minutes) {
+  if (minutes < 0) return ''
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return minutes + ' 分钟'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (m === 0) return h + ' 小时'
+  return h + ' 小时 ' + m + ' 分钟'
+}
+
 Page({
   data: {
     familyCode: '',
@@ -15,6 +39,8 @@ Page({
     babyDays: 0,
     babyAgeText: '',
     babyMilestone: '',
+    lastFeedingTs: 0,
+    sinceLastFeedingText: '',
     todayStats: {
       count: 0,
       total: 0,
@@ -38,6 +64,40 @@ Page({
 
     this.refreshBaby(today)
     this.fetchRecords(currentDate)
+    this.startSinceTimer()
+  },
+
+  onHide() {
+    this.stopSinceTimer()
+  },
+
+  onUnload() {
+    this.stopSinceTimer()
+  },
+
+  startSinceTimer() {
+    this.stopSinceTimer()
+    this._sinceTimer = setInterval(() => {
+      this.refreshSinceLastFeeding()
+    }, 60000)
+  },
+
+  stopSinceTimer() {
+    if (this._sinceTimer) {
+      clearInterval(this._sinceTimer)
+      this._sinceTimer = null
+    }
+  },
+
+  refreshSinceLastFeeding() {
+    if (this.data.currentDate !== this.data.todayDate || !this.data.lastFeedingTs) {
+      if (this.data.sinceLastFeedingText) {
+        this.setData({ sinceLastFeedingText: '' })
+      }
+      return
+    }
+    const diff = Math.floor((Date.now() - this.data.lastFeedingTs) / 60000)
+    this.setData({ sinceLastFeedingText: formatIntervalText(diff) })
   },
 
   refreshBaby(today) {
@@ -76,31 +136,51 @@ Page({
       }
     }).then(res => {
       const records = res.result.data || []
-      this.calculateStats(records)
+      const prevFeeding = res.result.prevFeeding || null
+      this.calculateStats(records, prevFeeding)
     }).catch(err => {
       console.error(err)
       wx.showToast({ title: '获取记录失败', icon: 'none' })
     })
   },
 
-  calculateStats(records) {
+  calculateStats(records, prevFeeding) {
     let breast = 0
     let formula = 0
     let stool = 0
     let count = 0
-    records.forEach(r => {
+    const now = Date.now()
+    let chainTs = prevFeeding ? toTimestamp(prevFeeding.date, prevFeeding.time) : null
+    let mostRecentPastTs = (chainTs !== null && chainTs <= now) ? chainTs : 0
+
+    const enriched = records.map(r => {
       const breastMilk = r.breastMilk || 0
       const formulaMilk = r.formula || 0
       breast += breastMilk
       formula += formulaMilk
-      if (breastMilk + formulaMilk > 0) count += 1
+      const isFeeding = breastMilk + formulaMilk > 0
+      if (isFeeding) count += 1
       if (r.stool) stool += 1
+
+      let intervalText = ''
+      if (isFeeding) {
+        const curTs = toTimestamp(r.date, r.time)
+        if (chainTs !== null && curTs !== null) {
+          intervalText = formatIntervalText(Math.floor((curTs - chainTs) / 60000))
+        }
+        if (curTs !== null) {
+          chainTs = curTs
+          if (curTs <= now) mostRecentPastTs = curTs
+        }
+      }
+      return Object.assign({}, r, { intervalText })
     })
     const total = breast + formula
     const ratio = total === 0 ? '0%' : (breast / total * 100).toFixed(1) + '%'
 
     this.setData({
-      records,
+      records: enriched,
+      lastFeedingTs: mostRecentPastTs,
       todayStats: {
         count,
         total,
@@ -109,7 +189,7 @@ Page({
         ratio,
         stool
       }
-    })
+    }, () => this.refreshSinceLastFeeding())
   },
 
   goAdd() {

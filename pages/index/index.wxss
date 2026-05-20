@@ -80,6 +80,23 @@
   margin-top: 4rpx;
 }
 
+.list-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.since-pill {
+  font-size: 24rpx;
+  color: #B8771F;
+  background: #FFF3D6;
+  border: 1rpx solid #F5C66A;
+  padding: 4rpx 14rpx;
+  border-radius: 20rpx;
+  font-weight: 500;
+  letter-spacing: 0.5rpx;
+}
+
 .summary-card {
   text-align: center;
 }
@@ -260,6 +277,16 @@
   font-weight: 500;
   color: #333;
   margin-bottom: 6rpx;
+}
+
+.record-interval {
+  font-size: 22rpx;
+  color: #B8771F;
+  background: #FFF3D6;
+  display: inline-block;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  margin-bottom: 4rpx;
 }
 
 .record-desc {
