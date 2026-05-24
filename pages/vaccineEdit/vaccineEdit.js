@@ -17,7 +17,6 @@ const VACCINE_SCHEDULES = [
 ]
 
 const dateUtil = require('../../utils/date.js')
-const formatDate = dateUtil.formatDate
 
 Page({
   data: {
@@ -34,8 +33,7 @@ Page({
   },
 
   onLoad(options) {
-    const now = new Date()
-    const todayStr = formatDate(now)
+    const todayStr = dateUtil.todayStr()
     this.setData({ today: todayStr })
 
     if (options.id) {
@@ -183,7 +181,7 @@ Page({
         const schedule = VACCINE_SCHEDULES.find(v => v.name === vaccineName)
         if (!schedule) return Promise.resolve()
 
-        let lastActual = null
+        let lastActual = ''
         const updates = []
 
         records.forEach(r => {
@@ -191,14 +189,11 @@ Page({
           if (!doseInfo) return
 
           if (r.actualDate) {
-            lastActual = new Date(r.actualDate)
+            lastActual = r.actualDate
           } else if (lastActual && !r.isCustomPlanned) {
-            const newDate = new Date(lastActual)
-            newDate.setDate(newDate.getDate() + doseInfo.intervalDays)
-            const birth = new Date(birthDate)
-            const minDate = new Date(birth.getFullYear(), birth.getMonth() + doseInfo.minAgeMonth, birth.getDate())
-            const finalDate = newDate > minDate ? newDate : minDate
-            const finalDateStr = formatDate(finalDate)
+            const intervalDate = dateUtil.addDays(lastActual, doseInfo.intervalDays)
+            const minDate = dateUtil.addMonths(birthDate, doseInfo.minAgeMonth)
+            const finalDateStr = dateUtil.compareDates(intervalDate, minDate) > 0 ? intervalDate : minDate
 
             if (finalDateStr !== r.plannedDate) {
               updates.push(
@@ -233,9 +228,7 @@ Page({
     const doseInfo = schedule.doses.find(d => d.dose === this.data.dose)
     if (!doseInfo) return
 
-    const birth = new Date(birthDate)
-    const planned = new Date(birth.getFullYear(), birth.getMonth() + doseInfo.minAgeMonth, birth.getDate())
-    const plannedStr = formatDate(planned)
+    const plannedStr = dateUtil.addMonths(birthDate, doseInfo.minAgeMonth)
 
     this.setData({ plannedDate: plannedStr })
     wx.showToast({ title: '已恢复系统预计日期', icon: 'none' })

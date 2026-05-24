@@ -17,7 +17,6 @@ const VACCINE_SCHEDULES = [
 ]
 
 const dateUtil = require('../../utils/date.js')
-const formatDate = dateUtil.formatDate
 
 Page({
   data: {
@@ -32,8 +31,7 @@ Page({
   },
 
   onShow() {
-    const now = new Date()
-    const todayStr = formatDate(now)
+    const todayStr = dateUtil.todayStr()
     this.setData({ today: todayStr })
 
     const birthDate = wx.getStorageSync('babyBirthDate')
@@ -47,12 +45,7 @@ Page({
   },
 
   calculateMonths(birthDate, currentDate) {
-    const b = new Date(birthDate)
-    const c = new Date(currentDate)
-    let months = (c.getFullYear() - b.getFullYear()) * 12 + (c.getMonth() - b.getMonth())
-    if (c.getDate() < b.getDate()) months--
-    if (months < 0) months = 0
-    return months
+    return dateUtil.monthsBetween(birthDate, currentDate)
   },
 
   checkAndInitPlan(birthDate) {
@@ -76,13 +69,11 @@ Page({
     const records = []
     VACCINE_SCHEDULES.forEach(v => {
       v.doses.forEach(d => {
-        const birth = new Date(birthDate)
-        const planned = new Date(birth.getFullYear(), birth.getMonth() + d.minAgeMonth, birth.getDate())
         records.push({
           vaccineName: v.name,
           category: v.category,
           dose: d.dose,
-          plannedDate: formatDate(planned),
+          plannedDate: dateUtil.addMonths(birthDate, d.minAgeMonth),
           actualDate: '',
           status: 'planned',
           isCustomPlanned: false,

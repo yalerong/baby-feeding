@@ -3,17 +3,7 @@ const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
 function toTimestamp(dateStr, timeStr) {
-  if (!dateStr || !timeStr) return null
-  const dParts = dateStr.split('-')
-  const tParts = timeStr.split(':')
-  if (dParts.length < 3 || tParts.length < 2) return null
-  const y = parseInt(dParts[0], 10)
-  const mo = parseInt(dParts[1], 10)
-  const d = parseInt(dParts[2], 10)
-  const h = parseInt(tParts[0], 10)
-  const mi = parseInt(tParts[1], 10)
-  if (!y || !mo || !d || isNaN(h) || isNaN(mi)) return null
-  return new Date(y, mo - 1, d, h, mi, 0).getTime()
+  return dateUtil.toBeijingTimestamp(dateStr, timeStr)
 }
 
 function formatIntervalText(minutes) {
