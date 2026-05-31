@@ -1,0 +1,265 @@
+<view class="container">
+  <view class="card hero-card">
+    <view class="hero-top">
+      <view>
+        <view class="hero-title">辅食菜单</view>
+        <view class="hero-sub" wx:if="{{birthDate && currentPlan}}">{{ageMonth}} 月龄 · {{currentPlan.stage.title}}</view>
+        <view class="hero-sub" wx:elif="{{birthDate}}">菜单加载中</view>
+        <view class="hero-sub" wx:else>请先在首页设置宝宝生日</view>
+      </view>
+      <view class="hero-visual">🥣</view>
+    </view>
+    <view class="stage-text" wx:if="{{currentPlan}}">{{currentPlan.stage.summary}}</view>
+  </view>
+
+  <view class="view-toggle">
+    <view class="toggle-item {{viewMode === 'week' ? 'active' : ''}}" bindtap="switchView" data-mode="week">本周</view>
+    <view class="toggle-item {{viewMode === 'month' ? 'active' : ''}}" bindtap="switchView" data-mode="month">本月安排</view>
+  </view>
+
+  <view class="card notice-card" wx:if="{{isFuturePlan}}">
+    <view class="notice-title">提前规划提醒</view>
+    <view class="notice-text">{{planningNotice}}</view>
+  </view>
+
+  <view class="card catalog-entry" wx:if="{{birthDate && currentPlan && currentPlan.status === 'ready' && viewMode === 'week'}}" bindtap="enterCatalog">
+    <view class="list-header">
+      <text class="list-title">辅食大厅</text>
+      <text class="list-count">进入菜库 ›</text>
+    </view>
+    <view class="catalog-note">按月龄、餐次、营养筛选菜品；周菜单里的菜都从这里取。</view>
+    <view class="entry-tags">
+      <text class="mini-tag">适合月龄</text>
+      <text class="mini-tag">做法</text>
+      <text class="mini-tag">营养</text>
+      <text class="mini-tag">注意点</text>
+    </view>
+  </view>
+
+  <block wx:if="{{!birthDate}}">
+    <view class="card empty-tip">
+      <text class="empty-emoji">👶</text>
+      设置宝宝生日后自动按月龄推荐
+    </view>
+  </block>
+
+  <block wx:elif="{{currentPlan && currentPlan.status === 'milk_only'}}">
+    <view class="card milk-card">
+      <view class="milk-title">当前以奶为主</view>
+      <view class="milk-text" wx:for="{{currentPlan.cautions}}" wx:key="*this">{{item}}</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{currentPlan && viewMode === 'catalog'}}">
+    <view class="card catalog-hero">
+      <view class="catalog-hero-top">
+        <view>
+          <view class="catalog-title">辅食大厅</view>
+          <view class="catalog-sub">菜单配菜统一从这里选择，按月龄、餐次、营养筛选。</view>
+        </view>
+        <view class="hall-close" bindtap="closeCatalog">返回</view>
+      </view>
+    </view>
+
+    <view class="filter-panel card">
+      <view class="filter-title">月龄</view>
+      <view class="filter-row">
+        <view class="filter-chip {{catalogFilters.ageRange === item.value ? 'active' : ''}}"
+              wx:for="{{ageFilters}}"
+              wx:key="value"
+              bindtap="setCatalogFilter"
+              data-type="ageRange"
+              data-value="{{item.value}}">{{item.label}}</view>
+      </view>
+
+      <view class="filter-title">餐次</view>
+      <view class="filter-row">
+        <view class="filter-chip {{catalogFilters.mealType === item.value ? 'active' : ''}}"
+              wx:for="{{mealFilters}}"
+              wx:key="value"
+              bindtap="setCatalogFilter"
+              data-type="mealType"
+              data-value="{{item.value}}">{{item.label}}</view>
+      </view>
+
+      <view class="filter-title">营养</view>
+      <view class="filter-row">
+        <view class="filter-chip {{catalogFilters.nutritionTag === item.value ? 'active' : ''}}"
+              wx:for="{{nutritionFilters}}"
+              wx:key="value"
+              bindtap="setCatalogFilter"
+              data-type="nutritionTag"
+              data-value="{{item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="card catalog-item" wx:for="{{catalogDishes}}" wx:key="id">
+      <view class="catalog-head">
+        <view class="dish-art" style="background: {{item.color}};">{{item.imageEmoji}}</view>
+        <view class="catalog-main">
+          <view class="dish-name-row">
+            <text class="dish-name">{{item.name}}</text>
+            <text class="current-tag" wx:if="{{item.isForPlanAge}}">本阶段</text>
+          </view>
+          <view class="dish-meta">{{item.ageLabel}} · {{item.mealLabel}} · {{item.texture}}</view>
+        </view>
+      </view>
+      <view class="catalog-section">
+        <text class="catalog-label">营养</text>
+        <text class="catalog-text">{{item.nutritionLabel}}</text>
+      </view>
+      <view class="catalog-section">
+        <text class="catalog-label">食材</text>
+        <text class="catalog-text">{{item.ingredientsLabel}}</text>
+      </view>
+      <view class="catalog-section">
+        <text class="catalog-label">建议量</text>
+        <text class="catalog-text">{{item.servingLabel}}</text>
+      </view>
+      <view class="catalog-section">
+        <text class="catalog-label">做法</text>
+        <view class="catalog-lines">
+          <view wx:for="{{item.steps}}" wx:for-item="step" wx:key="*this">{{step}}</view>
+        </view>
+      </view>
+      <view class="catalog-section caution">
+        <text class="catalog-label">注意</text>
+        <view class="catalog-lines">
+          <view wx:for="{{item.cautions}}" wx:for-item="caution" wx:key="*this">{{caution}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card empty-tip" wx:if="{{catalogDishes.length === 0}}">
+      <text class="empty-emoji">🥣</text>
+      当前筛选下暂无菜品
+    </view>
+  </block>
+
+  <block wx:elif="{{currentPlan && viewMode === 'hall'}}">
+    <view class="card hall-head">
+      <view class="hall-top">
+        <view>
+          <view class="hall-title">辅食大厅</view>
+          <view class="hall-sub">{{ageMonth}} 月龄 · {{hallContext.mealLabel}} · 选择一个菜替换当前安排</view>
+        </view>
+        <view class="hall-close" bindtap="closeHall">返回</view>
+      </view>
+    </view>
+
+    <view class="card dish-option"
+          wx:for="{{hallDishes}}"
+          wx:key="id"
+          bindtap="chooseHallDish"
+          data-id="{{item.id}}">
+      <view class="dish-art" style="background: {{item.color}};">{{item.imageEmoji}}</view>
+      <view class="dish-main">
+        <view class="dish-name-row">
+          <text class="dish-name">{{item.name}}</text>
+          <text class="current-tag" wx:if="{{item.isCurrent}}">当前</text>
+        </view>
+        <view class="dish-meta">{{item.ageMinMonth}}-{{item.ageMaxMonth}} 月龄 · {{item.texture}}</view>
+        <view class="dish-tags">
+          <text class="mini-tag" wx:for="{{item.nutritionTags}}" wx:key="*this">{{item}}</text>
+        </view>
+        <view class="dish-note">{{item.ingredientsLabel}}</view>
+      </view>
+      <view class="select-arrow">›</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{currentPlan && viewMode === 'week'}}">
+    <view class="week-nav card">
+      <view class="nav-btn" bindtap="prevWeek">‹</view>
+      <picker mode="date" value="{{weekStart}}" bindchange="onWeekChange">
+        <view class="week-title">{{weekStart}} 这一周</view>
+      </picker>
+      <view class="nav-btn" bindtap="nextWeek">›</view>
+    </view>
+
+    <view class="day-tabs">
+      <view class="day-tab {{item.selected ? 'active' : ''}}"
+            wx:for="{{weekDays}}"
+            wx:for-index="dayIndex"
+            wx:key="date"
+            bindtap="selectDay"
+            data-index="{{dayIndex}}">
+        <view class="day-tab-week">{{item.weekday}}</view>
+        <view class="day-tab-date">{{item.shortDate}}</view>
+      </view>
+    </view>
+
+    <view class="card nutrition-card">
+      <view class="list-header">
+        <text class="list-title">营养搭配</text>
+        <text class="dirty-tip" wx:if="{{dirty}}">未保存</text>
+      </view>
+      <view class="tag-wrap">
+        <text class="nutrition-tag" wx:for="{{currentPlan.nutritionList}}" wx:key="name">{{item.name}} {{item.count}}</text>
+      </view>
+    </view>
+
+    <view class="day-card card" wx:if="{{selectedDay}}">
+      <view class="day-title">{{selectedDay.weekday}} · {{selectedDay.date}}</view>
+      <view class="meal-row" wx:for="{{mealTypes}}" wx:for-item="mealType" wx:key="*this">
+        <view class="meal-label">{{mealLabels[mealType]}}</view>
+        <view class="dish-list">
+          <view class="dish-card"
+                wx:for="{{selectedDay.meals[mealType]}}"
+                wx:for-item="dish"
+                wx:for-index="dishIndex"
+                wx:key="id"
+                bindtap="openDish"
+                data-meal-type="{{mealType}}"
+                data-dish-index="{{dishIndex}}">
+            <view class="dish-art" style="background: {{dish.color}};">{{dish.imageEmoji}}</view>
+            <view class="dish-main">
+              <view class="dish-name">{{dish.name}}</view>
+              <view class="dish-meta">{{dish.texture}}</view>
+              <view class="dish-tags">
+                <text class="mini-tag" wx:for="{{dish.nutritionTags}}" wx:key="*this">{{item}}</text>
+              </view>
+            </view>
+            <view class="replace-btn"
+                  catchtap="replaceDish"
+                  data-meal-type="{{mealType}}"
+                  data-dish-index="{{dishIndex}}">选</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card caution-card">
+      <view class="caution-title">注意点</view>
+      <view class="caution-line" wx:for="{{currentPlan.cautions}}" wx:key="*this">{{item}}</view>
+    </view>
+
+    <button class="btn-primary" bindtap="saveWeek">保存本周菜单</button>
+    <button class="btn-secondary" bindtap="regenerateWeek">重新生成推荐</button>
+  </block>
+
+  <block wx:elif="{{monthlyPlan && viewMode === 'month'}}">
+    <view class="card month-picker-card">
+      <picker mode="date" value="{{monthStart}}" bindchange="onMonthChange">
+        <view class="month-picker">📅 {{monthLabel}} 月安排</view>
+      </picker>
+    </view>
+
+    <view class="card month-week"
+          wx:for="{{monthlyPlan.weeks}}"
+          wx:for-index="weekIndex"
+          wx:key="weekStart"
+          bindtap="openWeek"
+          data-week="{{item.weekStart}}">
+      <view class="month-week-head">
+        <view class="month-week-title">第 {{weekIndex + 1}} 周</view>
+        <view class="month-week-date">{{item.weekStart}}</view>
+      </view>
+      <view class="month-stage">{{item.ageMonth}} 月龄 · {{item.stage.texture}}</view>
+      <view class="month-preview" wx:if="{{item.status === 'ready'}}">
+        <text wx:for="{{item.days[0].meals.lunch}}" wx:key="id">{{item.name}}</text>
+      </view>
+      <view class="month-preview" wx:else>暂未到辅食月龄</view>
+    </view>
+  </block>
+</view>
