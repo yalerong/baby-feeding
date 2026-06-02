@@ -40,3 +40,29 @@ test('toBeijingTimestamp treats date and time as Beijing local time', () => {
 
   assert.strictEqual(new Date(timestamp).toISOString(), '2026-02-23T16:05:00.000Z')
 })
+
+test('supplement reminder alternates VD and VAD from birth date', () => {
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-02-24'), {
+    day: 1,
+    name: 'VD',
+    nextName: 'VAD'
+  })
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-02-25'), {
+    day: 2,
+    name: 'VAD',
+    nextName: 'VD'
+  })
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-02-26'), {
+    day: 3,
+    name: 'VD',
+    nextName: 'VAD'
+  })
+})
+
+test('supplement reminder stays unset without birth date', () => {
+  assert.deepStrictEqual(dateUtil.supplementReminder('', '2026-02-24'), {
+    day: 0,
+    name: '',
+    nextName: ''
+  })
+})

@@ -143,6 +143,24 @@ function toBeijingTimestamp(dateStr, timeStr) {
   return Date.UTC(dateParts.year, dateParts.month - 1, dateParts.day, hour, minute, 0) - BEIJING_OFFSET_MS
 }
 
+function supplementReminder(birthStr, refStr) {
+  const day = daysBetween(birthStr, refStr)
+  if (day < 1) {
+    return {
+      day: 0,
+      name: '',
+      nextName: ''
+    }
+  }
+
+  const name = day % 2 === 1 ? 'VD' : 'VAD'
+  return {
+    day,
+    name,
+    nextName: name === 'VD' ? 'VAD' : 'VD'
+  }
+}
+
 const MILESTONES = {
   1: '欢迎来到这个世界 🎉',
   7: '出生满一周啦 🎈',
@@ -173,5 +191,6 @@ module.exports = {
   addMonths,
   compareDates,
   monthsBetween,
-  toBeijingTimestamp
+  toBeijingTimestamp,
+  supplementReminder
 }

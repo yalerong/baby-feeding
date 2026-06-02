@@ -31,6 +31,16 @@ Page({
     babyMilestone: '',
     lastFeedingTs: 0,
     sinceLastFeedingText: '',
+    supplementReminder: {
+      visible: false,
+      day: 0,
+      name: '',
+      nextName: '',
+      taken: false,
+      title: '',
+      statusText: '',
+      actionText: ''
+    },
     todayStats: {
       count: 0,
       total: 0,
@@ -93,7 +103,9 @@ Page({
   refreshBaby(today) {
     const birth = wx.getStorageSync('babyBirthDate') || ''
     if (!birth) {
-      this.setData({ babyBirthDate: '', babyDays: 0, babyAgeText: '', babyMilestone: '' })
+      this.setData({ babyBirthDate: '', babyDays: 0, babyAgeText: '', babyMilestone: '' }, () => {
+        this.refreshSupplementReminder()
+      })
       return
     }
     const days = dateUtil.daysBetween(birth, today)
@@ -102,6 +114,79 @@ Page({
       babyDays: days,
       babyAgeText: dateUtil.ageText(birth, today),
       babyMilestone: dateUtil.milestone(days)
+    }, () => {
+      this.refreshSupplementReminder()
+    })
+  },
+
+  supplementStorageKey(date, name) {
+    return 'supplementTaken:' + date + ':' + name
+  },
+
+  refreshSupplementReminder() {
+    if (this.data.currentDate !== this.data.todayDate) {
+      this.setData({
+        supplementReminder: {
+          visible: false,
+          day: 0,
+          name: '',
+          nextName: '',
+          taken: false,
+          title: '',
+          statusText: '',
+          actionText: ''
+        }
+      })
+      return
+    }
+
+    const reminder = dateUtil.supplementReminder(this.data.babyBirthDate, this.data.todayDate)
+    if (!reminder.name) {
+      this.setData({
+        supplementReminder: {
+          visible: true,
+          day: 0,
+          name: '',
+          nextName: '',
+          taken: false,
+          title: 'VD/VAD 提醒',
+          statusText: '设置宝宝生日后自动轮换',
+          actionText: ''
+        }
+      })
+      return
+    }
+
+    const taken = !!wx.getStorageSync(this.supplementStorageKey(this.data.todayDate, reminder.name))
+    this.setData({
+      supplementReminder: {
+        visible: true,
+        day: reminder.day,
+        name: reminder.name,
+        nextName: reminder.nextName,
+        taken,
+        title: '今天该吃 ' + reminder.name,
+        statusText: taken ? '已记录' : '还没记录',
+        actionText: taken ? '取消已吃' : '标记已吃'
+      }
+    })
+  },
+
+  toggleSupplementTaken() {
+    const reminder = this.data.supplementReminder
+    if (!reminder.name) return
+
+    const key = this.supplementStorageKey(this.data.todayDate, reminder.name)
+    const nextTaken = !reminder.taken
+    if (nextTaken) {
+      wx.setStorageSync(key, true)
+    } else {
+      wx.removeStorageSync(key)
+    }
+    this.refreshSupplementReminder()
+    wx.showToast({
+      title: nextTaken ? '已标记' : '已取消',
+      icon: 'none'
     })
   },
 
@@ -113,7 +198,9 @@ Page({
 
   bindDateChange(e) {
     const date = e.detail.value
-    this.setData({ currentDate: date })
+    this.setData({ currentDate: date }, () => {
+      this.refreshSupplementReminder()
+    })
     this.fetchRecords(date)
   },
 
@@ -197,7 +284,9 @@ Page({
 
   goToday() {
     if (this.data.currentDate === this.data.todayDate) return
-    this.setData({ currentDate: this.data.todayDate })
+    this.setData({ currentDate: this.data.todayDate }, () => {
+      this.refreshSupplementReminder()
+    })
     this.fetchRecords(this.data.todayDate)
   },
 
