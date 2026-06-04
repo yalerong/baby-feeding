@@ -45,10 +45,16 @@ Page({
   },
 
   loadRecord(_id) {
-    const db = wx.cloud.database()
-    db.collection('vaccine_records').doc(_id).get()
+    const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    wx.cloud.callFunction({
+      name: 'batchVaccine',
+      data: { action: 'get', familyCode, _id }
+    })
       .then(res => {
-        const r = res.data
+        if (!res.result || !res.result.success) {
+          throw new Error(res.result && res.result.error)
+        }
+        const r = res.result.data
         this.setData({
           vaccineName: r.vaccineName,
           category: r.category,
@@ -100,7 +106,6 @@ Page({
     }
 
     wx.showLoading({ title: '保存中...', mask: true })
-    const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
 
     const isCompleted = !!this.data.actualDate
@@ -110,8 +115,7 @@ Page({
       plannedDate: this.data.plannedDate,
       actualDate: this.data.actualDate || '',
       status: isCompleted ? 'completed' : 'planned',
-      note: this.data.note.trim(),
-      updateTime: db.serverDate()
+      note: this.data.note.trim()
     }
 
     if (isPlannedChanged) {
@@ -119,8 +123,14 @@ Page({
     }
 
     if (this.data._id) {
-      db.collection('vaccine_records').doc(this.data._id).update({ data: payload })
-        .then(() => {
+      wx.cloud.callFunction({
+        name: 'batchVaccine',
+        data: { action: 'update', familyCode, _id: this.data._id, data: payload }
+      })
+        .then(res => {
+          if (!res.result || !res.result.success) {
+            throw new Error(res.result && res.result.error)
+          }
           if (isCompleted) {
             return this.recalculateFollowing()
           }
@@ -136,22 +146,27 @@ Page({
           wx.showToast({ title: '保存失败', icon: 'none' })
         })
     } else {
-      db.collection('vaccine_records').add({
+      wx.cloud.callFunction({
+        name: 'batchVaccine',
         data: {
+          action: 'add',
           familyCode,
-          vaccineName: this.data.vaccineName,
-          category: this.data.category,
-          dose: this.data.dose,
-          plannedDate: this.data.plannedDate,
-          actualDate: this.data.actualDate || '',
-          status: isCompleted ? 'completed' : 'planned',
-          isCustomPlanned: false,
-          note: this.data.note.trim(),
-          createTime: db.serverDate(),
-          updateTime: db.serverDate()
+          record: {
+            vaccineName: this.data.vaccineName,
+            category: this.data.category,
+            dose: this.data.dose,
+            plannedDate: this.data.plannedDate,
+            actualDate: this.data.actualDate || '',
+            status: isCompleted ? 'completed' : 'planned',
+            isCustomPlanned: false,
+            note: this.data.note.trim()
+          }
         }
       })
-        .then(() => {
+        .then(res => {
+          if (!res.result || !res.result.success) {
+            throw new Error(res.result && res.result.error)
+          }
           wx.hideLoading()
           wx.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(() => wx.navigateBack(), 800)
@@ -168,16 +183,18 @@ Page({
     const birthDate = wx.getStorageSync('babyBirthDate')
     if (!birthDate) return Promise.resolve()
 
-    const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     const vaccineName = this.data.vaccineName
 
-    return db.collection('vaccine_records')
-      .where({ familyCode, vaccineName })
-      .orderBy('dose', 'asc')
-      .get()
+    return wx.cloud.callFunction({
+      name: 'batchVaccine',
+      data: { action: 'list', familyCode }
+    })
       .then(res => {
-        const records = res.data
+        if (!res.result || !res.result.success) return Promise.resolve()
+        const records = (res.result.data || [])
+          .filter(r => r.vaccineName === vaccineName)
+          .sort((a, b) => a.dose - b.dose)
         const schedule = VACCINE_SCHEDULES.find(v => v.name === vaccineName)
         if (!schedule) return Promise.resolve()
 
@@ -197,10 +214,13 @@ Page({
 
             if (finalDateStr !== r.plannedDate) {
               updates.push(
-                db.collection('vaccine_records').doc(r._id).update({
+                wx.cloud.callFunction({
+                  name: 'batchVaccine',
                   data: {
-                    plannedDate: finalDateStr,
-                    updateTime: db.serverDate()
+                    action: 'update',
+                    familyCode,
+                    _id: r._id,
+                    data: { plannedDate: finalDateStr }
                   }
                 })
               )
@@ -243,12 +263,19 @@ Page({
       success: (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '删除中...', mask: true })
-          const db = wx.cloud.database()
-          db.collection('vaccine_records').doc(this.data._id).remove()
-            .then(() => {
+          const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+          wx.cloud.callFunction({
+            name: 'batchVaccine',
+            data: { action: 'remove', familyCode, _id: this.data._id }
+          })
+            .then(res => {
               wx.hideLoading()
-              wx.showToast({ title: '已删除', icon: 'success' })
-              setTimeout(() => wx.navigateBack(), 800)
+              if (res.result && res.result.success) {
+                wx.showToast({ title: '已删除', icon: 'success' })
+                setTimeout(() => wx.navigateBack(), 800)
+              } else {
+                wx.showToast({ title: '删除失败', icon: 'none' })
+              }
             })
             .catch(() => {
               wx.hideLoading()

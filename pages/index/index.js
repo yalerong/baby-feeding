@@ -119,8 +119,19 @@ Page({
     })
   },
 
-  supplementStorageKey(date, name) {
-    return 'supplementTaken:' + date + ':' + name
+  applySupplementReminder(reminder, taken) {
+    this.setData({
+      supplementReminder: {
+        visible: true,
+        day: reminder.day,
+        name: reminder.name,
+        nextName: reminder.nextName,
+        taken,
+        title: '今天该吃 ' + reminder.name,
+        statusText: taken ? '已记录' : '还没记录',
+        actionText: taken ? '取消已吃' : '标记已吃'
+      }
+    })
   },
 
   refreshSupplementReminder() {
@@ -157,36 +168,56 @@ Page({
       return
     }
 
-    const taken = !!wx.getStorageSync(this.supplementStorageKey(this.data.todayDate, reminder.name))
-    this.setData({
-      supplementReminder: {
-        visible: true,
-        day: reminder.day,
-        name: reminder.name,
-        nextName: reminder.nextName,
-        taken,
-        title: '今天该吃 ' + reminder.name,
-        statusText: taken ? '已记录' : '还没记录',
-        actionText: taken ? '取消已吃' : '标记已吃'
+    this.applySupplementReminder(reminder, this.data.supplementReminder.taken)
+
+    const date = this.data.todayDate
+    wx.cloud.callFunction({
+      name: 'supplement',
+      data: {
+        action: 'get',
+        familyCode: this.data.familyCode,
+        date,
+        name: reminder.name
       }
+    }).then(res => {
+      if (!res.result || !res.result.success) return
+      if (this.data.todayDate !== date || this.data.supplementReminder.name !== reminder.name) return
+      this.applySupplementReminder(reminder, !!res.result.taken)
+    }).catch(err => {
+      console.error(err)
     })
   },
 
   toggleSupplementTaken() {
     const reminder = this.data.supplementReminder
-    if (!reminder.name) return
+    if (!reminder.name || this._supplementSaving) return
 
-    const key = this.supplementStorageKey(this.data.todayDate, reminder.name)
     const nextTaken = !reminder.taken
-    if (nextTaken) {
-      wx.setStorageSync(key, true)
-    } else {
-      wx.removeStorageSync(key)
-    }
-    this.refreshSupplementReminder()
-    wx.showToast({
-      title: nextTaken ? '已标记' : '已取消',
-      icon: 'none'
+    this._supplementSaving = true
+    wx.cloud.callFunction({
+      name: 'supplement',
+      data: {
+        action: 'set',
+        familyCode: this.data.familyCode,
+        date: this.data.todayDate,
+        name: reminder.name,
+        taken: nextTaken
+      }
+    }).then(res => {
+      this._supplementSaving = false
+      if (res.result && res.result.success) {
+        this.applySupplementReminder(reminder, nextTaken)
+        wx.showToast({
+          title: nextTaken ? '已标记' : '已取消',
+          icon: 'none'
+        })
+      } else {
+        wx.showToast({ title: '操作失败', icon: 'none' })
+      }
+    }).catch(err => {
+      this._supplementSaving = false
+      console.error(err)
+      wx.showToast({ title: '操作失败', icon: 'none' })
     })
   },
 
