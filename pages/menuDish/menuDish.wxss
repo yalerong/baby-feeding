@@ -1,0 +1,91 @@
+.dish-hero {
+  display: flex;
+  align-items: center;
+  background: #fff;
+}
+
+.dish-art {
+  flex-shrink: 0;
+  width: 132rpx;
+  height: 132rpx;
+  border-radius: 24rpx;
+  line-height: 132rpx;
+  text-align: center;
+  font-size: 72rpx;
+}
+
+.dish-title-wrap {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx;
+}
+
+.dish-title-input {
+  font-size: 40rpx;
+  color: #333;
+  font-weight: 700;
+}
+
+.dish-sub {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  color: #999;
+}
+
+.section-title,
+.form-label {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.tag-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.nutrition-tag {
+  background: #F1F8F4;
+  color: #2E8753;
+  border-radius: 8rpx;
+  padding: 6rpx 12rpx;
+  font-size: 24rpx;
+}
+
+.serving-text {
+  margin-top: 16rpx;
+  color: #666;
+  font-size: 27rpx;
+  line-height: 1.55;
+}
+
+.form-card {
+  padding-top: 24rpx;
+}
+
+.form-label {
+  margin-top: 26rpx;
+  margin-bottom: 14rpx;
+}
+
+.form-label:first-child {
+  margin-top: 0;
+}
+
+.text-input,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #FFFCF7;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.5;
+}
+
+textarea {
+  min-height: 132rpx;
+}

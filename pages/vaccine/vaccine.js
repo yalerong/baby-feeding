@@ -17,7 +17,6 @@ const VACCINE_SCHEDULES = [
 ]
 
 const dateUtil = require('../../utils/date.js')
-const formatDate = dateUtil.formatDate
 
 Page({
   data: {
@@ -32,8 +31,7 @@ Page({
   },
 
   onShow() {
-    const now = new Date()
-    const todayStr = formatDate(now)
+    const todayStr = dateUtil.todayStr()
     this.setData({ today: todayStr })
 
     const birthDate = wx.getStorageSync('babyBirthDate')
@@ -47,27 +45,29 @@ Page({
   },
 
   calculateMonths(birthDate, currentDate) {
-    const b = new Date(birthDate)
-    const c = new Date(currentDate)
-    let months = (c.getFullYear() - b.getFullYear()) * 12 + (c.getMonth() - b.getMonth())
-    if (c.getDate() < b.getDate()) months--
-    if (months < 0) months = 0
-    return months
+    return dateUtil.monthsBetween(birthDate, currentDate)
   },
 
   checkAndInitPlan(birthDate) {
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    const db = wx.cloud.database()
-    db.collection('vaccine_records')
-      .where({ familyCode })
-      .count()
-      .then(res => {
-        if (res.total === 0) {
-          this.initPlan(birthDate, familyCode)
-        } else {
-          this.loadRecords()
-        }
-      })
+    wx.cloud.callFunction({
+      name: 'batchVaccine',
+      data: { action: 'list', familyCode }
+    }).then(res => {
+      if (!res.result || !res.result.success) {
+        wx.showToast({ title: '加载失败', icon: 'none' })
+        return
+      }
+      const data = res.result.data || []
+      if (data.length === 0) {
+        this.initPlan(birthDate, familyCode)
+      } else {
+        this.renderRecords(data)
+      }
+    }).catch(err => {
+      console.error(err)
+      wx.showToast({ title: '加载失败', icon: 'none' })
+    })
   },
 
   initPlan(birthDate, familyCode) {
@@ -76,13 +76,11 @@ Page({
     const records = []
     VACCINE_SCHEDULES.forEach(v => {
       v.doses.forEach(d => {
-        const birth = new Date(birthDate)
-        const planned = new Date(birth.getFullYear(), birth.getMonth() + d.minAgeMonth, birth.getDate())
         records.push({
           vaccineName: v.name,
           category: v.category,
           dose: d.dose,
-          plannedDate: formatDate(planned),
+          plannedDate: dateUtil.addMonths(birthDate, d.minAgeMonth),
           actualDate: '',
           status: 'planned',
           isCustomPlanned: false,
@@ -110,24 +108,29 @@ Page({
 
   loadRecords() {
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    const db = wx.cloud.database()
-    db.collection('vaccine_records')
-      .where({ familyCode })
-      .orderBy('plannedDate', 'asc')
-      .get()
-      .then(res => {
-        const records = res.data.map(r => ({
-          ...r,
-          isOverdue: r.status === 'planned' && r.plannedDate < this.data.today
-        }))
-        this.setData({ records })
-        this.applyFilter()
-        this.calculateStats(records)
-      })
-      .catch(err => {
-        console.error(err)
+    wx.cloud.callFunction({
+      name: 'batchVaccine',
+      data: { action: 'list', familyCode }
+    }).then(res => {
+      if (!res.result || !res.result.success) {
         wx.showToast({ title: '加载失败', icon: 'none' })
-      })
+        return
+      }
+      this.renderRecords(res.result.data || [])
+    }).catch(err => {
+      console.error(err)
+      wx.showToast({ title: '加载失败', icon: 'none' })
+    })
+  },
+
+  renderRecords(data) {
+    const records = data.map(r => ({
+      ...r,
+      isOverdue: r.status === 'planned' && r.plannedDate < this.data.today
+    }))
+    this.setData({ records })
+    this.applyFilter()
+    this.calculateStats(records)
   },
 
   calculateStats(records) {
@@ -208,17 +211,22 @@ Page({
             success: (modalRes) => {
               if (modalRes.confirm) {
                 wx.showLoading({ title: '删除中...', mask: true })
-                const db = wx.cloud.database()
-                db.collection('vaccine_records').doc(item._id).remove()
-                  .then(() => {
-                    wx.hideLoading()
+                const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+                wx.cloud.callFunction({
+                  name: 'batchVaccine',
+                  data: { action: 'remove', familyCode, _id: item._id }
+                }).then(res => {
+                  wx.hideLoading()
+                  if (res.result && res.result.success) {
                     wx.showToast({ title: '已删除', icon: 'success' })
                     this.loadRecords()
-                  })
-                  .catch(() => {
-                    wx.hideLoading()
+                  } else {
                     wx.showToast({ title: '删除失败', icon: 'none' })
-                  })
+                  }
+                }).catch(() => {
+                  wx.hideLoading()
+                  wx.showToast({ title: '删除失败', icon: 'none' })
+                })
               }
             }
           })

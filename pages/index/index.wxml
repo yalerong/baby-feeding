@@ -114,6 +114,21 @@
   </view>
 
   <!-- 添加按钮 -->
+  <view wx:if="{{currentDate === todayDate && supplementReminder.visible}}" class="card supplement-card">
+    <view class="supplement-left">
+      <view class="supplement-icon">☀️</view>
+      <view class="supplement-copy">
+        <view class="supplement-title">{{supplementReminder.title}}</view>
+      </view>
+    </view>
+    <view class="supplement-right">
+      <view class="supplement-status {{supplementReminder.taken ? 'taken' : ''}}">{{supplementReminder.statusText}}</view>
+      <button wx:if="{{supplementReminder.name}}" class="supplement-btn {{supplementReminder.taken ? 'taken' : ''}}" bindtap="toggleSupplementTaken">
+        {{supplementReminder.actionText}}
+      </button>
+    </view>
+  </view>
+
   <button class="btn-primary" bindtap="goAdd">🍼 添加详细记录</button>
   <button class="btn-secondary" bindtap="goBatch">📋 批量补录历史数据</button>
 </view>

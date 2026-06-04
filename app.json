@@ -6,6 +6,8 @@
     "pages/batch/batch",
     "pages/growth/growth",
     "pages/growthEdit/growthEdit",
+    "pages/menu/menu",
+    "pages/menuDish/menuDish",
     "pages/vaccine/vaccine",
     "pages/vaccineEdit/vaccineEdit"
   ],
@@ -33,6 +35,10 @@
       {
         "pagePath": "pages/growth/growth",
         "text": "📏 生长"
+      },
+      {
+        "pagePath": "pages/menu/menu",
+        "text": "🍚 菜单"
       },
       {
         "pagePath": "pages/vaccine/vaccine",

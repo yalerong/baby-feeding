@@ -4,6 +4,7 @@ const db = cloud.database()
 const _ = db.command
 
 const PAGE_SIZE = 100
+const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000
 
 async function fetchAll(conditions) {
   const records = []
@@ -40,10 +41,7 @@ exports.main = async (event) => {
       if (isNaN(days) || days <= 0) {
         return { success: false, error: 'invalid range', stats: empty(), dailyStats: [] }
       }
-      const now = new Date()
-      const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
-      const pad = n => String(n).padStart(2, '0')
-      const startStr = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`
+      const startStr = addBeijingDays(formatBeijingDate(new Date()), -days)
       conditions.date = _.gte(startStr)
     }
 
@@ -102,4 +100,19 @@ exports.main = async (event) => {
 
 function empty() {
   return { totalCount: 0, totalMilk: 0, totalBreast: 0, totalStool: 0, ratio: '0%' }
+}
+
+function pad(n) {
+  return String(n).padStart(2, '0')
+}
+
+function formatBeijingDate(date) {
+  const bj = new Date(date.getTime() + BEIJING_OFFSET_MS)
+  return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())}`
+}
+
+function addBeijingDays(dateStr, days) {
+  const parts = dateStr.split('-').map(n => parseInt(n, 10))
+  const next = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + days))
+  return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`
 }
