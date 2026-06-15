@@ -1,4 +1,5 @@
 const dateUtil = require('../../utils/date.js')
+const supplementSync = require('../../utils/supplementSync.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -69,10 +70,12 @@ Page({
 
   onHide() {
     this.stopSinceTimer()
+    this.stopSupplementSync()
   },
 
   onUnload() {
     this.stopSinceTimer()
+    this.stopSupplementSync()
   },
 
   startSinceTimer() {
@@ -136,6 +139,7 @@ Page({
 
   refreshSupplementReminder() {
     if (this.data.currentDate !== this.data.todayDate) {
+      this.stopSupplementSync()
       this.setData({
         supplementReminder: {
           visible: false,
@@ -153,6 +157,7 @@ Page({
 
     const reminder = dateUtil.supplementReminder(this.data.babyBirthDate, this.data.todayDate)
     if (!reminder.name) {
+      this.stopSupplementSync()
       this.setData({
         supplementReminder: {
           visible: true,
@@ -171,6 +176,16 @@ Page({
     this.applySupplementReminder(reminder, this.data.supplementReminder.taken)
 
     const date = this.data.todayDate
+    this.startSupplementSync(reminder, date)
+    this.fetchSupplementTaken(reminder, date)
+  },
+
+  fetchSupplementTaken(reminder, date) {
+    const key = supplementSync.getSupplementSyncKey({
+      familyCode: this.data.familyCode,
+      date,
+      name: reminder.name
+    })
     wx.cloud.callFunction({
       name: 'supplement',
       data: {
@@ -181,11 +196,64 @@ Page({
       }
     }).then(res => {
       if (!res.result || !res.result.success) return
+      if (this._supplementSyncKey && this._supplementSyncKey !== key) return
       if (this.data.todayDate !== date || this.data.supplementReminder.name !== reminder.name) return
       this.applySupplementReminder(reminder, !!res.result.taken)
     }).catch(err => {
       console.error(err)
     })
+  },
+
+  startSupplementSync(reminder, date) {
+    const familyCode = this.data.familyCode
+    if (!supplementSync.shouldSyncSupplement({
+      currentDate: this.data.currentDate,
+      todayDate: this.data.todayDate,
+      familyCode,
+      name: reminder.name
+    })) {
+      this.stopSupplementSync()
+      return
+    }
+
+    const key = supplementSync.getSupplementSyncKey({ familyCode, date, name: reminder.name })
+    if (this._supplementSyncKey === key) return
+
+    this.stopSupplementSync()
+    this._supplementSyncKey = key
+    this.startSupplementWatcher(reminder, date, key)
+  },
+
+  startSupplementWatcher(reminder, date, key) {
+    try {
+      if (!wx.cloud || !wx.cloud.database) return
+      const db = wx.cloud.database()
+      this._supplementWatcher = db.collection('supplement_records')
+        .where({
+          familyCode: this.data.familyCode,
+          date,
+          name: reminder.name
+        })
+        .watch({
+          onChange: snapshot => {
+            if (this._supplementSyncKey !== key) return
+            this.applySupplementReminder(reminder, supplementSync.takenFromWatchSnapshot(snapshot))
+          },
+          onError: err => {
+            console.error(err)
+          }
+        })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  stopSupplementSync() {
+    this._supplementSyncKey = ''
+    if (this._supplementWatcher) {
+      this._supplementWatcher.close()
+      this._supplementWatcher = null
+    }
   },
 
   toggleSupplementTaken() {
@@ -212,12 +280,12 @@ Page({
           icon: 'none'
         })
       } else {
-        wx.showToast({ title: '操作失败', icon: 'none' })
+        wx.showToast({ title: supplementSync.operationFailureTitle(res), icon: 'none' })
       }
     }).catch(err => {
       this._supplementSaving = false
       console.error(err)
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: supplementSync.operationFailureTitle(err), icon: 'none' })
     })
   },
 
