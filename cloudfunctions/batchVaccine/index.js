@@ -1,6 +1,7 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const maintenance = require('./maintenance.js')
 
 const MAX_ITEMS = 200
 
@@ -52,12 +53,8 @@ exports.main = async (event) => {
     }
 
     if (action === 'clear') {
-      const existing = await db.collection('vaccine_records').where({ familyCode }).get()
-      const list = existing.data || []
-      await Promise.all(
-        list.map(r => db.collection('vaccine_records').doc(r._id).remove())
-      )
-      return { success: true, count: list.length }
+      const count = await maintenance.removeAllForFamily(db.collection('vaccine_records'), familyCode, MAX_ITEMS)
+      return { success: true, count }
     }
 
     if (action === 'list') {

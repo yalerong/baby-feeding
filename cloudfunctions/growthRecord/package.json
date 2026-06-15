@@ -1,0 +1,9 @@
+{
+  "name": "growthRecord",
+  "version": "1.0.0",
+  "description": "Growth record mutations with family ownership checks",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

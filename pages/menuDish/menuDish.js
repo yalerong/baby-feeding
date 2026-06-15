@@ -33,15 +33,17 @@ Page({
       birthDate,
       weekStart: this.data.weekStart
     })
-    const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
 
-    db.collection('weekly_menus')
-      .where({ familyCode, weekStart: this.data.weekStart })
-      .limit(1)
-      .get()
+    wx.cloud.callFunction({
+      name: 'weeklyMenu',
+      data: { action: 'get', familyCode, weekStart: this.data.weekStart }
+    })
       .then(res => {
-        const saved = res.data && res.data[0]
+        if (!res.result || !res.result.success) {
+          throw new Error(res.result && res.result.error)
+        }
+        const saved = res.result.data
         const draft = wx.getStorageSync(this.getDraftKey())
         const plan = draft || (saved ? { ...generated, days: saved.days || generated.days } : generated)
         this.setDish(plan, saved ? saved._id : '')
@@ -147,23 +149,22 @@ Page({
     plan.nutritionSummary = this.calculateNutrition(plan.days)
 
     wx.showLoading({ title: '保存中...', mask: true })
-    const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     const data = {
-      familyCode,
-      weekStart: plan.weekStart,
       ageMonth: plan.ageMonth,
       stage: plan.stage,
       days: plan.days,
-      nutritionSummary: plan.nutritionSummary,
-      updateTime: db.serverDate()
+      nutritionSummary: plan.nutritionSummary
     }
-    const task = this.data.savedDocId
-      ? db.collection('weekly_menus').doc(this.data.savedDocId).update({ data })
-      : db.collection('weekly_menus').add({ data: { ...data, createTime: db.serverDate() } })
 
-    task.then(() => {
+    wx.cloud.callFunction({
+      name: 'weeklyMenu',
+      data: { action: 'save', familyCode, weekStart: plan.weekStart, data }
+    }).then(res => {
       wx.hideLoading()
+      if (!res.result || !res.result.success) {
+        throw new Error(res.result && res.result.error)
+      }
       wx.removeStorageSync(this.getDraftKey())
       wx.showToast({ title: '已保存', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 700)

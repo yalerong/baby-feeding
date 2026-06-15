@@ -1,0 +1,9 @@
+{
+  "name": "weeklyMenu",
+  "version": "1.0.0",
+  "description": "Weekly menu reads and writes with family ownership",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

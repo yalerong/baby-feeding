@@ -1,5 +1,6 @@
 const dateUtil = require('../../utils/date.js')
 const supplementSync = require('../../utils/supplementSync.js')
+const familyRecordSync = require('../../utils/familyRecordSync.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -71,11 +72,13 @@ Page({
   onHide() {
     this.stopSinceTimer()
     this.stopSupplementSync()
+    this.stopFeedingSync()
   },
 
   onUnload() {
     this.stopSinceTimer()
     this.stopSupplementSync()
+    this.stopFeedingSync()
   },
 
   startSinceTimer() {
@@ -297,6 +300,7 @@ Page({
 
   bindDateChange(e) {
     const date = e.detail.value
+    this.stopFeedingSync()
     this.setData({ currentDate: date }, () => {
       this.refreshSupplementReminder()
     })
@@ -311,13 +315,59 @@ Page({
         date: date
       }
     }).then(res => {
+      if (this.data.currentDate !== date) return
       const records = res.result.data || []
       const prevFeeding = res.result.prevFeeding || null
+      this._prevFeedingByDate = this._prevFeedingByDate || {}
+      this._prevFeedingByDate[date] = prevFeeding
       this.calculateStats(records, prevFeeding)
+      this.startFeedingSync(this.data.familyCode, date)
     }).catch(err => {
       console.error(err)
       wx.showToast({ title: '获取记录失败', icon: 'none' })
     })
+  },
+
+  startFeedingSync(familyCode, date) {
+    if (!familyRecordSync.shouldSyncFamilyRecords({ familyCode }) || !date) {
+      this.stopFeedingSync()
+      return
+    }
+
+    const key = familyRecordSync.getFamilySyncKey({ familyCode, date })
+    if (this._feedingSyncKey === key) return
+
+    this.stopFeedingSync()
+    this._feedingSyncKey = key
+    try {
+      if (!wx.cloud || !wx.cloud.database) return
+      const db = wx.cloud.database()
+      this._feedingWatcher = db.collection('feeding_records')
+        .where({ familyCode, date })
+        .orderBy('time', 'asc')
+        .watch({
+          onChange: snapshot => {
+            if (this._feedingSyncKey !== key) return
+            const prevFeeding = this._prevFeedingByDate && this._prevFeedingByDate[date]
+              ? this._prevFeedingByDate[date]
+              : null
+            this.calculateStats(familyRecordSync.recordsFromWatchSnapshot(snapshot), prevFeeding)
+          },
+          onError: err => {
+            console.error(err)
+          }
+        })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  stopFeedingSync() {
+    this._feedingSyncKey = ''
+    if (this._feedingWatcher) {
+      this._feedingWatcher.close()
+      this._feedingWatcher = null
+    }
   },
 
   calculateStats(records, prevFeeding) {
@@ -383,6 +433,7 @@ Page({
 
   goToday() {
     if (this.data.currentDate === this.data.todayDate) return
+    this.stopFeedingSync()
     this.setData({ currentDate: this.data.todayDate }, () => {
       this.refreshSupplementReminder()
     })

@@ -1,3 +1,5 @@
+const familyRecordSync = require('../../utils/familyRecordSync.js')
+
 Page({
   data: {
     records: [],
@@ -21,6 +23,14 @@ Page({
     this.loadRecords()
   },
 
+  onHide() {
+    this.stopGrowthSync()
+  },
+
+  onUnload() {
+    this.stopGrowthSync()
+  },
+
   loadRecords() {
     const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
@@ -30,15 +40,59 @@ Page({
       .get()
       .then(res => {
         const records = res.data || []
-        this.calculateLatest(records)
-        this.setData({ records }, () => {
-          if (records.length > 0) this.drawChart(records)
-        })
+        this.renderRecords(records)
+        this.startGrowthSync(familyCode)
       })
       .catch(err => {
         console.error(err)
         wx.showToast({ title: '加载失败', icon: 'none' })
       })
+  },
+
+  renderRecords(records) {
+    this.calculateLatest(records)
+    this.setData({ records }, () => {
+      if (records.length > 0) this.drawChart(records)
+    })
+  },
+
+  startGrowthSync(familyCode) {
+    if (!familyRecordSync.shouldSyncFamilyRecords({ familyCode })) {
+      this.stopGrowthSync()
+      return
+    }
+
+    const key = familyRecordSync.getFamilySyncKey({ familyCode })
+    if (this._growthSyncKey === key) return
+
+    this.stopGrowthSync()
+    this._growthSyncKey = key
+    try {
+      if (!wx.cloud || !wx.cloud.database) return
+      const db = wx.cloud.database()
+      this._growthWatcher = db.collection('growth_records')
+        .where({ familyCode })
+        .orderBy('date', 'desc')
+        .watch({
+          onChange: snapshot => {
+            if (this._growthSyncKey !== key) return
+            this.renderRecords(familyRecordSync.recordsFromWatchSnapshot(snapshot))
+          },
+          onError: err => {
+            console.error(err)
+          }
+        })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  stopGrowthSync() {
+    this._growthSyncKey = ''
+    if (this._growthWatcher) {
+      this._growthWatcher.close()
+      this._growthWatcher = null
+    }
   },
 
   calculateLatest(records) {

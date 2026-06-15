@@ -17,6 +17,7 @@ const VACCINE_SCHEDULES = [
 ]
 
 const dateUtil = require('../../utils/date.js')
+const vaccineSync = require('../../utils/vaccineSync.js')
 
 Page({
   data: {
@@ -40,8 +41,17 @@ Page({
       this.setData({ birthDate, currentMonth: months })
       this.checkAndInitPlan(birthDate)
     } else {
+      this.stopVaccineSync()
       this.setData({ birthDate: '', records: [], displayRecords: [], stats: { completed: 0, pending: 0, overdue: 0 } })
     }
+  },
+
+  onHide() {
+    this.stopVaccineSync()
+  },
+
+  onUnload() {
+    this.stopVaccineSync()
   },
 
   calculateMonths(birthDate, currentDate) {
@@ -63,6 +73,7 @@ Page({
         this.initPlan(birthDate, familyCode)
       } else {
         this.renderRecords(data)
+        this.startVaccineSync(familyCode, birthDate)
       }
     }).catch(err => {
       console.error(err)
@@ -117,6 +128,7 @@ Page({
         return
       }
       this.renderRecords(res.result.data || [])
+      this.startVaccineSync(familyCode, this.data.birthDate)
     }).catch(err => {
       console.error(err)
       wx.showToast({ title: '加载失败', icon: 'none' })
@@ -143,6 +155,49 @@ Page({
       }
     })
     this.setData({ stats: { completed, pending, overdue } })
+  },
+
+  startVaccineSync(familyCode, birthDate) {
+    if (!vaccineSync.shouldSyncVaccine({ familyCode, birthDate })) {
+      this.stopVaccineSync()
+      return
+    }
+
+    const key = vaccineSync.getVaccineSyncKey({ familyCode })
+    if (this._vaccineSyncKey === key) return
+
+    this.stopVaccineSync()
+    this._vaccineSyncKey = key
+    this.startVaccineWatcher(familyCode, key)
+  },
+
+  startVaccineWatcher(familyCode, key) {
+    try {
+      if (!wx.cloud || !wx.cloud.database) return
+      const db = wx.cloud.database()
+      this._vaccineWatcher = db.collection('vaccine_records')
+        .where({ familyCode })
+        .orderBy('plannedDate', 'asc')
+        .watch({
+          onChange: snapshot => {
+            if (this._vaccineSyncKey !== key) return
+            this.renderRecords(vaccineSync.recordsFromWatchSnapshot(snapshot))
+          },
+          onError: err => {
+            console.error(err)
+          }
+        })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  stopVaccineSync() {
+    this._vaccineSyncKey = ''
+    if (this._vaccineWatcher) {
+      this._vaccineWatcher.close()
+      this._vaccineWatcher = null
+    }
   },
 
   applyFilter() {

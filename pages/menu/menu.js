@@ -1,5 +1,6 @@
 const dateUtil = require('../../utils/date.js')
 const menuData = require('../../utils/menuData.js')
+const familyRecordSync = require('../../utils/familyRecordSync.js')
 
 Page({
   data: {
@@ -72,6 +73,14 @@ Page({
     this.buildMonth(monthStart)
   },
 
+  onHide() {
+    this.stopMenuSync()
+  },
+
+  onUnload() {
+    this.stopMenuSync()
+  },
+
   getWeekStart(dateStr) {
     const parts = dateStr.split('-').map(n => parseInt(n, 10))
     const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
@@ -96,6 +105,7 @@ Page({
   },
 
   loadWeek(weekStart) {
+    this.stopMenuSync()
     if (!this.data.birthDate) {
       this.setData({ currentPlan: null, savedDocId: '', dirty: false, catalogDishes: menuData.getDishCatalog() })
       this.updatePlanningNotice(null)
@@ -123,27 +133,19 @@ Page({
       return
     }
 
-    const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    db.collection('weekly_menus')
-      .where({ familyCode, weekStart })
-      .limit(1)
-      .get()
+    wx.cloud.callFunction({
+      name: 'weeklyMenu',
+      data: { action: 'get', familyCode, weekStart }
+    })
       .then(res => {
-        const saved = res.data && res.data[0]
+        if (!res.result || !res.result.success) {
+          throw new Error(res.result && res.result.error)
+        }
+        const saved = res.result.data
         const draft = wx.getStorageSync(this.getDraftKey(weekStart))
-        const plan = draft || (saved ? this.mergeSavedPlan(generated, saved) : this.decoratePlan(generated))
-        this.setData({
-          currentPlan: plan,
-          ageMonth: plan.ageMonth,
-          savedDocId: saved ? saved._id : '',
-          dirty: !!draft,
-          loading: false
-        }, () => {
-          this.updatePlanningNotice(plan)
-          this.syncSelectedDay(this.getDefaultDayIndex(plan))
-          this.buildCatalog(plan.ageMonth)
-        })
+        this.applyLoadedWeek(generated, saved, draft)
+        this.startMenuSync(familyCode, weekStart, generated)
       })
       .catch(err => {
         console.error(err)
@@ -161,6 +163,60 @@ Page({
         })
         wx.showToast({ title: '使用本地推荐', icon: 'none' })
       })
+  },
+
+  applyLoadedWeek(generated, saved, draft) {
+    const plan = draft || (saved ? this.mergeSavedPlan(generated, saved) : this.decoratePlan(generated))
+    this.setData({
+      currentPlan: plan,
+      ageMonth: plan.ageMonth,
+      savedDocId: saved ? saved._id : '',
+      dirty: !!draft,
+      loading: false
+    }, () => {
+      this.updatePlanningNotice(plan)
+      this.syncSelectedDay(this.getDefaultDayIndex(plan))
+      this.buildCatalog(plan.ageMonth)
+    })
+  },
+
+  startMenuSync(familyCode, weekStart, generated) {
+    if (!familyRecordSync.shouldSyncFamilyRecords({ familyCode }) || !weekStart) {
+      this.stopMenuSync()
+      return
+    }
+
+    const key = familyRecordSync.getFamilySyncKey({ familyCode, date: weekStart })
+    if (this._menuSyncKey === key) return
+
+    this.stopMenuSync()
+    this._menuSyncKey = key
+    try {
+      if (!wx.cloud || !wx.cloud.database) return
+      const db = wx.cloud.database()
+      this._menuWatcher = db.collection('weekly_menus')
+        .where({ familyCode, weekStart })
+        .watch({
+          onChange: snapshot => {
+            if (this._menuSyncKey !== key || this.data.dirty) return
+            const saved = familyRecordSync.recordsFromWatchSnapshot(snapshot)[0] || null
+            this.applyLoadedWeek(generated, saved, null)
+          },
+          onError: err => {
+            console.error(err)
+          }
+        })
+    } catch (err) {
+      console.error(err)
+    }
+  },
+
+  stopMenuSync() {
+    this._menuSyncKey = ''
+    if (this._menuWatcher) {
+      this._menuWatcher.close()
+      this._menuWatcher = null
+    }
   },
 
   mergeSavedPlan(generated, saved) {
@@ -410,26 +466,24 @@ Page({
     }
 
     wx.showLoading({ title: '保存中...', mask: true })
-    const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     const data = {
-      familyCode,
-      weekStart: plan.weekStart,
       ageMonth: plan.ageMonth,
       stage: plan.stage,
       days: plan.days,
-      nutritionSummary: plan.nutritionSummary,
-      updateTime: db.serverDate()
+      nutritionSummary: plan.nutritionSummary
     }
 
-    const task = this.data.savedDocId
-      ? db.collection('weekly_menus').doc(this.data.savedDocId).update({ data })
-      : db.collection('weekly_menus').add({ data: { ...data, createTime: db.serverDate() } })
-
-    task.then(res => {
+    wx.cloud.callFunction({
+      name: 'weeklyMenu',
+      data: { action: 'save', familyCode, weekStart: plan.weekStart, data }
+    }).then(res => {
       wx.hideLoading()
+      if (!res.result || !res.result.success) {
+        throw new Error(res.result && res.result.error)
+      }
       wx.removeStorageSync(this.getDraftKey(plan.weekStart))
-      this.setData({ savedDocId: this.data.savedDocId || res._id, dirty: false })
+      this.setData({ savedDocId: res.result._id || this.data.savedDocId, dirty: false })
       wx.showToast({ title: '已保存', icon: 'success' })
     }).catch(err => {
       wx.hideLoading()

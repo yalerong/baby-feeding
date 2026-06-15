@@ -29,13 +29,17 @@ Page({
 
   loadRecord(_id) {
     wx.showLoading({ title: '加载中...' })
-    const db = wx.cloud.database()
-    db.collection('growth_records')
-      .doc(_id)
-      .get()
+    const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    wx.cloud.callFunction({
+      name: 'growthRecord',
+      data: { action: 'get', familyCode, _id }
+    })
       .then(res => {
         wx.hideLoading()
-        const r = res.data
+        if (!res.result || !res.result.success) {
+          throw new Error(res.result && res.result.error)
+        }
+        const r = res.result.data
         this.setData({
           date: r.date,
           weight: String(r.weight),
@@ -83,9 +87,7 @@ Page({
     }
 
     wx.showLoading({ title: '保存中...', mask: true })
-    const db = wx.cloud.database()
     const payload = {
-      familyCode,
       date: this.data.date,
       note: this.data.note.trim()
     }
@@ -93,7 +95,10 @@ Page({
     if (hasHeight) payload.height = height
 
     if (this.data.isEdit) {
-      db.collection('growth_records').doc(this.data._id).update({ data: payload })
+      wx.cloud.callFunction({
+        name: 'growthRecord',
+        data: { action: 'update', familyCode, _id: this.data._id, data: payload }
+      })
         .then(() => {
           wx.hideLoading()
           wx.showToast({ title: '修改成功', icon: 'success' })
@@ -105,8 +110,9 @@ Page({
           wx.showToast({ title: '修改失败', icon: 'none' })
         })
     } else {
-      db.collection('growth_records').add({
-        data: { ...payload, createTime: db.serverDate() }
+      wx.cloud.callFunction({
+        name: 'growthRecord',
+        data: { action: 'add', familyCode, data: payload }
       })
         .then(() => {
           wx.hideLoading()
@@ -130,8 +136,11 @@ Page({
       success: (res) => {
         if (res.confirm) {
           wx.showLoading({ title: '删除中...', mask: true })
-          const db = wx.cloud.database()
-          db.collection('growth_records').doc(this.data._id).remove()
+          const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+          wx.cloud.callFunction({
+            name: 'growthRecord',
+            data: { action: 'remove', familyCode, _id: this.data._id }
+          })
             .then(() => {
               wx.hideLoading()
               wx.showToast({ title: '已删除', icon: 'success' })
