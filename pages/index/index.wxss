@@ -80,6 +80,40 @@
   margin-top: 4rpx;
 }
 
+.cry-alert-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-bottom: 18rpx;
+  padding: 22rpx 24rpx;
+  background: #F2FAF5;
+}
+
+.cry-alert-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2B6B46;
+}
+
+.cry-alert-desc {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.45;
+  color: #64806E;
+}
+
+.cry-alert-btn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 20rpx;
+  font-size: 24rpx;
+  line-height: 58rpx;
+  color: #fff;
+  background: #5BC58F;
+  border-radius: 29rpx;
+}
+
 .supplement-card {
   display: flex;
   align-items: center;

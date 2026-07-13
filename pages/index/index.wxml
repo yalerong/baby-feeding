@@ -27,6 +27,14 @@
     </picker>
   </view>
 
+  <view class="card cry-alert-card">
+    <view>
+      <view class="cry-alert-title">哭声提醒</view>
+      <view class="cry-alert-desc">授权后，树莓派检测到持续哭声会向本微信发送通知</view>
+    </view>
+    <button class="cry-alert-btn" bindtap="enableCryAlert">开启提醒</button>
+  </view>
+
   <!-- 日期汇总 -->
   <view class="card summary-card">
     <view class="summary-header">

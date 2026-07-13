@@ -27,6 +27,7 @@ Page({
     quickBreast: '',
     quickFormula: '',
     quickSaving: false,
+    cryAlertTemplateId: '',
     babyBirthDate: '',
     babyDays: 0,
     babyAgeText: '',
@@ -61,7 +62,8 @@ Page({
     this.setData({
       familyCode,
       todayDate: today,
-      currentDate
+      currentDate,
+      cryAlertTemplateId: getApp().globalData.cryAlertTemplateId || ''
     })
 
     this.refreshBaby(today)
@@ -420,6 +422,42 @@ Page({
 
   goAdd() {
     wx.navigateTo({ url: '/pages/add/add' })
+  },
+
+  enableCryAlert() {
+    const templateId = this.data.cryAlertTemplateId
+    if (!templateId || templateId === 'YOUR_CRY_ALERT_TEMPLATE_ID') {
+      wx.showToast({ title: '请先配置哭声提醒模板', icon: 'none' })
+      return
+    }
+
+    wx.requestSubscribeMessage({
+      tmplIds: [templateId],
+      success: result => {
+        if (result[templateId] !== 'accept') {
+          wx.showToast({ title: '未授权哭声提醒', icon: 'none' })
+          return
+        }
+
+        wx.cloud.callFunction({
+          name: 'cryAlertSubscription',
+          data: { action: 'grant', templateId }
+        }).then(res => {
+          if (res.result && res.result.success) {
+            wx.showToast({ title: '哭声提醒已开启', icon: 'success' })
+          } else {
+            wx.showToast({ title: '提醒授权保存失败', icon: 'none' })
+          }
+        }).catch(err => {
+          console.error(err)
+          wx.showToast({ title: '提醒授权保存失败', icon: 'none' })
+        })
+      },
+      fail: err => {
+        console.error(err)
+        wx.showToast({ title: '提醒授权失败', icon: 'none' })
+      }
+    })
   },
 
   goBatch() {

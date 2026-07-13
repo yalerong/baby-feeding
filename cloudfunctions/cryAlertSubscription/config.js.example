@@ -1,0 +1,4 @@
+module.exports = {
+  // Must match config.local.js in the Mini Program project.
+  templateId: 'YOUR_CRY_ALERT_TEMPLATE_ID'
+}

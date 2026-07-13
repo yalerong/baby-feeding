@@ -6,5 +6,9 @@ module.exports = {
 
   // 家庭共享码：建议设置为 8-16 位随机字符串，所有家人使用同一个码即可共享数据
   // 不要使用 FAMILY 这类容易猜中的值
-  familyCode: 'YOUR_FAMILY_CODE'
+  familyCode: 'YOUR_FAMILY_CODE',
+
+  // 哭声提醒订阅消息模板 ID。此值需要与 cryAlertSubscription/config.js 一致。
+  // 模板 ID 不是密钥，但在微信公众平台申请后才能填写。
+  cryAlertTemplateId: 'YOUR_CRY_ALERT_TEMPLATE_ID'
 }

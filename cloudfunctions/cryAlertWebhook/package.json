@@ -1,0 +1,9 @@
+{
+  "name": "cryAlertWebhook",
+  "version": "1.0.0",
+  "description": "Authenticated HTTP endpoint that sends the primary baby cry alert",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

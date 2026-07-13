@@ -1,0 +1,9 @@
+{
+  "name": "cryAlertSubscription",
+  "version": "1.0.0",
+  "description": "Bind the only WeChat recipient for baby cry alerts",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

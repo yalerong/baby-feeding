@@ -1,0 +1,14 @@
+module.exports = {
+  templateId: 'YOUR_CRY_ALERT_TEMPLATE_ID',
+  webhookSecret: 'replace-with-a-long-random-secret',
+  cooldownSeconds: 300,
+  miniprogramState: 'developer',
+
+  // Replace the field names with the exact fields from your approved template.
+  // {{detectedAt}} and {{score}} are substituted by the function.
+  templateFields: {
+    thing1: '检测到持续哭声',
+    time2: '{{detectedAt}}',
+    thing3: '识别分数 {{score}}'
+  }
+}

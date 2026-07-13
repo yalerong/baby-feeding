@@ -421,4 +421,43 @@ A：可以。编辑页里体重和身高**至少填一个**就能保存。如果
 
 ---
 
+## 单用户哭声提醒（微信订阅消息 Plan A）
+
+本项目可将树莓派的哭声报警只发送到一个固定微信用户。接收人不是由树莓派传入，而是在小程序里首次授权时由云函数记录当前 `openid`；之后其他用户不能覆盖该绑定。
+
+### 1. 申请和配置模板
+
+1. 在微信公众平台为当前小程序申请一条订阅消息模板，并记下模板 ID 和每个字段名。
+2. 把小程序 AppID 与当前云开发环境关联；否则云函数无法调用 `cloud.openapi.subscribeMessage.send`。
+3. 复制 `config.local.example.js` 为 `config.local.js`，填入 `cryAlertTemplateId`。
+4. 分别复制以下文件并填写真实值：
+   - `cloudfunctions/cryAlertSubscription/config.js.example` → `config.js`
+   - `cloudfunctions/cryAlertWebhook/config.js.example` → `config.js`
+
+两个云函数中的 `templateId` 必须与 `config.local.js` 一致。`cryAlertWebhook/config.js` 内的 `webhookSecret` 必须使用长随机值，且只存放在云端部署目录，不提交 Git。模板字段名必须严格按公众平台模板填写；示例里的 `thing1/time2/thing3` 仅为占位。
+
+### 2. 部署与授权
+
+1. 在微信开发者工具部署 `cryAlertSubscription` 和 `cryAlertWebhook` 两个云函数。
+2. 在云开发控制台为 `cryAlertWebhook` 配置 HTTP 访问路径，例如 `/baby-cry-alert`。此入口需要保持公开，函数会用 `webhookSecret` 验证每次请求。
+3. 打开小程序首页，点击“开启提醒”，在微信系统弹窗中允许订阅。此动作会把当前微信用户绑定为唯一接收者。
+4. 树莓派向 HTTP 地址发起 `POST`：
+
+```json
+{
+  "secret": "与 cryAlertWebhook/config.js 一致的值",
+  "score": "0.82"
+}
+```
+
+接口只会向已绑定的 `openid` 发送消息，且使用 `cooldownSeconds` 防止连续报警刷屏。
+
+### 3. 重要限制
+
+- 普通订阅消息通常是一次授权对应一次发送；发送成功后额度会扣减，下一次报警前需再次在小程序点击“开启提醒”。
+- 发送失败不会扣减额度；未授权或额度已用尽时接口返回 `NO_SUBSCRIPTION_QUOTA`。
+- 微信/安卓的通知横幅、响铃和免打扰效果受手机及微信通知设置控制，不能作为人身安全保障。
+
+---
+
 ## 祝你家宝宝健康成长！🍼

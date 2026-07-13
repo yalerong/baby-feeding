@@ -3,6 +3,8 @@
 # ============================================
 config.local.js
 project.private.config.json
+cloudfunctions/cryAlertSubscription/config.js
+cloudfunctions/cryAlertWebhook/config.js
 
 # ============================================
 # 隐私数据文件
