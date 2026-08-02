@@ -77,9 +77,20 @@ test('recommends separate daytime and nighttime feeding intervals', () => {
   ]
 
   assert.deepStrictEqual(audit.recommendReminderByPeriod(records), {
-    daytime: { minutes: 210, sampleCount: 7 },
-    nighttime: { minutes: 360, sampleCount: 4 }
+    daytime: { minutes: 210, sampleCount: 6 },
+    nighttime: { minutes: 360, sampleCount: 5 }
   })
+})
+
+test('classifies an interval by its midpoint instead of only its first feeding', () => {
+  assert.strictEqual(audit.getIntervalPeriod(
+    { date: '2026-07-31', time: '17:55' },
+    { date: '2026-08-01', time: '00:30' }
+  ), 'nighttime')
+  assert.strictEqual(audit.getIntervalPeriod(
+    { date: '2026-08-01', time: '10:00' },
+    { date: '2026-08-01', time: '14:00' }
+  ), 'daytime')
 })
 
 test('summarizes close feeding pairs for the evening review without deleting records', () => {

@@ -65,7 +65,7 @@ function collectIntervals(records) {
   for (let index = 1; index < feedings.length; index += 1) {
     const minutes = minutesBetween(feedings[index - 1], feedings[index])
     if (minutes !== null && minutes > 0 && minutes <= 12 * 60) {
-      intervals.push({ minutes, previous: feedings[index - 1] })
+      intervals.push({ minutes, previous: feedings[index - 1], current: feedings[index] })
     }
   }
   return intervals
@@ -74,6 +74,15 @@ function collectIntervals(records) {
 function getFeedingPeriod(record) {
   const hour = Number(String(record && record.time || '').split(':')[0])
   return Number.isFinite(hour) && hour >= 7 && hour < 19 ? 'daytime' : 'nighttime'
+}
+
+function getIntervalPeriod(earlier, later) {
+  const earlierTs = dateUtil.toBeijingTimestamp(earlier.date, earlier.time)
+  const laterTs = dateUtil.toBeijingTimestamp(later.date, later.time)
+  if (earlierTs === null || laterTs === null || laterTs <= earlierTs) return getFeedingPeriod(earlier)
+  const midpoint = new Date((earlierTs + laterTs) / 2)
+  const beijingHour = (midpoint.getUTCHours() + 8) % 24
+  return beijingHour >= 7 && beijingHour < 19 ? 'daytime' : 'nighttime'
 }
 
 function recommendReminder(records) {
@@ -86,7 +95,7 @@ function recommendReminder(records) {
 
 function recommendReminderByPeriod(records) {
   const groups = { daytime: [], nighttime: [] }
-  collectIntervals(records).forEach(item => groups[getFeedingPeriod(item.previous)].push(item.minutes))
+  collectIntervals(records).forEach(item => groups[getIntervalPeriod(item.previous, item.current)].push(item.minutes))
   return {
     daytime: recommendFromIntervals(groups.daytime, MIN_RECOMMENDED_REMINDER_MINUTES, MAX_RECOMMENDED_REMINDER_MINUTES),
     nighttime: recommendFromIntervals(groups.nighttime, 240, 480)
@@ -127,6 +136,7 @@ module.exports = {
   getPreviousDayReviewDate,
   shouldShowDailyReview,
   getFeedingPeriod,
+  getIntervalPeriod,
   recommendReminder,
   recommendReminderByPeriod,
   buildDailyReview

@@ -2,6 +2,7 @@ const dateUtil = require('../../utils/date.js')
 const supplementSync = require('../../utils/supplementSync.js')
 const familyRecordSync = require('../../utils/familyRecordSync.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
+const feedingReminderCache = require('../../utils/feedingReminderCache.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -172,6 +173,15 @@ Page({
   loadFeedingReminderRecommendation() {
     const endDateExclusive = this.data.todayDate
     const startDate = dateUtil.addDays(endDateExclusive, -30)
+    const cacheKey = feedingReminderCache.getKey(this.data.familyCode, endDateExclusive)
+    const cached = wx.getStorageSync(cacheKey)
+    if (cached && cached.daytime && cached.nighttime) {
+      this.setData({
+        feedingPeriodRecommendations: cached,
+        feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+      }, () => this.refreshSinceLastFeeding())
+      return
+    }
     wx.cloud.callFunction({
       name: 'getRecords',
       data: {
@@ -181,9 +191,10 @@ Page({
       }
     }).then(res => {
       const recommendations = feedingAudit.recommendReminderByPeriod((res.result && res.result.data) || [])
+      wx.setStorageSync(cacheKey, recommendations)
       const data = {
         feedingPeriodRecommendations: recommendations,
-        feedingRecommendationText: '根据近 30 天记录，白天与夜间分别计算'
+        feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
       }
       this.setData(data, () => this.refreshSinceLastFeeding())
     }).catch(err => {

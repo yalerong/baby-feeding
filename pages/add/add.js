@@ -2,6 +2,7 @@ const dateUtil = require('../../utils/date.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
 const menuData = require('../../utils/menuData.js')
 const solidFood = require('../../utils/solidFood.js')
+const feedingReminderCache = require('../../utils/feedingReminderCache.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -295,6 +296,7 @@ Page({
     }).then(res => {
       wx.hideLoading()
       if (res.result && res.result.success) {
+        feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
         if (payload.solidFood) {
           wx.setStorageSync('lastSolidFoodSelection', {
             dishId: payload.solidFoodDishId,
@@ -331,6 +333,7 @@ Page({
             data: { _id: this.data._id, familyCode: wx.getStorageSync('familyCode') }
           }).then(() => {
             wx.hideLoading()
+            feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
             wx.showToast({ title: '已删除', icon: 'success' })
             setTimeout(() => wx.navigateBack(), 800)
           }).catch(err => {
