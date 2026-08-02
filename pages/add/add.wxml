@@ -1,5 +1,8 @@
 <view class="container">
   <view class="card form-card">
+    <view wx:if="{{!isEdit && latestFeeding}}" class="latest-feeding-tip">
+      上次记录：{{latestFeeding.time}}，{{latestFeeding.breastMilk + latestFeeding.formula}}ml。本页填写的是本次新增奶量。
+    </view>
     <view class="form-item">
       <view class="form-label">日期</view>
       <picker mode="date" value="{{date}}" bindchange="bindDateChange">
@@ -23,6 +26,8 @@
       <view class="form-label">奶粉 (ml)</view>
       <input type="digit" value="{{formula}}" bindinput="bindFormulaInput" placeholder="0" />
     </view>
+
+    <view class="form-section-divider"></view>
 
     <view class="form-item">
       <view class="form-label">有大便</view>
@@ -49,6 +54,39 @@
         </picker>
       </view>
     </block>
+
+    <view class="form-section-divider"></view>
+
+    <view class="form-item">
+      <view class="form-label">🍚 辅食</view>
+      <switch checked="{{solidFood}}" bindchange="bindSolidFoodChange" color="#5BC58F" />
+    </view>
+
+    <block wx:if="{{solidFood}}">
+      <view class="solid-food-choices">
+        <view class="solid-food-choices-title">当前月龄常吃</view>
+        <view class="solid-food-choice-list">
+          <view wx:for="{{solidFoodFrequentDishes}}" wx:key="id" class="solid-food-choice {{solidFoodDishId === item.id ? 'active' : ''}}" data-dish-id="{{item.id}}" bindtap="selectFrequentSolidFood">
+            {{item.imageEmoji}} {{item.name}}
+          </view>
+        </view>
+        <view class="solid-food-choice-hint">没在这里？直接填写下面的“其他辅食”即可</view>
+      </view>
+      <view class="form-item">
+        <view class="form-label">其他辅食</view>
+        <input value="{{solidFoodCustomName}}" bindinput="bindSolidFoodCustomNameInput" placeholder="例如：自制番薯泥" />
+      </view>
+      <view class="form-item">
+        <view class="form-label">辅食克数 (g)</view>
+        <input type="digit" value="{{solidFoodGrams}}" bindinput="bindSolidFoodGramsInput" placeholder="0" />
+      </view>
+      <view class="solid-food-presets">
+        <text class="solid-food-presets-label">常用克数</text>
+        <view class="solid-food-preset-list">
+          <view wx:for="{{solidFoodGramPresets}}" wx:key="*this" class="solid-food-preset {{solidFoodGrams == item ? 'active' : ''}}" data-grams="{{item}}" bindtap="useSolidFoodGramPreset">{{item}}g</view>
+        </view>
+      </view>
+    </block>
   </view>
 
   <view class="preview-card card" wx:if="{{breastMilk > 0 || formula > 0}}">
@@ -57,10 +95,16 @@
       <text wx:if="{{breastMilk > 0}}">母乳 {{breastMilk}}ml </text>
       <text wx:if="{{formula > 0}}">奶粉 {{formula}}ml </text>
       <text>，合计 {{total}}ml</text>
+      <text wx:if="{{solidFood}}">；🍚 {{solidFoodName || '未填写辅食'}} {{solidFoodGrams || 0}}g</text>
     </view>
   </view>
 
-  <button class="btn-primary" bindtap="submit">{{isEdit ? '保存修改' : '保存记录'}}</button>
+  <view class="preview-card card solid-food-preview" wx:if="{{solidFood && breastMilk <= 0 && formula <= 0}}">
+    <view class="preview-title">本次录入预览</view>
+    <view class="preview-content">🍚 {{solidFoodName || '未填写辅食'}} {{solidFoodGrams || 0}}g</view>
+  </view>
+
+  <button class="btn-primary" disabled="{{saving}}" bindtap="submit">{{saving ? '保存中...' : (isEdit ? '保存修改' : '保存记录')}}</button>
   <button wx:if="{{isEdit}}" class="btn-danger" bindtap="deleteRecord">删除记录</button>
   <button class="btn-secondary" bindtap="goBack">取消</button>
 </view>

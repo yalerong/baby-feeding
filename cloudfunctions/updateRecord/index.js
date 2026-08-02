@@ -1,14 +1,17 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const { normalizeSolidFood } = require('./validation.js')
 
 exports.main = async (event) => {
-  const { _id, familyCode, date, time, breastMilk, formula, total, stool, stoolDesc } = event
+  const { _id, familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams } = event
   const { OPENID } = cloud.getWXContext()
 
   if (!_id || !familyCode) {
     return { success: false, error: '_id/familyCode required' }
   }
+  const normalizedSolidFood = normalizeSolidFood({ solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams })
+  if (!normalizedSolidFood) return { success: false, error: 'valid solid food name and grams required' }
 
   try {
     const existing = await db.collection('feeding_records').doc(_id).get().catch(() => null)
@@ -28,6 +31,7 @@ exports.main = async (event) => {
         total: Number(total) || 0,
         stool: Boolean(stool),
         stoolDesc: stoolDesc || '',
+        ...normalizedSolidFood,
         updateBy: OPENID || '',
         updateTime: db.serverDate()
       }

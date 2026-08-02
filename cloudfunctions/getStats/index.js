@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
+const dateRange = require('./dateRange.js')
 
 const PAGE_SIZE = 100
 const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000
@@ -37,12 +38,11 @@ exports.main = async (event) => {
     const conditions = { familyCode }
 
     if (range !== 'all') {
-      const days = parseInt(range)
-      if (isNaN(days) || days <= 0) {
+      const bounds = dateRange.getCompletedDayRange(range, formatBeijingDate(new Date()))
+      if (!bounds) {
         return { success: false, error: 'invalid range', stats: empty(), dailyStats: [] }
       }
-      const startStr = addBeijingDays(formatBeijingDate(new Date()), -days)
-      conditions.date = _.gte(startStr)
+      conditions.date = _.gte(bounds.startDate).and(_.lt(bounds.endDateExclusive))
     }
 
     const list = await fetchAll(conditions)
@@ -109,10 +109,4 @@ function pad(n) {
 function formatBeijingDate(date) {
   const bj = new Date(date.getTime() + BEIJING_OFFSET_MS)
   return `${bj.getUTCFullYear()}-${pad(bj.getUTCMonth() + 1)}-${pad(bj.getUTCDate())}`
-}
-
-function addBeijingDays(dateStr, days) {
-  const parts = dateStr.split('-').map(n => parseInt(n, 10))
-  const next = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + days))
-  return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`
 }

@@ -114,6 +114,124 @@
   border-radius: 29rpx;
 }
 
+.feeding-settings-card,
+.feeding-reminder-card,
+.daily-review-card {
+  margin-bottom: 18rpx;
+}
+
+.feeding-settings-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 20rpx 24rpx;
+  background: #F3F8FF;
+}
+
+.feeding-period-row {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 14rpx;
+}
+
+.feeding-period-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 10rpx;
+  background: rgba(255, 255, 255, 0.66);
+  color: #6C839B;
+  font-size: 20rpx;
+}
+
+.feeding-period-value {
+  color: #315B85;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.feeding-settings-title,
+.feeding-reminder-title,
+.daily-review-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #315B85;
+}
+
+.feeding-settings-desc,
+.feeding-reminder-desc,
+.daily-review-desc,
+.daily-review-warning,
+.daily-review-ok {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.45;
+  color: #66819B;
+}
+
+.feeding-settings-picker {
+  margin-top: 4rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 12rpx;
+  background: #DCEEFF;
+  color: #315B85;
+  font-size: 24rpx;
+  white-space: nowrap;
+}
+
+.feeding-reminder-card {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 22rpx 24rpx;
+  border: 1rpx solid #F5C66A;
+  background: #FFF8E7;
+}
+
+.feeding-reminder-icon {
+  font-size: 40rpx;
+  width: 54rpx;
+  height: 54rpx;
+  line-height: 54rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #FFF0CA;
+}
+
+.daily-review-card {
+  padding: 20rpx 24rpx;
+  background: #F7F1FF;
+}
+
+.daily-review-title {
+  color: #69508D;
+}
+
+.daily-review-warning {
+  color: #B76431;
+}
+
+.daily-review-ok {
+  color: #3D8062;
+}
+
+.daily-review-confirm {
+  margin: 16rpx 0 0;
+  padding: 0 24rpx;
+  height: 54rpx;
+  line-height: 54rpx;
+  border-radius: 12rpx;
+  background: #8062A6;
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.daily-review-confirm::after {
+  border: none;
+}
+
 .supplement-card {
   display: flex;
   align-items: center;
@@ -216,6 +334,10 @@
   border-radius: 20rpx;
   font-weight: 500;
   letter-spacing: 0.5rpx;
+}
+
+.solid-food-desc {
+  color: #B87522;
 }
 
 .summary-card {

@@ -15,6 +15,7 @@
   <view class="view-toggle">
     <view class="toggle-item {{viewMode === 'week' ? 'active' : ''}}" bindtap="switchView" data-mode="week">本周</view>
     <view class="toggle-item {{viewMode === 'month' ? 'active' : ''}}" bindtap="switchView" data-mode="month">本月安排</view>
+    <view class="toggle-item {{viewMode === 'trial' ? 'active' : ''}}" bindtap="switchView" data-mode="trial">食物解锁</view>
   </view>
 
   <view class="card notice-card" wx:if="{{isFuturePlan}}">
@@ -165,6 +166,40 @@
         <view class="dish-note">{{item.ingredientsLabel}}</view>
       </view>
       <view class="select-arrow">›</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{currentPlan && viewMode === 'trial'}}">
+    <view class="card trial-hero">
+      <view class="trial-hero-top">
+        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">一次只尝试一种新食物；连续吃 3 天且未记录异常后解锁。</view></view>
+        <view class="trial-score"><text class="trial-score-number">{{unlockedFoodCount}}</text><text> / {{trialFoods.length}}</text><view>已解锁</view></view>
+      </view>
+      <view class="trial-active" wx:if="{{activeTrialFood}}">当前连续试吃：{{activeTrialFood}}</view>
+      <view class="trial-desc" wx:else>点击“今天已吃”开始一种新食物的连续试吃。</view>
+    </view>
+
+    <view class="card trial-note">
+      “已解锁”仅表示已连续记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
+    </view>
+
+    <view class="card trial-food" wx:for="{{trialFoods}}" wx:key="name">
+      <view class="trial-food-main">
+        <view class="trial-food-icon">{{item.emoji}}</view>
+        <view>
+          <view class="trial-food-name">{{item.name}} <text class="trial-category">{{item.category}}</text> <text class="allergen-tag {{item.allergenLevel}}">{{item.allergenLabel}}</text></view>
+          <view class="trial-food-status {{item.status}}">{{item.statusText}}</view>
+          <view class="allergen-hint">{{item.allergenHint}}</view>
+        </view>
+      </view>
+      <view class="trial-progress" wx:if="{{item.status !== 'allergic'}}">
+        <view wx:for="{{item.progressSteps}}" wx:for-item="step" wx:key="number" class="trial-step {{step.done ? 'done' : ''}} {{step.current ? 'current' : ''}}">{{step.done ? '✓' : step.number}}</view>
+      </view>
+      <view class="trial-food-actions">
+        <button wx:if="{{item.status !== 'allergic'}}" class="trial-log-btn" bindtap="recordFoodTrial" data-name="{{item.name}}">＋ 试吃</button>
+        <button wx:if="{{item.status !== 'allergic'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
+        <button wx:if="{{item.status === 'allergic'}}" class="trial-restore-btn" bindtap="restoreFood" data-name="{{item.name}}">恢复推荐</button>
+      </view>
     </view>
   </block>
 

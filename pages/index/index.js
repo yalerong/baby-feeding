@@ -1,6 +1,7 @@
 const dateUtil = require('../../utils/date.js')
 const supplementSync = require('../../utils/supplementSync.js')
 const familyRecordSync = require('../../utils/familyRecordSync.js')
+const feedingAudit = require('../../utils/feedingAudit.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -34,6 +35,33 @@ Page({
     babyMilestone: '',
     lastFeedingTs: 0,
     sinceLastFeedingText: '',
+    feedingReminderMinutes: feedingAudit.DEFAULT_REMINDER_MINUTES,
+    feedingReminderAuto: true,
+    feedingRecommendationText: '正在根据近 30 天喝奶记录计算建议',
+    feedingPeriodRecommendations: {
+      daytime: { minutes: 240, sampleCount: 0 },
+      nighttime: { minutes: 240, sampleCount: 0 }
+    },
+    feedingReminderPickerLabel: '4 小时',
+    feedingReminderOptions: [
+      { minutes: 180, label: '3 小时' },
+      { minutes: 210, label: '3.5 小时' },
+      { minutes: 240, label: '4 小时' },
+      { minutes: 270, label: '4.5 小时' },
+      { minutes: 300, label: '5 小时' }
+    ],
+    feedingReminderIndex: 2,
+    feedingIntervalReminder: {
+      visible: false,
+      text: ''
+    },
+    dailyReview: {
+      visible: false,
+      date: '',
+      feedingCount: 0,
+      totalMilk: 0,
+      closePairCount: 0
+    },
     supplementReminder: {
       visible: false,
       day: 0,
@@ -58,16 +86,24 @@ Page({
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     const today = todayStr()
     const currentDate = this.data.currentDate || today
+    const savedReminderMinutes = Number(wx.getStorageSync('feedingReminderMinutes'))
+    const feedingReminderMinutes = savedReminderMinutes || feedingAudit.DEFAULT_REMINDER_MINUTES
+    const feedingReminderIndex = this.data.feedingReminderOptions.findIndex(item => item.minutes === feedingReminderMinutes)
 
     this.setData({
       familyCode,
       todayDate: today,
       currentDate,
+      feedingReminderMinutes,
+      feedingReminderAuto: !savedReminderMinutes,
+      feedingReminderIndex: feedingReminderIndex === -1 ? 2 : feedingReminderIndex,
+      feedingReminderPickerLabel: feedingAudit.formatReminderHours(feedingReminderMinutes),
       cryAlertTemplateId: getApp().globalData.cryAlertTemplateId || ''
     })
 
     this.refreshBaby(today)
     this.fetchRecords(currentDate)
+    this.loadFeedingReminderRecommendation()
     this.startSinceTimer()
   },
 
@@ -99,13 +135,61 @@ Page({
 
   refreshSinceLastFeeding() {
     if (this.data.currentDate !== this.data.todayDate || !this.data.lastFeedingTs) {
-      if (this.data.sinceLastFeedingText) {
-        this.setData({ sinceLastFeedingText: '' })
+      if (this.data.sinceLastFeedingText || this.data.feedingIntervalReminder.visible) {
+        this.setData({
+          sinceLastFeedingText: '',
+          feedingIntervalReminder: { visible: false, text: '' }
+        })
       }
       return
     }
     const diff = Math.floor((Date.now() - this.data.lastFeedingTs) / 60000)
-    this.setData({ sinceLastFeedingText: formatIntervalText(diff) })
+    const period = feedingAudit.getFeedingPeriod({ time: this.data.lastFeedingTime })
+    const suggested = this.data.feedingPeriodRecommendations[period]
+    const reminderMinutes = this.data.feedingReminderAuto && suggested ? suggested.minutes : this.data.feedingReminderMinutes
+    const overdue = feedingAudit.isFeedingOverdue(diff, reminderMinutes)
+    this.setData({
+      sinceLastFeedingText: formatIntervalText(diff),
+      feedingIntervalReminder: overdue
+        ? { visible: true, text: `已达到${period === 'nighttime' ? '夜间' : '白天'} ${feedingAudit.formatReminderHours(reminderMinutes)} 提醒间隔，请确认是否需要喂奶或补记。` }
+        : { visible: false, text: '' }
+    })
+  },
+
+  onFeedingReminderChange(e) {
+    const index = Number(e.detail.value)
+    const option = this.data.feedingReminderOptions[index]
+    if (!option) return
+    wx.setStorageSync('feedingReminderMinutes', option.minutes)
+    this.setData({
+      feedingReminderMinutes: option.minutes,
+      feedingReminderIndex: index,
+      feedingReminderPickerLabel: feedingAudit.formatReminderHours(option.minutes),
+      feedingReminderAuto: false
+    }, () => this.refreshSinceLastFeeding())
+  },
+
+  loadFeedingReminderRecommendation() {
+    const endDateExclusive = this.data.todayDate
+    const startDate = dateUtil.addDays(endDateExclusive, -30)
+    wx.cloud.callFunction({
+      name: 'getRecords',
+      data: {
+        familyCode: this.data.familyCode,
+        startDate,
+        endDateExclusive
+      }
+    }).then(res => {
+      const recommendations = feedingAudit.recommendReminderByPeriod((res.result && res.result.data) || [])
+      const data = {
+        feedingPeriodRecommendations: recommendations,
+        feedingRecommendationText: '根据近 30 天记录，白天与夜间分别计算'
+      }
+      this.setData(data, () => this.refreshSinceLastFeeding())
+    }).catch(err => {
+      console.error(err)
+      this.setData({ feedingRecommendationText: '暂时无法计算近 30 天建议，暂用默认间隔' })
+    })
   },
 
   refreshBaby(today) {
@@ -380,6 +464,7 @@ Page({
     const now = Date.now()
     let chainTs = prevFeeding ? toTimestamp(prevFeeding.date, prevFeeding.time) : null
     let mostRecentPastTs = (chainTs !== null && chainTs <= now) ? chainTs : 0
+    let mostRecentPastTime = mostRecentPastTs && prevFeeding ? prevFeeding.time : ''
 
     const enriched = records.map(r => {
       const breastMilk = r.breastMilk || 0
@@ -398,7 +483,10 @@ Page({
         }
         if (curTs !== null) {
           chainTs = curTs
-          if (curTs <= now) mostRecentPastTs = curTs
+          if (curTs <= now) {
+            mostRecentPastTs = curTs
+            mostRecentPastTime = r.time
+          }
         }
       }
       return Object.assign({}, r, { intervalText })
@@ -409,6 +497,7 @@ Page({
     this.setData({
       records: enriched,
       lastFeedingTs: mostRecentPastTs,
+      lastFeedingTime: mostRecentPastTime,
       todayStats: {
         count,
         total,
@@ -417,7 +506,53 @@ Page({
         ratio,
         stool
       }
-    }, () => this.refreshSinceLastFeeding())
+    }, () => {
+      this.refreshSinceLastFeeding()
+      this.refreshDailyReview()
+    })
+  },
+
+  refreshDailyReview() {
+    const reviewDate = feedingAudit.getPreviousDayReviewDate(this.data.todayDate)
+    const confirmedDate = wx.getStorageSync('dailyReviewConfirmedDate') || ''
+    if (!feedingAudit.shouldShowDailyReview(reviewDate, confirmedDate)) {
+      this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
+      return
+    }
+    if (this._dailyReviewRequestDate === reviewDate) return
+    this._dailyReviewRequestDate = reviewDate
+
+    wx.cloud.callFunction({
+      name: 'getRecords',
+      data: { familyCode: this.data.familyCode, date: reviewDate }
+    }).then(res => {
+      if (feedingAudit.getPreviousDayReviewDate(this.data.todayDate) !== reviewDate) return
+      const review = feedingAudit.buildDailyReview((res.result && res.result.data) || [])
+      this.setData({
+        dailyReview: {
+          visible: true,
+          date: reviewDate,
+          feedingCount: review.feedingCount,
+          totalMilk: review.totalMilk,
+          closePairCount: review.closePairs.length
+        }
+      })
+    }).catch(err => {
+      this._dailyReviewRequestDate = ''
+      console.error(err)
+    })
+  },
+
+  confirmDailyReview() {
+    const reviewDate = this.data.dailyReview.date
+    if (!reviewDate) return
+    wx.setStorageSync('dailyReviewConfirmedDate', reviewDate)
+    this.setData({
+      dailyReview: {
+        ...this.data.dailyReview,
+        visible: false
+      }
+    })
   },
 
   goAdd() {

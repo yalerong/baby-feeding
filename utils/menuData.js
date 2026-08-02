@@ -487,11 +487,13 @@ function getDishById(id) {
   return DISHES.find(dish => dish.id === id) || null
 }
 
-function getDishesFor(ageMonth, mealType) {
+function getDishesFor(ageMonth, mealType, excludedIngredients) {
+  const excluded = excludedIngredients || []
   return DISHES.filter(dish =>
     dish.ageMinMonth <= ageMonth &&
     dish.ageMaxMonth >= ageMonth &&
-    dish.mealTypes.includes(mealType)
+    dish.mealTypes.includes(mealType) &&
+    !dish.ingredients.some(name => excluded.includes(name))
   )
 }
 
@@ -541,8 +543,10 @@ function getDishCatalog(filters) {
   return dishes.map(decorateDish)
 }
 
-function pickDish(ageMonth, mealType, seed, usedIds) {
+function pickDish(ageMonth, mealType, seed, usedIds, excludedIngredients) {
+  const excluded = excludedIngredients || []
   const candidates = getDishesFor(ageMonth, mealType)
+    .filter(dish => !dish.ingredients.some(ingredient => excluded.includes(ingredient)))
   if (candidates.length === 0) return null
   const fresh = candidates.filter(dish => !usedIds[dish.id])
   const pool = fresh.length > 0 ? fresh : candidates
@@ -571,18 +575,18 @@ function summarizeNutrition(days) {
   return summary
 }
 
-function buildDay(date, ageMonth, dayIndex, usedIds) {
+function buildDay(date, ageMonth, dayIndex, usedIds, excludedIngredients) {
   const meals = {}
   const mealTypes = getMealTypesForAge(ageMonth)
   mealTypes.forEach((type, mealIndex) => {
     const seed = dayIndex * MEAL_TYPES.length + mealIndex
-    const dish = pickDish(ageMonth, type, seed, usedIds)
+    const dish = pickDish(ageMonth, type, seed, usedIds, excludedIngredients)
     meals[type] = dish ? [dish] : []
   })
   return { date, meals }
 }
 
-function generateWeeklyMenu({ birthDate, weekStart }) {
+function generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }) {
   const ageMonth = dateUtil.monthsBetween(birthDate, weekStart)
   const stage = getAgeStage(ageMonth)
 
@@ -603,7 +607,7 @@ function generateWeeklyMenu({ birthDate, weekStart }) {
   const usedIds = {}
   const days = []
   for (let i = 0; i < 7; i++) {
-    days.push(buildDay(dateUtil.addDays(weekStart, i), ageMonth, i, usedIds))
+    days.push(buildDay(dateUtil.addDays(weekStart, i), ageMonth, i, usedIds, excludedIngredients))
   }
 
   return {
@@ -620,11 +624,11 @@ function generateWeeklyMenu({ birthDate, weekStart }) {
   }
 }
 
-function generateMonthlyMenu({ birthDate, monthStart }) {
+function generateMonthlyMenu({ birthDate, monthStart, excludedIngredients }) {
   const weeks = []
   for (let i = 0; i < 4; i++) {
     const weekStart = dateUtil.addDays(monthStart, i * 7)
-    weeks.push(generateWeeklyMenu({ birthDate, weekStart }))
+    weeks.push(generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }))
   }
   return {
     birthDate,

@@ -2,9 +2,10 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const _ = db.command
+const { fetchAllRecords } = require('./fetchAll.js')
 
 exports.main = async (event) => {
-  const { familyCode, date, _id } = event
+  const { familyCode, date, _id, startDate, endDateExclusive } = event
 
   if (!familyCode) {
     return { success: false, error: 'familyCode required', data: [] }
@@ -16,13 +17,11 @@ exports.main = async (event) => {
       conditions._id = _id
     } else if (date) {
       conditions.date = date
+    } else if (startDate && endDateExclusive) {
+      conditions.date = _.gte(startDate).and(_.lt(endDateExclusive))
     }
 
-    const res = await db.collection('feeding_records')
-      .where(conditions)
-      .orderBy('time', 'asc')
-      .limit(200)
-      .get()
+    const records = await fetchAllRecords(db.collection('feeding_records'), conditions)
 
     let prevFeeding = null
     if (date && !_id) {
@@ -41,7 +40,7 @@ exports.main = async (event) => {
       }
     }
 
-    return { success: true, data: res.data, prevFeeding }
+    return { success: true, data: records, prevFeeding }
   } catch (err) {
     console.error(err)
     return { success: false, error: err.message, data: [] }

@@ -1,4 +1,7 @@
 const dateUtil = require('../../utils/date.js')
+const feedingAudit = require('../../utils/feedingAudit.js')
+const menuData = require('../../utils/menuData.js')
+const solidFood = require('../../utils/solidFood.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -18,10 +21,21 @@ Page({
     stoolAmounts: ['少', '中', '多'],
     stoolTextureIndex: -1,
     stoolColorIndex: -1,
-    stoolAmountIndex: -1
+    stoolAmountIndex: -1,
+    saving: false,
+    latestFeeding: null,
+    solidFood: false,
+    solidFoodDishId: '',
+    solidFoodName: '',
+    solidFoodCustomName: '',
+    solidFoodGrams: '',
+    solidFoodFrequentDishes: [],
+    solidFoodReused: false,
+    solidFoodGramPresets: [10, 20, 30, 50, 80]
   },
 
   onLoad(options) {
+    this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(todayStr()) })
     if (options.id) {
       const id = decodeURIComponent(options.id)
       wx.setNavigationBarTitle({ title: '编辑记录' })
@@ -33,7 +47,21 @@ Page({
         date: todayStr(),
         time: nowTimeStr()
       })
+      this.loadLatestFeeding(todayStr())
     }
+  },
+
+  loadLatestFeeding(date) {
+    const familyCode = wx.getStorageSync('familyCode')
+    if (!familyCode || !date) return
+    wx.cloud.callFunction({
+      name: 'getRecords',
+      data: { familyCode, date }
+    }).then(res => {
+      if (this.data.date !== date) return
+      const feedings = feedingAudit.feedingRecords((res.result && res.result.data) || [])
+      this.setData({ latestFeeding: feedings.length ? feedings[feedings.length - 1] : null })
+    }).catch(err => console.error(err))
   },
 
   loadRecord(_id) {
@@ -67,7 +95,13 @@ Page({
           stoolTextureIndex,
           stoolColorIndex,
           stoolAmountIndex,
-          total: r.total || 0
+          total: r.total || 0,
+          solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(r.date),
+          solidFood: !!r.solidFood,
+          solidFoodDishId: r.solidFoodDishId || '',
+          solidFoodName: r.solidFoodDishName || '',
+          solidFoodCustomName: r.solidFoodDishId ? '' : (r.solidFoodDishName || ''),
+          solidFoodGrams: r.solidFoodGrams > 0 ? String(r.solidFoodGrams) : ''
         })
       }
     }).catch(err => {
@@ -76,8 +110,20 @@ Page({
     })
   },
 
+  getFrequentSolidFoodDishes(date) {
+    const birthDate = wx.getStorageSync('babyBirthDate') || ''
+    const ageMonth = Math.max(6, dateUtil.monthsBetween(birthDate, date || todayStr()))
+    return solidFood.getFrequentDishes(ageMonth)
+  },
+
   bindDateChange(e) {
-    this.setData({ date: e.detail.value })
+    const date = e.detail.value
+    this.setData({
+      date,
+      latestFeeding: null,
+      solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(date)
+    })
+    if (!this.data.isEdit) this.loadLatestFeeding(date)
   },
 
   bindTimeChange(e) {
@@ -104,6 +150,64 @@ Page({
     this.setData({ stool: e.detail.value })
   },
 
+  bindSolidFoodChange(e) {
+    const enabled = e.detail.value
+    if (!enabled) {
+      this.setData({
+        solidFood: false,
+        solidFoodDishId: '',
+        solidFoodName: '',
+        solidFoodCustomName: '',
+        solidFoodGrams: '',
+        solidFoodReused: false
+      })
+      return
+    }
+
+    const lastSelection = solidFood.restoreLastSelection(wx.getStorageSync('lastSolidFoodSelection'))
+    if (lastSelection) {
+      this.setData({
+        solidFood: true,
+        solidFoodDishId: lastSelection.solidFoodDishId,
+        solidFoodName: lastSelection.solidFoodDishName,
+        solidFoodCustomName: lastSelection.solidFoodDishId ? '' : lastSelection.solidFoodDishName,
+        solidFoodGrams: String(lastSelection.solidFoodGrams),
+        solidFoodReused: true
+      })
+      return
+    }
+    this.setData({ solidFood: true, solidFoodReused: false })
+  },
+
+  selectFrequentSolidFood(e) {
+    const dish = menuData.getDishById(e.currentTarget.dataset.dishId)
+    if (!dish) return
+    this.setData({
+      solidFoodDishId: dish.id,
+      solidFoodName: dish.name,
+      solidFoodCustomName: '',
+      solidFoodReused: false
+    })
+  },
+
+  bindSolidFoodCustomNameInput(e) {
+    const name = e.detail.value
+    this.setData({
+      solidFoodDishId: '',
+      solidFoodName: name,
+      solidFoodCustomName: name,
+      solidFoodReused: false
+    })
+  },
+
+  bindSolidFoodGramsInput(e) {
+    this.setData({ solidFoodGrams: e.detail.value, solidFoodReused: false })
+  },
+
+  useSolidFoodGramPreset(e) {
+    this.setData({ solidFoodGrams: String(e.currentTarget.dataset.grams), solidFoodReused: false })
+  },
+
   bindStoolTextureChange(e) {
     this.setData({ stoolTextureIndex: parseInt(e.detail.value) })
   },
@@ -125,6 +229,7 @@ Page({
   },
 
   submit() {
+    if (this.data.saving) return
     const familyCode = wx.getStorageSync('familyCode')
     if (!familyCode) {
       wx.showToast({ title: '缺少家庭码', icon: 'none' })
@@ -133,13 +238,22 @@ Page({
 
     const breast = parseFloat(this.data.breastMilk) || 0
     const formula = parseFloat(this.data.formula) || 0
+    const solidFoodPayload = solidFood.normalize({
+      enabled: this.data.solidFood,
+      dishId: this.data.solidFoodDishId,
+      customName: this.data.solidFoodCustomName,
+      grams: this.data.solidFoodGrams
+    })
 
-    if (breast === 0 && formula === 0 && !this.data.stool) {
-      wx.showToast({ title: '请至少填写母乳、奶粉或大便', icon: 'none' })
+    if (this.data.solidFood && !solidFoodPayload) {
+      wx.showToast({ title: '请选择辅食种类并填写克数', icon: 'none' })
       return
     }
 
-    wx.showLoading({ title: '保存中...', mask: true })
+    if (breast === 0 && formula === 0 && !this.data.stool && !solidFoodPayload.solidFood) {
+      wx.showToast({ title: '请至少填写奶量、大便或辅食', icon: 'none' })
+      return
+    }
 
     const payload = {
       familyCode,
@@ -149,43 +263,57 @@ Page({
       formula: formula,
       total: breast + formula,
       stool: this.data.stool,
-      stoolDesc: this.data.stool ? this.buildStoolDesc() : ''
+      stoolDesc: this.data.stool ? this.buildStoolDesc() : '',
+      ...solidFoodPayload
     }
 
-    if (this.data.isEdit) {
-      payload._id = this.data._id
-      wx.cloud.callFunction({
-        name: 'updateRecord',
-        data: payload
-      }).then(res => {
-        wx.hideLoading()
-        if (res.result && res.result.success) {
-          wx.showToast({ title: '修改成功', icon: 'success' })
-          setTimeout(() => wx.navigateBack(), 800)
-        } else {
-          wx.showToast({ title: '修改失败', icon: 'none' })
+    const latest = this.data.latestFeeding
+    const minutes = latest ? feedingAudit.minutesBetween(latest, payload) : null
+    if (!this.data.isEdit && feedingAudit.isPossibleDuplicate(minutes)) {
+      wx.showModal({
+        title: '可能重复记录',
+        content: `距上一条 ${minutes} 分钟。请确认这不是同一次喂养的重复录入。`,
+        confirmText: '继续保存',
+        cancelText: '返回检查',
+        success: result => {
+          if (result.confirm) this.saveRecord(payload)
         }
-      }).catch(err => {
-        wx.hideLoading()
-        wx.showToast({ title: '修改失败', icon: 'none' })
       })
-    } else {
-      wx.cloud.callFunction({
-        name: 'addRecord',
-        data: payload
-      }).then(res => {
-        wx.hideLoading()
-        if (res.result && res.result.success) {
-          wx.showToast({ title: '保存成功', icon: 'success' })
-          setTimeout(() => wx.navigateBack(), 800)
-        } else {
-          wx.showToast({ title: '保存失败', icon: 'none' })
-        }
-      }).catch(err => {
-        wx.hideLoading()
-        wx.showToast({ title: '保存失败', icon: 'none' })
-      })
+      return
     }
+    this.saveRecord(payload)
+  },
+
+  saveRecord(payload) {
+    this.setData({ saving: true })
+    wx.showLoading({ title: '保存中...', mask: true })
+    const isEdit = this.data.isEdit
+    if (isEdit) payload._id = this.data._id
+    wx.cloud.callFunction({
+      name: isEdit ? 'updateRecord' : 'addRecord',
+      data: payload
+    }).then(res => {
+      wx.hideLoading()
+      if (res.result && res.result.success) {
+        if (payload.solidFood) {
+          wx.setStorageSync('lastSolidFoodSelection', {
+            dishId: payload.solidFoodDishId,
+            name: payload.solidFoodDishName,
+            grams: payload.solidFoodGrams
+          })
+        }
+        wx.showToast({ title: isEdit ? '修改成功' : '保存成功', icon: 'success' })
+        setTimeout(() => wx.navigateBack(), 800)
+        return
+      }
+      this.setData({ saving: false })
+      wx.showToast({ title: isEdit ? '修改失败' : '保存失败', icon: 'none' })
+    }).catch(err => {
+      wx.hideLoading()
+      this.setData({ saving: false })
+      console.error(err)
+      wx.showToast({ title: isEdit ? '修改失败' : '保存失败', icon: 'none' })
+    })
   },
 
   deleteRecord() {

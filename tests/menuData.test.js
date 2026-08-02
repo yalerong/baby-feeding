@@ -35,6 +35,22 @@ test('generates seven days with age-appropriate meal slots for a 6 month baby', 
   assert.ok(plan.days[0].meals.lunch.length > 0)
 })
 
+test('excludes dishes containing a food marked as a suspected allergen', () => {
+  const plan = menuData.generateWeeklyMenu({
+    birthDate: '2026-02-24',
+    weekStart: '2026-08-24',
+    excludedIngredients: ['南瓜']
+  })
+  const dishes = plan.days.flatMap(day => Object.values(day.meals).flat())
+  assert.ok(dishes.every(dish => !dish.ingredients.includes('南瓜')))
+})
+
+test('keeps suspected allergens out of replacement candidates', () => {
+  assert.ok(menuData.getDishesFor(7, 'lunch').some(dish => dish.ingredients.includes('熟蛋黄')))
+  const candidates = menuData.getDishesFor(7, 'lunch', ['熟蛋黄'])
+  assert.ok(candidates.every(dish => !dish.ingredients.includes('熟蛋黄')))
+})
+
 test('adds add-on meals only after the chewing-practice stage', () => {
   const plan = menuData.generateWeeklyMenu({
     birthDate: '2026-02-24',

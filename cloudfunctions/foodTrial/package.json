@@ -1,0 +1,9 @@
+{
+  "name": "foodTrial",
+  "version": "1.0.0",
+  "description": "Food trial unlock tracking for a family",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

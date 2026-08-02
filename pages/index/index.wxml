@@ -71,6 +71,35 @@
   </view>
 
   <!-- 快速录入（仅在查看今日时显示） -->
+  <view wx:if="{{currentDate === todayDate}}" class="card feeding-settings-card">
+    <view>
+      <view class="feeding-settings-title">下次喂养参考</view>
+      <view class="feeding-settings-desc">{{feedingRecommendationText}}</view>
+      <view class="feeding-period-row">
+        <view class="feeding-period-item"><text>☀️ 白天 07–19</text><text class="feeding-period-value">{{feedingPeriodRecommendations.daytime.minutes / 60}} 小时</text></view>
+        <view class="feeding-period-item"><text>🌙 夜间 19–07</text><text class="feeding-period-value">{{feedingPeriodRecommendations.nighttime.minutes / 60}} 小时</text></view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{feedingIntervalReminder.visible}}" class="card feeding-reminder-card">
+    <view class="feeding-reminder-icon">⏰</view>
+    <view>
+      <view class="feeding-reminder-title">距上次已 {{sinceLastFeedingText}}</view>
+      <view class="feeding-reminder-desc">{{feedingIntervalReminder.text}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{dailyReview.visible}}" class="card daily-review-card">
+    <view class="daily-review-title">🌙 昨日记录审查</view>
+    <view class="daily-review-desc">{{dailyReview.date}}：{{dailyReview.feedingCount}} 次，共 {{dailyReview.totalMilk}}ml</view>
+    <view wx:if="{{dailyReview.closePairCount > 0}}" class="daily-review-warning">
+      发现 {{dailyReview.closePairCount}} 组 1 小时内的记录，请点开下方记录确认是否重复。
+    </view>
+    <view wx:else class="daily-review-ok">未发现 1 小时内的疑似重复记录。</view>
+    <button class="daily-review-confirm" bindtap="confirmDailyReview">已核对</button>
+  </view>
+
   <view wx:if="{{currentDate === todayDate}}" class="card quick-card">
     <view class="quick-title">⚡ 快速录入（当前时间）</view>
     <view class="quick-row">
@@ -85,7 +114,7 @@
     <view class="list-header">
       <text class="list-title">{{currentDate === todayDate ? '今日' : currentDate}} 记录</text>
       <view class="list-header-right">
-        <text class="since-pill" wx:if="{{currentDate === todayDate && sinceLastFeedingText}}">⏱ 距上次 {{sinceLastFeedingText}}</text>
+        <text wx:if="{{currentDate === todayDate && sinceLastFeedingText}}" class="since-pill">⏱ 距上次 {{sinceLastFeedingText}}</text>
         <text class="list-count">{{records.length}} 条</text>
       </view>
     </view>
@@ -94,6 +123,7 @@
       <view class="record-item" wx:for="{{records}}" wx:key="_id" bindtap="goEdit" data-id="{{item._id}}">
         <view class="record-icon">
           <text wx:if="{{item.breastMilk > 0 || item.formula > 0}}">🍼</text>
+          <text wx:elif="{{item.solidFood}}">🍚</text>
           <text wx:elif="{{item.stool}}">💩</text>
           <text wx:else>📝</text>
         </view>
@@ -101,6 +131,7 @@
           <view class="record-time">{{item.time}}</view>
           <view class="record-interval" wx:if="{{item.intervalText}}">距上次 {{item.intervalText}}</view>
           <view class="record-desc" wx:if="{{item.stool}}">💩 {{item.stoolDesc || '大便'}}</view>
+          <view class="record-desc solid-food-desc" wx:if="{{item.solidFood}}">🍚 {{item.solidFoodDishName || '辅食'}} {{item.solidFoodGrams}}g</view>
         </view>
         <view class="record-right">
           <view class="record-right-inner">
