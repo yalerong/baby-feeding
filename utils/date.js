@@ -65,6 +65,12 @@ function nowTimeStr() {
   return formatTime(new Date())
 }
 
+function nowBeijingTimestamp(now) {
+  const instant = now instanceof Date ? now : new Date()
+  const parts = beijingPartsFromDate(instant)
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, instant.getUTCSeconds(), instant.getUTCMilliseconds()) - BEIJING_OFFSET_MS
+}
+
 function daysBetween(startStr, endStr) {
   if (!startStr) return 0
   const startMs = dateValueMs(startStr)
@@ -184,6 +190,7 @@ module.exports = {
   formatTime,
   todayStr,
   nowTimeStr,
+  nowBeijingTimestamp,
   daysBetween,
   ageText,
   milestone,

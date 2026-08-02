@@ -28,7 +28,7 @@
 addRecord          updateRecord        deleteRecord
 getRecords         getStats            batchFeeding
 growthRecord       batchVaccine        weeklyMenu
-foodTrial          supplement
+foodTrial          dailyReview         supplement
 ```
 
 如需使用哭声订阅提醒，再部署 `cryAlertSubscription` 和 `cryAlertWebhook`，并按各自的 `config.js.example` 配置密钥与模板。
@@ -41,6 +41,7 @@ foodTrial          supplement
 | --- | --- |
 | `feeding_records` | 喝奶、大便、辅食记录 |
 | `food_trials` | 新食材连续试吃、解锁与疑似过敏状态 |
+| `daily_reviews` | 家庭共享的昨日记录审查确认状态 |
 | `weekly_menus` | 家庭周菜单 |
 | `growth_records` | 身高、体重记录 |
 | `vaccine_records` | 疫苗计划与接种记录 |

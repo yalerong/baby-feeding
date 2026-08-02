@@ -3,6 +3,7 @@ const supplementSync = require('../../utils/supplementSync.js')
 const familyRecordSync = require('../../utils/familyRecordSync.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
 const feedingReminderCache = require('../../utils/feedingReminderCache.js')
+const dailyReviewError = require('../../utils/dailyReviewError.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -144,7 +145,7 @@ Page({
       }
       return
     }
-    const diff = Math.floor((Date.now() - this.data.lastFeedingTs) / 60000)
+    const diff = Math.floor((dateUtil.nowBeijingTimestamp() - this.data.lastFeedingTs) / 60000)
     const period = feedingAudit.getFeedingPeriod({ time: this.data.lastFeedingTime })
     const suggested = this.data.feedingPeriodRecommendations[period]
     const reminderMinutes = this.data.feedingReminderAuto && suggested ? suggested.minutes : this.data.feedingReminderMinutes
@@ -472,7 +473,7 @@ Page({
     let formula = 0
     let stool = 0
     let count = 0
-    const now = Date.now()
+    const now = dateUtil.nowBeijingTimestamp()
     let chainTs = prevFeeding ? toTimestamp(prevFeeding.date, prevFeeding.time) : null
     let mostRecentPastTs = (chainTs !== null && chainTs <= now) ? chainTs : 0
     let mostRecentPastTime = mostRecentPastTs && prevFeeding ? prevFeeding.time : ''
@@ -525,8 +526,7 @@ Page({
 
   refreshDailyReview() {
     const reviewDate = feedingAudit.getPreviousDayReviewDate(this.data.todayDate)
-    const confirmedDate = wx.getStorageSync('dailyReviewConfirmedDate') || ''
-    if (!feedingAudit.shouldShowDailyReview(reviewDate, confirmedDate)) {
+    if (!reviewDate) {
       this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
       return
     }
@@ -534,10 +534,20 @@ Page({
     this._dailyReviewRequestDate = reviewDate
 
     wx.cloud.callFunction({
-      name: 'getRecords',
-      data: { familyCode: this.data.familyCode, date: reviewDate }
+      name: 'dailyReview',
+      data: { action: 'get', familyCode: this.data.familyCode, date: reviewDate }
     }).then(res => {
       if (feedingAudit.getPreviousDayReviewDate(this.data.todayDate) !== reviewDate) return
+      if (res.result && res.result.success && res.result.confirmed) {
+        this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
+        return null
+      }
+      return wx.cloud.callFunction({
+        name: 'getRecords',
+        data: { familyCode: this.data.familyCode, date: reviewDate }
+      })
+    }).then(res => {
+      if (!res || feedingAudit.getPreviousDayReviewDate(this.data.todayDate) !== reviewDate) return
       const review = feedingAudit.buildDailyReview((res.result && res.result.data) || [])
       this.setData({
         dailyReview: {
@@ -557,12 +567,20 @@ Page({
   confirmDailyReview() {
     const reviewDate = this.data.dailyReview.date
     if (!reviewDate) return
-    wx.setStorageSync('dailyReviewConfirmedDate', reviewDate)
-    this.setData({
-      dailyReview: {
-        ...this.data.dailyReview,
-        visible: false
-      }
+    wx.cloud.callFunction({
+      name: 'dailyReview',
+      data: { action: 'confirm', familyCode: this.data.familyCode, date: reviewDate }
+    }).then(res => {
+      if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'confirm failed')
+      this.setData({
+        dailyReview: {
+          ...this.data.dailyReview,
+          visible: false
+        }
+      })
+    }).catch(err => {
+      console.error(err)
+      wx.showToast({ title: dailyReviewError.formatDailyReviewError(err), icon: 'none' })
     })
   },
 

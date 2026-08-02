@@ -41,6 +41,11 @@ test('toBeijingTimestamp treats date and time as Beijing local time', () => {
   assert.strictEqual(new Date(timestamp).toISOString(), '2026-02-23T16:05:00.000Z')
 })
 
+test('current feeding intervals use the current Beijing instant', () => {
+  const instant = new Date('2026-08-02T02:43:27.000Z')
+  assert.strictEqual(dateUtil.nowBeijingTimestamp(instant), instant.getTime())
+})
+
 test('supplement reminder alternates VD and VAD from birth date', () => {
   assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-02-24'), {
     day: 1,

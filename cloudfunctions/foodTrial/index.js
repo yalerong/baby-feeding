@@ -2,6 +2,7 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const { normalizeFoodName, getTrialDocumentId } = require('./trialId.js')
+const { getUndoTrialState } = require('./trialState.js')
 
 function nextDay(date) {
   const value = new Date(`${date}T00:00:00Z`)
@@ -55,6 +56,20 @@ exports.main = async event => {
       }
       await db.collection('food_trials').doc(documentId).set({ data: { ...payload, createTime: db.serverDate() } })
       return { success: true, data: { _id: documentId, ...payload } }
+    }
+
+    if (action === 'undoLog') {
+      if (!date) return { success: false, error: 'date required' }
+      const nextState = getUndoTrialState(existing, date)
+      if (!nextState) return { success: false, error: '只能撤销今天的试吃记录' }
+      if (nextState.action === 'remove') {
+        await db.collection('food_trials').doc(existing._id).remove()
+      } else {
+        await db.collection('food_trials').doc(existing._id).update({
+          data: { ...nextState, updateTime: db.serverDate() }
+        })
+      }
+      return { success: true }
     }
 
     if (action === 'setStatus') {

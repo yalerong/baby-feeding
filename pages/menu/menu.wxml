@@ -183,7 +183,9 @@
       “已解锁”仅表示已连续记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
     </view>
 
-    <view class="card trial-food" wx:for="{{trialFoods}}" wx:key="name">
+    <view class="trial-service-error" wx:if="{{foodTrialError}}">{{foodTrialError}}</view>
+
+    <view class="card trial-food {{item.status === 'allergic' ? 'trial-food-allergic' : ''}}" wx:for="{{trialFoods}}" wx:key="name">
       <view class="trial-food-main">
         <view class="trial-food-icon">{{item.emoji}}</view>
         <view>
@@ -196,7 +198,8 @@
         <view wx:for="{{item.progressSteps}}" wx:for-item="step" wx:key="number" class="trial-step {{step.done ? 'done' : ''}} {{step.current ? 'current' : ''}}">{{step.done ? '✓' : step.number}}</view>
       </view>
       <view class="trial-food-actions">
-        <button wx:if="{{item.status !== 'allergic'}}" class="trial-log-btn" bindtap="recordFoodTrial" data-name="{{item.name}}">＋ 试吃</button>
+        <view wx:if="{{item.status !== 'allergic' && !item.canUndoToday}}" class="trial-log-btn trial-action" catchtap="recordFoodTrial" data-name="{{item.name}}">记录今天已吃</view>
+        <view wx:if="{{item.status !== 'allergic' && item.canUndoToday}}" class="trial-undo-btn trial-action" catchtap="undoFoodTrial" data-name="{{item.name}}">撤销今天记录</view>
         <button wx:if="{{item.status !== 'allergic'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
         <button wx:if="{{item.status === 'allergic'}}" class="trial-restore-btn" bindtap="restoreFood" data-name="{{item.name}}">恢复推荐</button>
       </view>

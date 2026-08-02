@@ -88,6 +88,29 @@ test('keeps a suspected allergen excluded even after three attempts', () => {
   ]), ['花生'])
 })
 
+test('keeps suspected allergens visible and places them after active foods', () => {
+  const foods = [
+    { name: '南瓜', status: 'tracking' },
+    { name: '虾', status: 'allergic' },
+    { name: '鸡蛋', status: 'unlocked' }
+  ]
+  assert.deepStrictEqual(foodUnlock.orderTrialFoods(foods).map(food => food.name), ['南瓜', '鸡蛋', '虾'])
+  assert.deepStrictEqual(
+    foodUnlock.getMissingAllergicFoodNames([
+      { foodName: '虾', status: 'allergic' },
+      { foodName: '南瓜', status: 'tracking' }
+    ], { 南瓜: true }),
+    ['虾']
+  )
+})
+
+test('does not allow a second trial log on the same day', () => {
+  assert.deepStrictEqual(foodUnlock.getNextTrialState({ trialCount: 2, lastTriedDate: '2026-08-02' }, '2026-08-02'), {
+    trialCount: 2,
+    duplicate: true
+  })
+})
+
 test('builds one stable document id for the same family and food', () => {
   assert.strictEqual(getTrialDocumentId('FAMILY', ' 鸡蛋 '), getTrialDocumentId('FAMILY', '鸡蛋'))
   assert.notStrictEqual(getTrialDocumentId('FAMILY', '鸡蛋'), getTrialDocumentId('OTHER', '鸡蛋'))

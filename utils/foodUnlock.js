@@ -63,6 +63,18 @@ function getExcludedIngredients(trials) {
     .map(trial => trial.foodName)
 }
 
+function getMissingAllergicFoodNames(trials, knownFoodNames) {
+  return (trials || [])
+    .filter(trial => trial.status === 'allergic' && trial.foodName && !knownFoodNames[trial.foodName])
+    .map(trial => trial.foodName)
+}
+
+function orderTrialFoods(foods) {
+  return (foods || []).slice().sort((left, right) => {
+    return Number(left.status === 'allergic') - Number(right.status === 'allergic')
+  })
+}
+
 module.exports = {
   UNLOCK_DAYS,
   getNextTrialState,
@@ -70,5 +82,7 @@ module.exports = {
   buildTrialSteps,
   getAllergenInfo,
   getActiveFoodName,
-  getExcludedIngredients
+  getExcludedIngredients,
+  getMissingAllergicFoodNames,
+  orderTrialFoods
 }

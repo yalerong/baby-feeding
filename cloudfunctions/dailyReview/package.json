@@ -1,0 +1,9 @@
+{
+  "name": "dailyReview",
+  "version": "1.0.0",
+  "description": "Shared daily feeding review confirmation",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

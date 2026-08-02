@@ -55,7 +55,8 @@ Page({
     trialFoods: [],
     unlockedFoodCount: 0,
     activeTrialFood: '',
-    excludedIngredients: []
+    excludedIngredients: [],
+    foodTrialError: ''
   },
 
   onShow() {
@@ -122,12 +123,14 @@ Page({
         this.setData({
           foodTrials,
           activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today),
-          excludedIngredients: foodUnlock.getExcludedIngredients(foodTrials)
+          excludedIngredients: foodUnlock.getExcludedIngredients(foodTrials),
+          foodTrialError: ''
         })
         this.buildTrialFoods()
       })
       .catch(err => {
         console.error(err)
+        this.setData({ foodTrialError: '试吃记录暂不可用，请部署 foodTrial 云函数并创建 food_trials 集合' })
         this.buildTrialFoods()
       })
   },
@@ -152,13 +155,30 @@ Page({
           progressSteps: foodUnlock.buildTrialSteps(food.trialCount, food.status),
           emoji: this.getFoodEmoji(name),
           category: this.getFoodCategory(dish, name),
-          isActive: this.data.activeTrialFood === name
+          isActive: this.data.activeTrialFood === name,
+          canUndoToday: byName[name] && byName[name].lastTriedDate === this.data.today
         })
       })
     })
+    foodUnlock.getMissingAllergicFoodNames(this.data.foodTrials, used).forEach(name => {
+      const food = foodUnlock.decorateFood(name, byName[name])
+      const allergen = foodUnlock.getAllergenInfo(name)
+      trialFoods.push({
+        ...food,
+        allergenLevel: allergen.level,
+        allergenLabel: allergen.label,
+        allergenHint: allergen.hint,
+        progressSteps: foodUnlock.buildTrialSteps(food.trialCount, food.status),
+        emoji: this.getFoodEmoji(name),
+        category: this.getFoodCategory({}, name),
+        isActive: false,
+        canUndoToday: byName[name] && byName[name].lastTriedDate === this.data.today
+      })
+    })
+    const orderedTrialFoods = foodUnlock.orderTrialFoods(trialFoods)
     this.setData({
-      trialFoods,
-      unlockedFoodCount: trialFoods.filter(food => food.status === 'unlocked').length
+      trialFoods: orderedTrialFoods,
+      unlockedFoodCount: orderedTrialFoods.filter(food => food.status === 'unlocked').length
     })
   },
 
@@ -570,6 +590,15 @@ Page({
 
   ,recordFoodTrial(e) {
     const foodName = e.currentTarget.dataset.name
+    if (this.data.foodTrialError) {
+      wx.showModal({
+        title: '试吃功能暂不可用',
+        content: this.data.foodTrialError,
+        showCancel: false,
+        confirmText: '知道了'
+      })
+      return
+    }
     const active = this.data.activeTrialFood
     if (active && active !== foodName) {
       wx.showToast({ title: `请先连续完成 ${active}`, icon: 'none' })
@@ -581,17 +610,46 @@ Page({
       confirmText: '记录第 N 天',
       success: result => {
         if (!result.confirm) return
+        wx.showLoading({ title: '正在记录', mask: true })
         wx.cloud.callFunction({
           name: 'foodTrial',
           data: { action: 'log', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, date: this.data.today }
         }).then(res => {
           if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          wx.hideLoading()
           wx.showToast({ title: '试吃已记录', icon: 'success' })
           return this.loadFoodTrials()
         }).then(() => {
           this.loadWeek(this.data.weekStart)
           this.buildMonth(this.data.monthStart)
-        }).catch(err => wx.showToast({ title: err.message || '记录失败', icon: 'none' }))
+        }).catch(err => {
+          wx.hideLoading()
+          wx.showToast({ title: err.message || '记录失败', icon: 'none' })
+        })
+      }
+    })
+  },
+
+  undoFoodTrial(e) {
+    const foodName = e.currentTarget.dataset.name
+    wx.showModal({
+      title: '撤销今天的试吃记录',
+      content: `确认刚才是误点吗？撤销后会回退“${foodName}”的连续试吃天数。`,
+      confirmText: '确认撤销',
+      confirmColor: '#D9534F',
+      success: result => {
+        if (!result.confirm) return
+        wx.cloud.callFunction({
+          name: 'foodTrial',
+          data: { action: 'undoLog', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, date: this.data.today }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          wx.showToast({ title: '已撤销今天的试吃', icon: 'success' })
+          return this.loadFoodTrials()
+        }).then(() => {
+          this.loadWeek(this.data.weekStart)
+          this.buildMonth(this.data.monthStart)
+        }).catch(err => wx.showToast({ title: err.message || '撤销失败', icon: 'none' }))
       }
     })
   },

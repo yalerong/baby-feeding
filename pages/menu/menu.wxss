@@ -276,12 +276,31 @@
   color: #936F30;
 }
 
+.trial-service-error {
+  margin: 18rpx 8rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 14rpx;
+  background: #FFF1EF;
+  color: #C94F49;
+  font-size: 23rpx;
+  line-height: 1.45;
+}
+
 .trial-food {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
   padding: 20rpx 24rpx;
+}
+
+.trial-food-allergic {
+  border: 2rpx solid #F2BBB6;
+  background: #FFF6F5;
+}
+
+.trial-food-allergic .trial-food-icon {
+  background: #FFE5E2;
 }
 
 .trial-food-main {
@@ -380,6 +399,7 @@
 
 .trial-log-btn,
 .trial-alert-btn,
+.trial-undo-btn,
 .trial-restore-btn {
   margin: 0;
   padding: 0 14rpx;
@@ -390,12 +410,19 @@
   font-size: 21rpx;
 }
 
+.trial-action {
+  box-sizing: border-box;
+  text-align: center;
+}
+
 .trial-log-btn { background: #5BC58F; color: #fff; }
 .trial-alert-btn { background: #FFF1E9; color: #C45D43; }
+.trial-undo-btn { background: #FFF1EF; color: #C94F49; }
 .trial-restore-btn { background: #EAF3FF; color: #3B74AE; }
 
 .trial-log-btn::after,
 .trial-alert-btn::after,
+.trial-undo-btn::after,
 .trial-restore-btn::after { border: none; }
 
 .dish-art {
