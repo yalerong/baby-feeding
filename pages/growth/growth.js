@@ -34,12 +34,23 @@ Page({
   loadRecords() {
     const db = wx.cloud.database()
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    db.collection('growth_records')
+    // 客户端单次 get 默认最多 20 条，翻页取全量
+    const pageSize = 20
+    const fetchPage = (skip, collected) => db.collection('growth_records')
       .where({ familyCode })
       .orderBy('date', 'desc')
+      .skip(skip)
+      .limit(pageSize)
       .get()
       .then(res => {
-        const records = res.data || []
+        const records = collected.concat(res.data || [])
+        if ((res.data || []).length === pageSize && records.length < 1000) {
+          return fetchPage(skip + pageSize, records)
+        }
+        return records
+      })
+    fetchPage(0, [])
+      .then(records => {
         this.renderRecords(records)
         this.startGrowthSync(familyCode)
       })
@@ -201,6 +212,11 @@ Page({
       })
       ctx.stroke()
 
+      // 标签约 30px 宽，按可用宽度抽稀，首尾必画
+      const labelWidth = 44
+      const maxLabels = Math.max(2, Math.floor(chartW / labelWidth) + 1)
+      const labelStep = Math.max(1, Math.ceil((count - 1) / (maxLabels - 1)))
+
       // 数据点与 X 轴标签
       data.forEach((d, i) => {
         const val = isWeight ? d.weight : d.height
@@ -218,7 +234,10 @@ Page({
         ctx.arc(x, y, 3.5, 0, Math.PI * 2)
         ctx.fill()
 
-        // X 轴日期标签
+        // X 轴日期标签：末点必画，其余按步长画且离末点太近的不画
+        const isLast = i === count - 1
+        const nearLast = !isLast && (count - 1 - i) * xStep < labelWidth
+        if (!isLast && (i % labelStep !== 0 || nearLast)) return
         ctx.fillStyle = '#666'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'

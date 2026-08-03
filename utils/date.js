@@ -91,7 +91,9 @@ function ageText(birthStr, refStr) {
   let days = t.day - b.day
   if (days < 0) {
     months -= 1
-    days += daysInMonth(t.year, t.month - 1)
+    // 出生日大于上个月天数时，"月生日"钳到上个月月末，避免算出负数天
+    const prevMonthDays = daysInMonth(t.year, t.month - 1)
+    days = t.day + prevMonthDays - Math.min(b.day, prevMonthDays)
   }
   if (months < 0) {
     years -= 1

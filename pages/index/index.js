@@ -103,10 +103,92 @@ Page({
       cryAlertTemplateId: getApp().globalData.cryAlertTemplateId || ''
     })
 
+    this.loadHomeSummary(currentDate, today)
     this.refreshBaby(today)
-    this.fetchRecords(currentDate)
-    this.loadFeedingReminderRecommendation()
     this.startSinceTimer()
+  },
+
+  // 启动聚合：一次云调用取回当天记录/昨日回顾/补剂状态/30天建议，失败回退多请求路径
+  loadHomeSummary(date, today) {
+    const familyCode = this.data.familyCode
+    const reminder = dateUtil.supplementReminder(wx.getStorageSync('babyBirthDate') || '', today)
+    const supplementName = (date === today && reminder.name) ? reminder.name : ''
+    const reviewDate = feedingAudit.getPreviousDayReviewDate(today) || ''
+
+    const cacheKey = feedingReminderCache.getKey(familyCode, today)
+    const cachedRecommendation = wx.getStorageSync(cacheKey)
+    const hasRecommendationCache = !!(cachedRecommendation && cachedRecommendation.daytime && cachedRecommendation.nighttime)
+    if (hasRecommendationCache) {
+      this.setData({
+        feedingPeriodRecommendations: cachedRecommendation,
+        feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+      }, () => this.refreshSinceLastFeeding())
+    }
+
+    if (reviewDate) this._dailyReviewRequestDate = reviewDate
+    this._suppressSupplementFetch = !!supplementName
+
+    wx.cloud.callFunction({
+      name: 'homeSummary',
+      data: {
+        familyCode,
+        date,
+        reviewDate,
+        supplementName,
+        recommendation: hasRecommendationCache
+          ? null
+          : { startDate: dateUtil.addDays(today, -30), endDateExclusive: today }
+      }
+    }).then(res => {
+      const result = res.result
+      if (!result || !result.success) throw new Error((result && result.error) || 'homeSummary failed')
+
+      if (this.data.currentDate === date) {
+        this._prevFeedingByDate = this._prevFeedingByDate || {}
+        this._prevFeedingByDate[date] = result.prevFeeding || null
+        this.calculateStats(result.records || [], result.prevFeeding || null)
+        this.startFeedingSync(familyCode, date)
+      }
+
+      if (result.recommendationRecords) {
+        const recommendations = feedingAudit.recommendReminderByPeriod(result.recommendationRecords)
+        wx.setStorageSync(cacheKey, recommendations)
+        this.setData({
+          feedingPeriodRecommendations: recommendations,
+          feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+        }, () => this.refreshSinceLastFeeding())
+      }
+
+      if (supplementName && result.supplementTaken !== null &&
+        this.data.todayDate === today && this.data.supplementReminder.name === supplementName) {
+        this.applySupplementReminder(reminder, !!result.supplementTaken)
+      }
+
+      if (reviewDate && result.review &&
+        feedingAudit.getPreviousDayReviewDate(this.data.todayDate) === reviewDate) {
+        if (result.review.confirmed) {
+          this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
+        } else {
+          const review = feedingAudit.buildDailyReview(result.review.records || [])
+          this.setData({
+            dailyReview: {
+              visible: true,
+              date: reviewDate,
+              feedingCount: review.feedingCount,
+              totalMilk: review.totalMilk,
+              closePairCount: review.closePairs.length
+            }
+          })
+        }
+      }
+    }).catch(err => {
+      console.error(err)
+      if (reviewDate && this._dailyReviewRequestDate === reviewDate) this._dailyReviewRequestDate = ''
+      this._suppressSupplementFetch = false
+      this.fetchRecords(date)
+      if (!hasRecommendationCache) this.loadFeedingReminderRecommendation()
+      if (supplementName) this.fetchSupplementTaken(reminder, today)
+    })
   },
 
   onHide() {
@@ -282,6 +364,11 @@ Page({
   },
 
   fetchSupplementTaken(reminder, date) {
+    // 启动时聚合接口已带回补剂状态，跳过这一次单独查询
+    if (this._suppressSupplementFetch) {
+      this._suppressSupplementFetch = false
+      return
+    }
     const key = supplementSync.getSupplementSyncKey({
       familyCode: this.data.familyCode,
       date,
@@ -667,11 +754,12 @@ Page({
 
     this.setData({ quickSaving: true })
     wx.showLoading({ title: '保存中...', mask: true })
+    const saveDate = todayStr()
     wx.cloud.callFunction({
       name: 'addRecord',
       data: {
         familyCode,
-        date: this.data.todayDate,
+        date: saveDate,
         time: nowTimeStr(),
         breastMilk: breast,
         formula: formula,
@@ -684,7 +772,9 @@ Page({
       if (res.result && res.result.success) {
         wx.showToast({ title: '已保存', icon: 'success' })
         this.setData({ quickBreast: '', quickFormula: '', quickSaving: false })
-        if (this.data.currentDate === this.data.todayDate) {
+        if (saveDate !== this.data.todayDate) {
+          this.onShow()
+        } else if (this.data.currentDate === this.data.todayDate) {
           this.fetchRecords(this.data.todayDate)
         }
       } else {

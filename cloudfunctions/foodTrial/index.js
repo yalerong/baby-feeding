@@ -23,7 +23,7 @@ exports.main = async event => {
 
   try {
     if (action === 'list') {
-      const res = await db.collection('food_trials').where({ familyCode }).get()
+      const res = await db.collection('food_trials').where({ familyCode }).limit(1000).get()
       return { success: true, data: res.data || [] }
     }
 
@@ -34,11 +34,12 @@ exports.main = async event => {
 
     if (action === 'log') {
       if (!date) return { success: false, error: 'date required' }
-      const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).get()
+      const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
       const previousDate = previousDay(date)
       const active = (activeRes.data || []).find(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3 && (item.lastTriedDate === date || item.lastTriedDate === previousDate))
       if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
       if (existing && existing.status === 'allergic') return { success: false, error: '该食材已标记疑似过敏' }
+      if (existing && existing.status === 'unlocked') return { success: false, error: '该食材已解锁，无需再记录' }
       if (existing && existing.lastTriedDate === date) return { success: false, error: '今天已记录过这项食物' }
       const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
       const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1

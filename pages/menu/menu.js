@@ -142,7 +142,7 @@ Page({
     const used = {}
     const trialFoods = []
     menuData.getDishCatalog({ ageMonth }).forEach(dish => {
-      dish.ingredients.forEach(name => {
+      menuData.getDishFoods(dish).forEach(name => {
         if (used[name]) return
         used[name] = true
         const food = foodUnlock.decorateFood(name, byName[name])
@@ -607,7 +607,7 @@ Page({
     wx.showModal({
       title: '记录今天试吃',
       content: `${foodName}：确认今天已吃且未记录异常吗？`,
-      confirmText: '记录第 N 天',
+      confirmText: '确认记录',
       success: result => {
         if (!result.confirm) return
         wx.showLoading({ title: '正在记录', mask: true })

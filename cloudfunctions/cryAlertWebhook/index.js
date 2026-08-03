@@ -36,7 +36,7 @@ function secretMatches(value) {
 }
 
 function messageData(score) {
-  const detectedAt = new Date().toLocaleString('zh-CN', { hour12: false })
+  const detectedAt = new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
   return Object.fromEntries(Object.entries(config.templateFields || {}).map(([key, value]) => [key, {
     value: String(value)
       .replace('{{detectedAt}}', detectedAt)

@@ -71,3 +71,9 @@ test('supplement reminder stays unset without birth date', () => {
     nextName: ''
   })
 })
+
+test('ageText never shows negative days for month-end birthdays', () => {
+  assert.strictEqual(dateUtil.ageText('2026-01-31', '2026-03-01'), '1 个月 1 天')
+  assert.strictEqual(dateUtil.ageText('2026-08-31', '2026-10-01'), '1 个月 1 天')
+  assert.strictEqual(dateUtil.ageText('2026-02-24', '2026-08-02'), '5 个月 9 天')
+})

@@ -32,11 +32,12 @@ Page({
     solidFoodGrams: '',
     solidFoodFrequentDishes: [],
     solidFoodReused: false,
-    solidFoodGramPresets: [10, 20, 30, 50, 80]
+    solidFoodGramPresets: [5, 10, 20, 30, 50]
   },
 
   onLoad(options) {
     this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(todayStr()) })
+    this.loadFrequentSolidFoods()
     if (options.id) {
       const id = decodeURIComponent(options.id)
       wx.setNavigationBarTitle({ title: '编辑记录' })
@@ -114,7 +115,20 @@ Page({
   getFrequentSolidFoodDishes(date) {
     const birthDate = wx.getStorageSync('babyBirthDate') || ''
     const ageMonth = Math.max(6, dateUtil.monthsBetween(birthDate, date || todayStr()))
-    return solidFood.getFrequentDishes(ageMonth)
+    return solidFood.rankFrequentDishes({ records: this._recentSolidFoodRecords || [], ageMonth })
+  },
+
+  loadFrequentSolidFoods() {
+    const familyCode = wx.getStorageSync('familyCode')
+    if (!familyCode) return
+    const today = todayStr()
+    wx.cloud.callFunction({
+      name: 'getRecords',
+      data: { familyCode, startDate: dateUtil.addDays(today, -30), endDateExclusive: dateUtil.addDays(today, 1) }
+    }).then(res => {
+      this._recentSolidFoodRecords = (res.result && res.result.data) || []
+      this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(this.data.date) })
+    }).catch(err => console.error(err))
   },
 
   bindDateChange(e) {
@@ -181,12 +195,22 @@ Page({
   },
 
   selectFrequentSolidFood(e) {
-    const dish = menuData.getDishById(e.currentTarget.dataset.dishId)
-    if (!dish) return
+    const { dishId, name } = e.currentTarget.dataset
+    const dish = menuData.getDishById(dishId)
+    if (dish) {
+      this.setData({
+        solidFoodDishId: dish.id,
+        solidFoodName: dish.name,
+        solidFoodCustomName: '',
+        solidFoodReused: false
+      })
+      return
+    }
+    if (!name) return
     this.setData({
-      solidFoodDishId: dish.id,
-      solidFoodName: dish.name,
-      solidFoodCustomName: '',
+      solidFoodDishId: '',
+      solidFoodName: name,
+      solidFoodCustomName: name,
       solidFoodReused: false
     })
   },

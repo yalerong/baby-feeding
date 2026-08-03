@@ -42,8 +42,8 @@ Page({
         const r = res.result.data
         this.setData({
           date: r.date,
-          weight: String(r.weight),
-          height: String(r.height),
+          weight: r.weight > 0 ? String(r.weight) : '',
+          height: r.height > 0 ? String(r.height) : '',
           note: r.note || ''
         })
       })
@@ -91,8 +91,14 @@ Page({
       date: this.data.date,
       note: this.data.note.trim()
     }
-    if (hasWeight) payload.weight = weight
-    if (hasHeight) payload.height = height
+    if (this.data.isEdit) {
+      // 编辑时显式传 null 表示清空该字段
+      payload.weight = hasWeight ? weight : null
+      payload.height = hasHeight ? height : null
+    } else {
+      if (hasWeight) payload.weight = weight
+      if (hasHeight) payload.height = height
+    }
 
     if (this.data.isEdit) {
       wx.cloud.callFunction({

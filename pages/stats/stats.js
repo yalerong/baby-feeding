@@ -34,6 +34,9 @@ Page({
       canvasHeight: 260,
       pixelRatio: sys.pixelRatio || 1
     })
+  },
+
+  onShow() {
     this.loadStats()
   },
 
@@ -52,6 +55,8 @@ Page({
 
     wx.showLoading({ title: '加载中...' })
 
+    const seq = (this._statsSeq || 0) + 1
+    this._statsSeq = seq
     wx.cloud.callFunction({
       name: 'getStats',
       data: {
@@ -59,6 +64,7 @@ Page({
         range: this.data.range
       }
     }).then(res => {
+      if (this._statsSeq !== seq) return
       wx.hideLoading()
       const dailyStats = this.normalizeDailyStats(((res.result || {}).dailyStats) || [])
       const stats = this.calculateStatsFromDaily(dailyStats)
@@ -93,6 +99,7 @@ Page({
         }, () => this.drawChart(dailyStats))
       }
     }).catch(err => {
+      if (this._statsSeq !== seq) return
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '加载失败', icon: 'none' })

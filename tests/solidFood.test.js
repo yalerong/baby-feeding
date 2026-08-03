@@ -74,3 +74,28 @@ test('restores the last valid solid-food selection for quick entry', () => {
   })
   assert.strictEqual(solidFood.restoreLastSelection({ dishId: 'missing', grams: 30 }), null)
 })
+
+test('ranks frequent dishes by real feeding history before catalog fillers', () => {
+  const records = [
+    { solidFood: true, solidFoodDishId: 'pumpkin-rice-puree', solidFoodDishName: '南瓜米糊' },
+    { solidFood: true, solidFoodDishId: 'pumpkin-rice-puree', solidFoodDishName: '南瓜米糊' },
+    { solidFood: true, solidFoodDishId: '', solidFoodDishName: '自制番薯泥' },
+    { solidFood: true, solidFoodDishId: 'iron-rice-cereal', solidFoodDishName: '铁强化米粉糊' },
+    { solidFood: true, solidFoodDishId: '', solidFoodDishName: '自制番薯泥' },
+    { solidFood: true, solidFoodDishId: '', solidFoodDishName: '自制番薯泥' },
+    { solidFood: false, solidFoodDishId: 'yam-puree', solidFoodDishName: '山药泥' }
+  ]
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6 })
+  assert.strictEqual(ranked.length, 6)
+  assert.strictEqual(ranked[0].name, '自制番薯泥')
+  assert.strictEqual(ranked[0].id, '')
+  assert.strictEqual(ranked[1].id, 'pumpkin-rice-puree')
+  assert.strictEqual(ranked[2].id, 'iron-rice-cereal')
+  assert.ok(ranked.slice(3).every(item => item.id && item.imageEmoji))
+})
+
+test('falls back to the age catalog when there is no solid-food history', () => {
+  const ranked = solidFood.rankFrequentDishes({ records: [], ageMonth: 6 })
+  assert.strictEqual(ranked.length, 6)
+  assert.ok(ranked.every(item => item.id && item.name && item.imageEmoji))
+})

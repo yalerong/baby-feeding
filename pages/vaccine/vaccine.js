@@ -216,11 +216,7 @@ Page({
   },
 
   onBirthDateChange(e) {
-    const date = e.detail.value
-    wx.setStorageSync('babyBirthDate', date)
-    const months = this.calculateMonths(date, this.data.today)
-    this.setData({ birthDate: date, currentMonth: months })
-    this.clearAndReinit(date)
+    this.clearAndReinit(e.detail.value)
   },
 
   clearAndReinit(birthDate) {
@@ -229,6 +225,8 @@ Page({
       content: '修改出生日期将重新生成疫苗计划，是否继续？',
       success: (res) => {
         if (!res.confirm) return
+        wx.setStorageSync('babyBirthDate', birthDate)
+        this.setData({ birthDate, currentMonth: this.calculateMonths(birthDate, this.data.today) })
         wx.showLoading({ title: '更新中...', mask: true })
         const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
         wx.cloud.callFunction({

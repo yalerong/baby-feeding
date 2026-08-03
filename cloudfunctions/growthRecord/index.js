@@ -55,8 +55,8 @@ exports.main = async (event) => {
         updateBy: OPENID || '',
         updateTime: db.serverDate()
       }
-      if (data.weight !== undefined) payload.weight = data.weight
-      if (data.height !== undefined) payload.height = data.height
+      if (data.weight !== undefined) payload.weight = data.weight === null ? db.command.remove() : data.weight
+      if (data.height !== undefined) payload.height = data.height === null ? db.command.remove() : data.height
       await db.collection('growth_records').doc(_id).update({ data: payload })
       return { success: true }
     }

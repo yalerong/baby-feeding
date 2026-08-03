@@ -95,6 +95,7 @@ Page({
   },
 
   submitBatch() {
+    if (this._submitting) return
     const familyCode = wx.getStorageSync('familyCode')
     if (!familyCode) {
       wx.showToast({ title: '缺少家庭码', icon: 'none' })
@@ -123,6 +124,7 @@ Page({
       return
     }
 
+    this._submitting = true
     wx.showLoading({ title: `保存 ${validRows.length} 条...`, mask: true })
 
     wx.cloud.callFunction({
@@ -134,9 +136,11 @@ Page({
         wx.showToast({ title: '保存成功', icon: 'success' })
         setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 800)
       } else {
+        this._submitting = false
         wx.showToast({ title: '保存失败', icon: 'none' })
       }
     }).catch(err => {
+      this._submitting = false
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '部分保存失败', icon: 'none' })

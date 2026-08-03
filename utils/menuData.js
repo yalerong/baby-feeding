@@ -479,6 +479,65 @@ const DISHES = [
   }
 ]
 
+// 配料名 → 规范试吃食材名。[] 表示水、淀粉等辅料，不作为试吃食物；
+// 未列出的配料默认自身就是规范名。试吃清单、过敏排除、过敏原标注都按规范名走。
+const INGREDIENT_FOODS = {
+  '铁强化婴儿米粉': ['米粉'],
+  '铁强化米粉或软米粥': ['米粉'],
+  '米粉或软米粥': ['米粉'],
+  '温水或平时喝的奶': [],
+  '温水或奶': [],
+  '温水': [],
+  '少量淀粉': [],
+  '瘦猪肉': ['猪肉'],
+  '瘦猪肉末': ['猪肉'],
+  '牛肉末': ['牛肉'],
+  '鸡胸肉': ['鸡肉'],
+  '鸡肉末': ['鸡肉'],
+  '熟蛋黄': ['鸡蛋'],
+  '熟鸡蛋': ['鸡蛋'],
+  '菠菜叶': ['菠菜'],
+  '菠菜或西葫芦碎': ['菠菜', '西葫芦'],
+  '西葫芦或胡萝卜碎': ['西葫芦', '胡萝卜'],
+  '软米粥': ['大米'],
+  '软米饭': ['大米'],
+  '婴儿燕麦': ['燕麦'],
+  '嫩豆腐': ['豆腐'],
+  '原味无糖酸奶': ['酸奶'],
+  '新鲜豌豆': ['豌豆'],
+  '青菜碎': ['青菜'],
+  '白菜碎': ['白菜'],
+  '虾仁': ['虾'],
+  '无刺鱼肉泥': ['鱼肉'],
+  '宝宝面': ['小麦面食'],
+  '面粉': ['小麦面食'],
+  '小馄饨皮': ['小麦面食'],
+  '软吐司': ['小麦面食'],
+  '短意面': ['小麦面食']
+}
+
+function getIngredientFoods(name) {
+  const mapped = INGREDIENT_FOODS[name]
+  return mapped ? mapped.slice() : [name]
+}
+
+function getDishFoods(dish) {
+  const foods = []
+  ;(dish.ingredients || []).forEach(name => {
+    getIngredientFoods(name).forEach(food => {
+      if (!foods.includes(food)) foods.push(food)
+    })
+  })
+  return foods
+}
+
+// 排除名单同时按原始配料名和规范名匹配，兼容早期按配料名存的过敏记录
+function dishContainsExcluded(dish, excluded) {
+  if (!excluded || excluded.length === 0) return false
+  return (dish.ingredients || []).some(name => excluded.includes(name)) ||
+    getDishFoods(dish).some(food => excluded.includes(food))
+}
+
 function getAgeStage(ageMonth) {
   return AGE_STAGES.find(stage => ageMonth >= stage.min && ageMonth <= stage.max) || AGE_STAGES[AGE_STAGES.length - 1]
 }
@@ -493,7 +552,7 @@ function getDishesFor(ageMonth, mealType, excludedIngredients) {
     dish.ageMinMonth <= ageMonth &&
     dish.ageMaxMonth >= ageMonth &&
     dish.mealTypes.includes(mealType) &&
-    !dish.ingredients.some(name => excluded.includes(name))
+    !dishContainsExcluded(dish, excluded)
   )
 }
 
@@ -546,7 +605,7 @@ function getDishCatalog(filters) {
 function pickDish(ageMonth, mealType, seed, usedIds, excludedIngredients) {
   const excluded = excludedIngredients || []
   const candidates = getDishesFor(ageMonth, mealType)
-    .filter(dish => !dish.ingredients.some(ingredient => excluded.includes(ingredient)))
+    .filter(dish => !dishContainsExcluded(dish, excluded))
   if (candidates.length === 0) return null
   const fresh = candidates.filter(dish => !usedIds[dish.id])
   const pool = fresh.length > 0 ? fresh : candidates
@@ -656,6 +715,8 @@ module.exports = {
   AGE_MEAL_TYPES,
   AGE_STAGES,
   DISHES,
+  getIngredientFoods,
+  getDishFoods,
   getAgeStage,
   getDishById,
   getDishesFor,
