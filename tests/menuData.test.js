@@ -51,6 +51,34 @@ test('keeps suspected allergens out of replacement candidates', () => {
   assert.ok(candidates.every(dish => !dish.ingredients.includes('熟蛋黄')))
 })
 
+test('excluding a canonical food removes dishes using any of its ingredient variants', () => {
+  const eggDishes = menuData.getDishesFor(12, 'breakfast').filter(dish => menuData.getDishFoods(dish).includes('鸡蛋'))
+  assert.ok(eggDishes.length > 0)
+  const candidates = menuData.getDishesFor(12, 'breakfast', ['鸡蛋'])
+  assert.ok(candidates.every(dish => !menuData.getDishFoods(dish).includes('鸡蛋')))
+})
+
+test('maps ingredient variants to canonical trial foods and drops non-foods', () => {
+  assert.deepStrictEqual(menuData.getIngredientFoods('熟蛋黄'), ['鸡蛋'])
+  assert.deepStrictEqual(menuData.getIngredientFoods('牛肉末'), ['牛肉'])
+  assert.deepStrictEqual(menuData.getIngredientFoods('温水'), [])
+  assert.deepStrictEqual(menuData.getIngredientFoods('西葫芦或胡萝卜碎'), ['西葫芦', '胡萝卜'])
+  assert.deepStrictEqual(menuData.getIngredientFoods('南瓜'), ['南瓜'])
+})
+
+test('every dish ingredient resolves to clean canonical trial foods', () => {
+  const seen = {}
+  menuData.DISHES.forEach(dish => {
+    menuData.getDishFoods(dish).forEach(food => { seen[food] = true })
+  })
+  const foods = Object.keys(seen)
+  assert.ok(foods.length > 0)
+  foods.forEach(food => {
+    assert.ok(!/温水|淀粉|或/.test(food), `non-food or compound name leaked into trial foods: ${food}`)
+  })
+  assert.ok(!foods.includes('熟蛋黄') && !foods.includes('牛肉末') && !foods.includes('软米饭'))
+})
+
 test('adds add-on meals only after the chewing-practice stage', () => {
   const plan = menuData.generateWeeklyMenu({
     birthDate: '2026-02-24',
