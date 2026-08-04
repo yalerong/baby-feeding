@@ -23,6 +23,23 @@
     <view class="notice-text">{{planningNotice}}</view>
   </view>
 
+  <template name="menuGuide">
+    <view class="card guide-card">
+      <view class="guide-head">
+        <view class="guide-title">📖 菜单怎么用</view>
+        <view class="guide-actions">
+          <view class="guide-move" catchtap="toggleGuidePosition">{{position === 'top' ? '移到底部 ↓' : '移到顶部 ↑'}}</view>
+          <view class="guide-close" catchtap="dismissGuide">✕</view>
+        </view>
+      </view>
+      <view class="guide-step">1. 满 6 月龄后的前 2 周是尝试期，每天只安排一餐高铁米粉糊，从 1-2 小勺开始。</view>
+      <view class="guide-step">2. 之后每天试吃一种新食材，连续吃 3 天没有异常就解锁。在首页记录辅食餐会自动算作当天试吃，也可以在「食物解锁」页手动记录。</view>
+      <view class="guide-step">3. 菜单只会排入已解锁食材做的菜，解锁越多菜单越丰富；有异常就标记疑似过敏，菜单会自动避开这种食材。</view>
+    </view>
+  </template>
+
+  <template is="menuGuide" data="{{position: guidePosition}}" wx:if="{{birthDate && guideVisible && viewMode === 'week' && guidePosition === 'top'}}"/>
+
   <view class="card catalog-entry" wx:if="{{birthDate && currentPlan && currentPlan.status === 'ready' && viewMode === 'week'}}" bindtap="enterCatalog">
     <view class="list-header">
       <text class="list-title">辅食大厅</text>
@@ -44,7 +61,14 @@
     </view>
   </block>
 
-  <block wx:elif="{{currentPlan && currentPlan.status === 'milk_only'}}">
+  <block wx:elif="{{currentPlan && currentPlan.status === 'milk_only' && viewMode === 'week'}}">
+    <view class="week-nav card">
+      <view class="nav-btn" bindtap="prevWeek">‹</view>
+      <picker mode="date" value="{{weekStart}}" bindchange="onWeekChange">
+        <view class="week-title">{{weekStart}} 这一周</view>
+      </picker>
+      <view class="nav-btn" bindtap="nextWeek">›</view>
+    </view>
     <view class="card milk-card">
       <view class="milk-title">当前以奶为主</view>
       <view class="milk-text" wx:for="{{currentPlan.cautions}}" wx:key="*this">{{item}}</view>
@@ -172,7 +196,7 @@
   <block wx:elif="{{currentPlan && viewMode === 'trial'}}">
     <view class="card trial-hero">
       <view class="trial-hero-top">
-        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">一次只尝试一种新食物；连续吃 3 天且未记录异常后解锁。</view></view>
+        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">一次只尝试一种新食物；连续吃 3 天且未记录异常后解锁。在首页记录辅食餐会自动打卡当天试吃。</view></view>
         <view class="trial-score"><text class="trial-score-number">{{unlockedFoodCount}}</text><text> / {{trialFoods.length}}</text><view>已解锁</view></view>
       </view>
       <view class="trial-active" wx:if="{{activeTrialFood}}">当前连续试吃：{{activeTrialFood}}</view>
@@ -237,8 +261,14 @@
       </view>
     </view>
 
+    <view class="card phase-tip-card" wx:if="{{currentPlan.lockedFallback}}">
+      解锁的食材还不多，部分餐位暂时用高铁米粉糊代替；去「食物解锁」逐个尝试新食材后，菜单会更丰富。
+    </view>
+
     <view class="day-card card" wx:if="{{selectedDay}}">
       <view class="day-title">{{selectedDay.weekday}} · {{selectedDay.date}}</view>
+      <view class="phase-tip" wx:if="{{selectedDay.phase === 'milk'}}">这一天还未满 6 月龄，以奶为主，暂不安排辅食。</view>
+      <view class="phase-tip" wx:elif="{{selectedDay.phase === 'trial'}}">辅食尝试期（满 6 月龄后前 2 周）：每天一餐高铁米粉糊，从 1-2 小勺开始，耐受后再逐渐加量。</view>
       <view class="meal-row" wx:for="{{mealTypes}}" wx:for-item="mealType" wx:key="*this">
         <view class="meal-label">{{mealLabels[mealType]}}</view>
         <view class="dish-list">
@@ -300,4 +330,6 @@
       <view class="month-preview" wx:else>暂未到辅食月龄</view>
     </view>
   </block>
+
+  <template is="menuGuide" data="{{position: guidePosition}}" wx:if="{{birthDate && guideVisible && viewMode === 'week' && guidePosition === 'bottom'}}"/>
 </view>

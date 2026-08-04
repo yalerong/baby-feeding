@@ -111,6 +111,35 @@ test('does not allow a second trial log on the same day', () => {
   })
 })
 
+test('recording solid food auto-advances the matching active trial', () => {
+  const trials = [
+    { foodName: '南瓜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-08-02' },
+    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-07-20' }
+  ]
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['南瓜', '米粉'], trials, '2026-08-03'), '南瓜')
+  // 进行中的试吃与这道菜无关时不打卡，避免并行两条试吃线
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['土豆'], trials, '2026-08-03'), null)
+})
+
+test('auto trial starts a new food only when the dish has exactly one new food', () => {
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['南瓜', '米粉'], [
+    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-07-20' }
+  ], '2026-08-03'), '南瓜')
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['猪肉', '土豆'], [], '2026-08-03'), '')
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['米粉'], [
+    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-07-20' }
+  ], '2026-08-03'), null)
+})
+
+test('auto trial skips allergic foods and same-day duplicates', () => {
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['南瓜'], [
+    { foodName: '南瓜', status: 'allergic', trialCount: 1, lastTriedDate: '2026-08-01' }
+  ], '2026-08-03'), null)
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['南瓜'], [
+    { foodName: '南瓜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-08-03' }
+  ], '2026-08-03'), null)
+})
+
 test('builds one stable document id for the same family and food', () => {
   assert.strictEqual(getTrialDocumentId('FAMILY', ' 鸡蛋 '), getTrialDocumentId('FAMILY', '鸡蛋'))
   assert.notStrictEqual(getTrialDocumentId('FAMILY', '鸡蛋'), getTrialDocumentId('OTHER', '鸡蛋'))

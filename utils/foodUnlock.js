@@ -57,6 +57,31 @@ function getActiveFoodName(trials, today) {
   return active ? active.foodName : ''
 }
 
+// 录辅食自动打卡的目标食材。返回 null=无需记录；''=多种新食材无法自动定位；其余=要打卡的食材名。
+// 规则：优先推进进行中的试吃；没有进行中的且恰好只有一种新食材时才自动开新试吃。
+function getAutoTrialTarget(foods, trials, date) {
+  const byName = {}
+  ;(trials || []).forEach(trial => { byName[trial.foodName] = trial })
+  const eligible = (foods || []).filter(name => {
+    const trial = byName[name]
+    if (!trial) return true
+    if (trial.status === 'allergic') return false
+    if (trial.lastTriedDate === date) return false
+    return Number(trial.trialCount) < UNLOCK_DAYS
+  })
+  if (eligible.length === 0) return null
+  const active = getActiveFoodName(trials, date)
+  if (active) return eligible.includes(active) ? active : null
+  if (eligible.length === 1) return eligible[0]
+  return ''
+}
+
+function getUnlockedFoodNames(trials) {
+  return (trials || [])
+    .filter(trial => trial.foodName && trial.status !== 'allergic' && Number(trial.trialCount) >= UNLOCK_DAYS)
+    .map(trial => trial.foodName)
+}
+
 function getExcludedIngredients(trials) {
   return (trials || [])
     .filter(trial => trial.status === 'allergic' && trial.foodName)
@@ -82,6 +107,8 @@ module.exports = {
   buildTrialSteps,
   getAllergenInfo,
   getActiveFoodName,
+  getAutoTrialTarget,
+  getUnlockedFoodNames,
   getExcludedIngredients,
   getMissingAllergicFoodNames,
   orderTrialFoods

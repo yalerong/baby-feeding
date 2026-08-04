@@ -655,6 +655,65 @@
   line-height: 1.55;
 }
 
+.guide-card {
+  padding: 24rpx 30rpx;
+}
+
+.guide-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.guide-title {
+  font-size: 29rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.guide-actions {
+  display: flex;
+  align-items: center;
+}
+
+.guide-move {
+  font-size: 24rpx;
+  color: #5BC58F;
+  padding: 4rpx 12rpx;
+}
+
+.guide-close {
+  padding: 4rpx 16rpx;
+  color: #bbb;
+  font-size: 30rpx;
+}
+
+.guide-step {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+  margin-top: 8rpx;
+}
+
+.phase-tip-card {
+  padding: 22rpx 30rpx;
+  font-size: 26rpx;
+  color: #8A6D3B;
+  background: #FFF8E6;
+  line-height: 1.55;
+}
+
+.phase-tip {
+  margin: 12rpx 0 4rpx;
+  padding: 16rpx 20rpx;
+  font-size: 26rpx;
+  color: #5BC58F;
+  background: #F0FAF5;
+  border-radius: 16rpx;
+  line-height: 1.55;
+}
+
 .month-picker-card {
   padding: 24rpx 30rpx;
 }

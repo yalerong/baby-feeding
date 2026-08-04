@@ -2,6 +2,10 @@ const dateUtil = require('./date.js')
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack']
 
+// 辅食尝试期：满 6 月龄起前 14 天只安排高铁米粉糊，每天一餐
+const TRIAL_PERIOD_DAYS = 14
+const IRON_CEREAL_ID = 'iron-rice-cereal'
+
 const MEAL_LABELS = {
   breakfast: '早餐',
   lunch: '午餐',
@@ -77,7 +81,7 @@ const DISHES = [
     name: '铁强化米粉糊',
     ageMinMonth: 6,
     ageMaxMonth: 8,
-    mealTypes: ['breakfast', 'snack'],
+    mealTypes: ['breakfast', 'lunch', 'dinner', 'snack'],
     nutritionTags: ['富铁', '主食'],
     foodGroups: ['谷薯'],
     texture: '细腻泥糊',
@@ -602,16 +606,46 @@ function getDishCatalog(filters) {
   return dishes.map(decorateDish)
 }
 
-function pickDish(ageMonth, mealType, seed, usedIds, excludedIngredients) {
+// unlockedFoods 为 null 表示不启用解锁限制（试吃数据不可用时优雅降级）；米粉作为起步食物始终可用
+function toUnlockedMap(unlockedFoods) {
+  if (!unlockedFoods) return null
+  const map = {}
+  unlockedFoods.forEach(name => { map[name] = true })
+  return map
+}
+
+function dishAllowedByUnlocked(dish, unlockedFoods) {
+  const map = Array.isArray(unlockedFoods) ? toUnlockedMap(unlockedFoods) : unlockedFoods
+  if (!map) return true
+  return getDishFoods(dish).every(food => food === '米粉' || map[food])
+}
+
+function pickDish(ageMonth, mealType, seed, usedIds, excludedIngredients, unlockedMap) {
   const excluded = excludedIngredients || []
-  const candidates = getDishesFor(ageMonth, mealType)
+  const base = getDishesFor(ageMonth, mealType)
     .filter(dish => !dishContainsExcluded(dish, excluded))
-  if (candidates.length === 0) return null
+  const candidates = base.filter(dish => dishAllowedByUnlocked(dish, unlockedMap))
+  if (candidates.length === 0) {
+    // 解锁食材太少排不出菜时，用高铁米粉糊兜底而不是留空
+    if (unlockedMap) {
+      const fallback = getDishById(IRON_CEREAL_ID)
+      if (fallback && !dishContainsExcluded(fallback, excluded)) {
+        const dish = cloneDish(fallback)
+        dish.lockedFallback = true
+        return dish
+      }
+    }
+    return null
+  }
   const fresh = candidates.filter(dish => !usedIds[dish.id])
   const pool = fresh.length > 0 ? fresh : candidates
   const selected = pool[seed % pool.length]
   usedIds[selected.id] = (usedIds[selected.id] || 0) + 1
-  return cloneDish(selected)
+  const dish = cloneDish(selected)
+  if (unlockedMap && selected.id === IRON_CEREAL_ID && candidates.length < base.length) {
+    dish.lockedFallback = true
+  }
+  return dish
 }
 
 function pickReplacementDish({ ageMonth, mealType, currentDishId }) {
@@ -634,22 +668,36 @@ function summarizeNutrition(days) {
   return summary
 }
 
-function buildDay(date, ageMonth, dayIndex, usedIds, excludedIngredients) {
+function buildDay(date, ageMonth, dayIndex, usedIds, excludedIngredients, unlockedMap) {
   const meals = {}
   const mealTypes = getMealTypesForAge(ageMonth)
   mealTypes.forEach((type, mealIndex) => {
     const seed = dayIndex * MEAL_TYPES.length + mealIndex
-    const dish = pickDish(ageMonth, type, seed, usedIds, excludedIngredients)
+    const dish = pickDish(ageMonth, type, seed, usedIds, excludedIngredients, unlockedMap)
     meals[type] = dish ? [dish] : []
   })
-  return { date, meals }
+  return { date, meals, phase: 'regular' }
 }
 
-function generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }) {
-  const ageMonth = dateUtil.monthsBetween(birthDate, weekStart)
-  const stage = getAgeStage(ageMonth)
+function buildTrialDay(date) {
+  const cereal = cloneDish(getDishById(IRON_CEREAL_ID))
+  return { date, meals: { lunch: [cereal] }, phase: 'trial' }
+}
 
-  if (ageMonth < 6) {
+function planHasLockedFallback(days) {
+  return days.some(day =>
+    Object.keys(day.meals).some(type =>
+      (day.meals[type] || []).some(dish => dish.lockedFallback)))
+}
+
+function generateWeeklyMenu({ birthDate, weekStart, excludedIngredients, unlockedFoods }) {
+  const firstFoodDate = dateUtil.addMonths(birthDate, 6)
+  const weekEnd = dateUtil.addDays(weekStart, 6)
+
+  // 整周都在满 6 月龄之前才是纯奶周
+  if (dateUtil.compareDates(weekEnd, firstFoodDate) < 0) {
+    const ageMonth = dateUtil.monthsBetween(birthDate, weekStart)
+    const stage = getAgeStage(ageMonth)
     return {
       status: 'milk_only',
       birthDate,
@@ -663,10 +711,23 @@ function generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }) {
     }
   }
 
+  const ageMonth = Math.max(6, dateUtil.monthsBetween(birthDate, weekStart))
+  const stage = getAgeStage(ageMonth)
+  const trialEndExclusive = dateUtil.addDays(firstFoodDate, TRIAL_PERIOD_DAYS)
+  const cerealUsable = !dishContainsExcluded(getDishById(IRON_CEREAL_ID), excludedIngredients || [])
+  const unlockedMap = toUnlockedMap(unlockedFoods)
   const usedIds = {}
   const days = []
   for (let i = 0; i < 7; i++) {
-    days.push(buildDay(dateUtil.addDays(weekStart, i), ageMonth, i, usedIds, excludedIngredients))
+    const date = dateUtil.addDays(weekStart, i)
+    if (dateUtil.compareDates(date, firstFoodDate) < 0) {
+      days.push({ date, meals: {}, phase: 'milk' })
+    } else if (cerealUsable && dateUtil.compareDates(date, trialEndExclusive) < 0) {
+      days.push(buildTrialDay(date))
+    } else {
+      const dayAge = Math.max(6, dateUtil.monthsBetween(birthDate, date))
+      days.push(buildDay(date, dayAge, i, usedIds, excludedIngredients, unlockedMap))
+    }
   }
 
   return {
@@ -676,6 +737,7 @@ function generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }) {
     ageMonth,
     stage,
     days,
+    lockedFallback: planHasLockedFallback(days),
     nutritionSummary: summarizeNutrition(days),
     mealTypes: getMealTypesForAge(ageMonth),
     mealLabels: MEAL_LABELS,
@@ -683,11 +745,11 @@ function generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }) {
   }
 }
 
-function generateMonthlyMenu({ birthDate, monthStart, excludedIngredients }) {
+function generateMonthlyMenu({ birthDate, monthStart, excludedIngredients, unlockedFoods }) {
   const weeks = []
   for (let i = 0; i < 4; i++) {
     const weekStart = dateUtil.addDays(monthStart, i * 7)
-    weeks.push(generateWeeklyMenu({ birthDate, weekStart, excludedIngredients }))
+    weeks.push(generateWeeklyMenu({ birthDate, weekStart, excludedIngredients, unlockedFoods }))
   }
   return {
     birthDate,
@@ -712,6 +774,8 @@ function getDefaultPlanningWeekStart({ birthDate, today }) {
 module.exports = {
   MEAL_TYPES,
   MEAL_LABELS,
+  TRIAL_PERIOD_DAYS,
+  dishAllowedByUnlocked,
   AGE_MEAL_TYPES,
   AGE_STAGES,
   DISHES,

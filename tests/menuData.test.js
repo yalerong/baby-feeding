@@ -22,7 +22,7 @@ test('does not generate complementary food before 6 months', () => {
   assert.strictEqual(plan.days.length, 0)
 })
 
-test('generates seven days with age-appropriate meal slots for a 6 month baby', () => {
+test('first two weeks of complementary food only schedule iron-fortified rice cereal', () => {
   const plan = menuData.generateWeeklyMenu({
     birthDate: '2026-02-24',
     weekStart: '2026-08-24'
@@ -31,17 +31,77 @@ test('generates seven days with age-appropriate meal slots for a 6 month baby', 
   assert.strictEqual(plan.ageMonth, 6)
   assert.strictEqual(plan.status, 'ready')
   assert.strictEqual(plan.days.length, 7)
+  plan.days.forEach(day => {
+    assert.strictEqual(day.phase, 'trial')
+    assert.deepStrictEqual(Object.keys(day.meals), ['lunch'])
+    assert.strictEqual(day.meals.lunch[0].id, 'iron-rice-cereal')
+  })
+
+  const secondWeek = menuData.generateWeeklyMenu({ birthDate: '2026-02-24', weekStart: '2026-08-31' })
+  assert.ok(secondWeek.days.every(day => day.phase === 'trial'))
+})
+
+test('a week straddling the six month mark mixes milk days and trial days', () => {
+  const plan = menuData.generateWeeklyMenu({
+    birthDate: '2026-02-26',
+    weekStart: '2026-08-24'
+  })
+
+  assert.strictEqual(plan.status, 'ready')
+  assert.strictEqual(plan.days[0].phase, 'milk')
+  assert.deepStrictEqual(plan.days[0].meals, {})
+  assert.strictEqual(plan.days[2].phase, 'trial')
+})
+
+test('generates seven days with age-appropriate meal slots after the trial period', () => {
+  const plan = menuData.generateWeeklyMenu({
+    birthDate: '2026-02-24',
+    weekStart: '2026-09-14'
+  })
+
+  assert.strictEqual(plan.ageMonth, 6)
+  assert.strictEqual(plan.status, 'ready')
+  assert.strictEqual(plan.days.length, 7)
+  assert.ok(plan.days.every(day => day.phase === 'regular'))
   assert.deepStrictEqual(Object.keys(plan.days[0].meals), ['lunch', 'dinner'])
   assert.ok(plan.days[0].meals.lunch.length > 0)
+})
+
+test('menu only schedules dishes made from unlocked foods, with cereal as fallback', () => {
+  const locked = menuData.generateWeeklyMenu({
+    birthDate: '2026-02-24',
+    weekStart: '2026-09-14',
+    unlockedFoods: []
+  })
+  locked.days.forEach(day => {
+    Object.keys(day.meals).forEach(type => {
+      day.meals[type].forEach(dish => assert.strictEqual(dish.id, 'iron-rice-cereal'))
+    })
+  })
+  assert.strictEqual(locked.lockedFallback, true)
+
+  const partial = menuData.generateWeeklyMenu({
+    birthDate: '2026-02-24',
+    weekStart: '2026-09-14',
+    unlockedFoods: ['南瓜', '猪肉', '土豆']
+  })
+  const dishes = partial.days.flatMap(day => Object.values(day.meals).flat())
+  dishes.forEach(dish => {
+    if (dish.lockedFallback) return
+    menuData.getDishFoods(dish).forEach(food => {
+      assert.ok(['米粉', '南瓜', '猪肉', '土豆'].includes(food), `${dish.name} uses locked food ${food}`)
+    })
+  })
 })
 
 test('excludes dishes containing a food marked as a suspected allergen', () => {
   const plan = menuData.generateWeeklyMenu({
     birthDate: '2026-02-24',
-    weekStart: '2026-08-24',
+    weekStart: '2026-09-14',
     excludedIngredients: ['南瓜']
   })
   const dishes = plan.days.flatMap(day => Object.values(day.meals).flat())
+  assert.ok(dishes.length > 0)
   assert.ok(dishes.every(dish => !dish.ingredients.includes('南瓜')))
 })
 

@@ -2,6 +2,7 @@ const dateUtil = require('../../utils/date.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
 const menuData = require('../../utils/menuData.js')
 const solidFood = require('../../utils/solidFood.js')
+const foodUnlock = require('../../utils/foodUnlock.js')
 const feedingReminderCache = require('../../utils/feedingReminderCache.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
@@ -327,6 +328,7 @@ Page({
             name: payload.solidFoodDishName,
             grams: payload.solidFoodGrams
           })
+          if (!isEdit) this.autoLogSolidFoodTrial(payload)
         }
         wx.showToast({ title: isEdit ? '修改成功' : '保存成功', icon: 'success' })
         setTimeout(() => wx.navigateBack(), 800)
@@ -340,6 +342,44 @@ Page({
       console.error(err)
       wx.showToast({ title: isEdit ? '修改失败' : '保存失败', icon: 'none' })
     })
+  },
+
+  // 录辅食自动联动试吃打卡：沿用「一次只试一种」纪律，规则见 getSolidFoodTrialTarget
+  autoLogSolidFoodTrial(payload) {
+    if (payload.date !== todayStr()) return
+    const familyCode = wx.getStorageSync('familyCode')
+    const foods = this.getSolidFoodCanonicalFoods(payload)
+    if (!familyCode || foods.length === 0) return
+    wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }).then(res => {
+      const trials = (res.result && res.result.data) || []
+      const target = foodUnlock.getAutoTrialTarget(foods, trials, payload.date)
+      if (target === null) return
+      if (target === '') {
+        wx.showToast({ title: '这道菜含多种未试食材，未自动记试吃', icon: 'none' })
+        return
+      }
+      return wx.cloud.callFunction({
+        name: 'foodTrial',
+        data: { action: 'log', familyCode, foodName: target, date: payload.date }
+      }).then(logRes => {
+        if (logRes.result && logRes.result.success) {
+          const count = Number(logRes.result.data.trialCount) || 0
+          wx.showToast({
+            title: count >= foodUnlock.UNLOCK_DAYS ? `${target} 已解锁 🎉` : `已自动记 ${target} 试吃 ${count}/${foodUnlock.UNLOCK_DAYS}`,
+            icon: 'none'
+          })
+        }
+      })
+    }).catch(err => console.error(err))
+  },
+
+  getSolidFoodCanonicalFoods(payload) {
+    if (payload.solidFoodDishId) {
+      const dish = menuData.getDishById(payload.solidFoodDishId)
+      if (dish) return menuData.getDishFoods(dish)
+    }
+    const name = payload.solidFoodDishName || ''
+    return name ? menuData.getIngredientFoods(name) : []
   },
 
   deleteRecord() {

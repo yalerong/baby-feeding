@@ -56,6 +56,9 @@ Page({
     unlockedFoodCount: 0,
     activeTrialFood: '',
     excludedIngredients: [],
+    unlockedFoods: null,
+    guideVisible: false,
+    guidePosition: 'top',
     foodTrialError: ''
   },
 
@@ -74,7 +77,9 @@ Page({
       weekStart,
       monthStart,
       monthLabel: this.getMonthLabel(monthStart),
-      currentAgeMonth
+      currentAgeMonth,
+      guideVisible: !wx.getStorageSync('menuGuideDismissed'),
+      guidePosition: wx.getStorageSync('menuGuidePosition') === 'bottom' ? 'bottom' : 'top'
     })
     this.loadFoodTrials().then(() => {
       this.loadWeek(weekStart)
@@ -109,8 +114,28 @@ Page({
     return `menuDraft:${weekStart}`
   },
 
+  dismissGuide() {
+    wx.setStorageSync('menuGuideDismissed', true)
+    this.setData({ guideVisible: false })
+  },
+
+  toggleGuidePosition() {
+    const guidePosition = this.data.guidePosition === 'top' ? 'bottom' : 'top'
+    wx.setStorageSync('menuGuidePosition', guidePosition)
+    this.setData({ guidePosition })
+  },
+
   switchView(e) {
     const viewMode = e.currentTarget.dataset.mode
+    // 点「本周」始终回到当前规划周，避免从月视图跳去别的周后回不来
+    if (viewMode === 'week' && this.data.birthDate) {
+      const defaultWeekStart = menuData.getDefaultPlanningWeekStart({ birthDate: this.data.birthDate, today: this.data.today })
+      if (defaultWeekStart !== this.data.weekStart) {
+        this.setData({ viewMode, weekStart: defaultWeekStart })
+        this.loadWeek(defaultWeekStart)
+        return
+      }
+    }
     this.setData({ viewMode })
     if (viewMode === 'trial') this.buildTrialFoods()
   },
@@ -124,13 +149,15 @@ Page({
           foodTrials,
           activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today),
           excludedIngredients: foodUnlock.getExcludedIngredients(foodTrials),
+          unlockedFoods: foodUnlock.getUnlockedFoodNames(foodTrials),
           foodTrialError: ''
         })
         this.buildTrialFoods()
       })
       .catch(err => {
         console.error(err)
-        this.setData({ foodTrialError: '试吃记录暂不可用，请部署 foodTrial 云函数并创建 food_trials 集合' })
+        // 试吃数据不可用时 unlockedFoods 保持 null，菜单不做解锁限制
+        this.setData({ foodTrialError: '试吃记录暂不可用，请部署 foodTrial 云函数并创建 food_trials 集合', unlockedFoods: null })
         this.buildTrialFoods()
       })
   },
@@ -209,7 +236,8 @@ Page({
     const generated = menuData.generateWeeklyMenu({
       birthDate: this.data.birthDate,
       weekStart,
-      excludedIngredients: this.data.excludedIngredients
+      excludedIngredients: this.data.excludedIngredients,
+      unlockedFoods: this.data.unlockedFoods
     })
 
     if (generated.status === 'milk_only') {
@@ -424,7 +452,8 @@ Page({
     const monthlyPlan = menuData.generateMonthlyMenu({
       birthDate: this.data.birthDate,
       monthStart,
-      excludedIngredients: this.data.excludedIngredients
+      excludedIngredients: this.data.excludedIngredients,
+      unlockedFoods: this.data.unlockedFoods
     })
     this.setData({ monthlyPlan })
   },
@@ -475,11 +504,13 @@ Page({
     const dayIndex = this.data.selectedDayIndex
     const plan = this.data.currentPlan
     const current = plan.days[dayIndex].meals[mealType][dishIndex]
-    const hallDishes = menuData.getDishesFor(plan.ageMonth, mealType, this.data.excludedIngredients).map(dish => ({
-      ...dish,
-      ingredientsLabel: dish.ingredients.join('、'),
-      isCurrent: current && dish.id === current.id
-    }))
+    const hallDishes = menuData.getDishesFor(plan.ageMonth, mealType, this.data.excludedIngredients)
+      .filter(dish => menuData.dishAllowedByUnlocked(dish, this.data.unlockedFoods))
+      .map(dish => ({
+        ...dish,
+        ingredientsLabel: dish.ingredients.join('、'),
+        isCurrent: current && dish.id === current.id
+      }))
     this.setData({
       viewMode: 'hall',
       hallDishes,
@@ -543,7 +574,8 @@ Page({
         const plan = menuData.generateWeeklyMenu({
           birthDate: this.data.birthDate,
           weekStart: this.data.weekStart,
-          excludedIngredients: this.data.excludedIngredients
+          excludedIngredients: this.data.excludedIngredients,
+          unlockedFoods: this.data.unlockedFoods
         })
         const draft = this.decoratePlan(plan)
         wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
