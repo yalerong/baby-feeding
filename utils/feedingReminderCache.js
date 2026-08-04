@@ -1,5 +1,5 @@
 function getKey(familyCode, endDateExclusive) {
-  return `feedingReminderRecommendation:v2:${familyCode}:${endDateExclusive}`
+  return `feedingReminderRecommendation:v3:${familyCode}:${endDateExclusive}`
 }
 
 function clearForToday(familyCode, todayDate) {

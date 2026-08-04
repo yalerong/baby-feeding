@@ -7,6 +7,9 @@ const dailyReviewError = require('../../utils/dailyReviewError.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
+const RECOMMENDATION_WINDOW_DAYS = 10
+const RECOMMENDATION_READY_TEXT = `根据过去 ${RECOMMENDATION_WINDOW_DAYS} 个完整日记录，白天与夜间分别计算`
+
 function toTimestamp(dateStr, timeStr) {
   return dateUtil.toBeijingTimestamp(dateStr, timeStr)
 }
@@ -39,7 +42,7 @@ Page({
     sinceLastFeedingText: '',
     feedingReminderMinutes: feedingAudit.DEFAULT_REMINDER_MINUTES,
     feedingReminderAuto: true,
-    feedingRecommendationText: '正在根据近 30 天喝奶记录计算建议',
+    feedingRecommendationText: `正在根据近 ${RECOMMENDATION_WINDOW_DAYS} 天喝奶记录计算建议`,
     feedingPeriodRecommendations: {
       daytime: { minutes: 240, sampleCount: 0 },
       nighttime: { minutes: 240, sampleCount: 0 }
@@ -108,7 +111,7 @@ Page({
     this.startSinceTimer()
   },
 
-  // 启动聚合：一次云调用取回当天记录/昨日回顾/补剂状态/30天建议，失败回退多请求路径
+  // 启动聚合：一次云调用取回当天记录/昨日回顾/补剂状态/近10日建议，失败回退多请求路径
   loadHomeSummary(date, today) {
     const familyCode = this.data.familyCode
     const reminder = dateUtil.supplementReminder(wx.getStorageSync('babyBirthDate') || '', today)
@@ -121,7 +124,7 @@ Page({
     if (hasRecommendationCache) {
       this.setData({
         feedingPeriodRecommendations: cachedRecommendation,
-        feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+        feedingRecommendationText: RECOMMENDATION_READY_TEXT
       }, () => this.refreshSinceLastFeeding())
     }
 
@@ -137,7 +140,7 @@ Page({
         supplementName,
         recommendation: hasRecommendationCache
           ? null
-          : { startDate: dateUtil.addDays(today, -30), endDateExclusive: today }
+          : { startDate: dateUtil.addDays(today, -RECOMMENDATION_WINDOW_DAYS), endDateExclusive: today }
       }
     }).then(res => {
       const result = res.result
@@ -155,7 +158,7 @@ Page({
         wx.setStorageSync(cacheKey, recommendations)
         this.setData({
           feedingPeriodRecommendations: recommendations,
-          feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+          feedingRecommendationText: RECOMMENDATION_READY_TEXT
         }, () => this.refreshSinceLastFeeding())
       }
 
@@ -255,13 +258,13 @@ Page({
 
   loadFeedingReminderRecommendation() {
     const endDateExclusive = this.data.todayDate
-    const startDate = dateUtil.addDays(endDateExclusive, -30)
+    const startDate = dateUtil.addDays(endDateExclusive, -RECOMMENDATION_WINDOW_DAYS)
     const cacheKey = feedingReminderCache.getKey(this.data.familyCode, endDateExclusive)
     const cached = wx.getStorageSync(cacheKey)
     if (cached && cached.daytime && cached.nighttime) {
       this.setData({
         feedingPeriodRecommendations: cached,
-        feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+        feedingRecommendationText: RECOMMENDATION_READY_TEXT
       }, () => this.refreshSinceLastFeeding())
       return
     }
@@ -277,12 +280,12 @@ Page({
       wx.setStorageSync(cacheKey, recommendations)
       const data = {
         feedingPeriodRecommendations: recommendations,
-        feedingRecommendationText: '根据过去 30 个完整日记录，白天与夜间分别计算'
+        feedingRecommendationText: RECOMMENDATION_READY_TEXT
       }
       this.setData(data, () => this.refreshSinceLastFeeding())
     }).catch(err => {
       console.error(err)
-      this.setData({ feedingRecommendationText: '暂时无法计算近 30 天建议，暂用默认间隔' })
+      this.setData({ feedingRecommendationText: `暂时无法计算近 ${RECOMMENDATION_WINDOW_DAYS} 天建议，暂用默认间隔` })
     })
   },
 

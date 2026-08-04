@@ -14,6 +14,6 @@ function test(name, fn) {
 test('uses the family and cutoff date as the reminder cache identity', () => {
   assert.strictEqual(
     cache.getKey('FAMILY-A', '2026-08-02'),
-    'feedingReminderRecommendation:v2:FAMILY-A:2026-08-02'
+    'feedingReminderRecommendation:v3:FAMILY-A:2026-08-02'
   )
 })
