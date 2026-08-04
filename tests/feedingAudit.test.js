@@ -34,6 +34,11 @@ test('flags a new feeding within one hour as a possible duplicate', () => {
   assert.strictEqual(audit.isPossibleDuplicate(61), false)
 })
 
+test('does not flag the first feeding of the day (no previous record) as duplicate', () => {
+  assert.strictEqual(audit.isPossibleDuplicate(null), false)
+  assert.strictEqual(audit.isPossibleDuplicate(undefined), false)
+})
+
 test('reviews yesterday and hides it after it has been confirmed', () => {
   const reviewDate = audit.getPreviousDayReviewDate('2026-08-02')
   assert.strictEqual(reviewDate, '2026-08-01')

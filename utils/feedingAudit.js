@@ -28,6 +28,7 @@ function isFeedingOverdue(minutes, reminderMinutes) {
 }
 
 function isPossibleDuplicate(minutes) {
+  if (minutes === null || minutes === undefined || minutes === '') return false
   return Number(minutes) >= 0 && Number(minutes) <= POSSIBLE_DUPLICATE_MINUTES
 }
 
