@@ -57,14 +57,16 @@ Page({
   loadLatestFeeding(date) {
     const familyCode = wx.getStorageSync('familyCode')
     if (!familyCode || !date) return
+    // 连同前一天一起拉：凌晨补录要和昨晚的记录比对
     wx.cloud.callFunction({
       name: 'getRecords',
-      data: { familyCode, date }
+      data: { familyCode, startDate: dateUtil.addDays(date, -1), endDateExclusive: dateUtil.addDays(date, 1) }
     }).then(res => {
       if (this.data.date !== date) return
       const feedings = feedingAudit.feedingRecords((res.result && res.result.data) || [])
+      const sameDay = feedings.filter(record => record.date === date)
       this._dayFeedings = feedings
-      this.setData({ latestFeeding: feedings.length ? feedings[feedings.length - 1] : null })
+      this.setData({ latestFeeding: sameDay.length ? sameDay[sameDay.length - 1] : null })
     }).catch(err => console.error(err))
   },
 

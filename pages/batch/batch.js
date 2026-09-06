@@ -1,4 +1,5 @@
 const dateUtil = require('../../utils/date.js')
+const feedingAudit = require('../../utils/feedingAudit.js')
 const todayStr = dateUtil.todayStr
 
 Page({
@@ -12,6 +13,21 @@ Page({
   onLoad() {
     const rows = this.createEmptyRows(4)
     this.setData({ date: todayStr(), rows })
+    this.loadExistingFeedings(todayStr())
+  },
+
+  // 拉当天和前一天已有的喂奶记录，提交时用于重复检查
+  loadExistingFeedings(date) {
+    const familyCode = wx.getStorageSync('familyCode')
+    this._existingFeedings = []
+    if (!familyCode || !date) return
+    wx.cloud.callFunction({
+      name: 'getRecords',
+      data: { familyCode, startDate: dateUtil.addDays(date, -1), endDateExclusive: dateUtil.addDays(date, 1) }
+    }).then(res => {
+      if (this.data.date !== date) return
+      this._existingFeedings = feedingAudit.feedingRecords((res.result && res.result.data) || [])
+    }).catch(err => console.error(err))
   },
 
   createEmptyRows(n) {
@@ -24,6 +40,7 @@ Page({
 
   bindDateChange(e) {
     this.setData({ date: e.detail.value })
+    this.loadExistingFeedings(e.detail.value)
   },
 
   addRow() {
@@ -124,6 +141,25 @@ Page({
       return
     }
 
+    const warnings = feedingAudit.batchDuplicateWarnings(this._existingFeedings || [], validRows)
+    if (warnings.length) {
+      const lines = warnings.slice(0, 3).map(w => `${w.time} 距 ${w.otherTime} 仅 ${w.minutes} 分钟`)
+      if (warnings.length > 3) lines.push(`…共 ${warnings.length} 条`)
+      wx.showModal({
+        title: '可能重复记录',
+        content: `${lines.join('\n')}\n请确认不是同一次喂养的重复录入。`,
+        confirmText: '继续保存',
+        cancelText: '返回检查',
+        success: result => {
+          if (result.confirm) this.saveRows(familyCode, validRows)
+        }
+      })
+      return
+    }
+    this.saveRows(familyCode, validRows)
+  },
+
+  saveRows(familyCode, validRows) {
     this._submitting = true
     wx.showLoading({ title: `保存 ${validRows.length} 条...`, mask: true })
 

@@ -5,7 +5,7 @@ const _ = db.command
 const { fetchAllRecords } = require('./fetchAll.js')
 const { getReviewDocumentId } = require('./reviewId.js')
 
-// 首页启动聚合接口：一次返回当天记录、昨日回顾、补剂状态、30天建议原始记录，
+// 首页启动聚合接口：一次返回当天记录、昨日回顾、补剂状态、近 10 天建议原始记录，
 // 避免启动时打多个云函数各付一次冷启动。各分块查询口径与
 // getRecords / dailyReview / supplement 保持一致。
 

@@ -4,6 +4,12 @@ const DEFAULT_REMINDER_MINUTES = 240
 const POSSIBLE_DUPLICATE_MINUTES = 60
 const MIN_RECOMMENDED_REMINDER_MINUTES = 180
 const MAX_RECOMMENDED_REMINDER_MINUTES = 300
+// 夜间允许 3 到 14 小时：宝宝整夜不吃时，夜间参考值应反映真实的通宵间隔
+const MIN_NIGHT_REMINDER_MINUTES = 180
+const MAX_NIGHT_REMINDER_MINUTES = 14 * 60
+// 超过上限的间隔视为漏记，不进入样本；夜间上限放宽以容纳通宵睡眠
+const MAX_DAY_INTERVAL_MINUTES = 12 * 60
+const MAX_NIGHT_INTERVAL_MINUTES = 16 * 60
 const MIN_RECOMMENDATION_SAMPLES = 4
 
 function feedingTotal(record) {
@@ -58,7 +64,7 @@ function shouldShowDailyReview(reviewDate, confirmedDate) {
 
 function recommendFromIntervals(intervals, minMinutes, maxMinutes) {
   if (intervals.length < MIN_RECOMMENDATION_SAMPLES) {
-    return { minutes: DEFAULT_REMINDER_MINUTES, sampleCount: intervals.length }
+    return { minutes: DEFAULT_REMINDER_MINUTES, sampleCount: intervals.length, usingDefault: true }
   }
   const sorted = intervals.slice().sort((a, b) => a - b)
   const position = (sorted.length - 1) * 0.75
@@ -68,20 +74,9 @@ function recommendFromIntervals(intervals, minMinutes, maxMinutes) {
   const rounded = Math.round(percentile / 30) * 30
   return {
     minutes: Math.max(minMinutes, Math.min(maxMinutes, rounded)),
-    sampleCount: intervals.length
+    sampleCount: intervals.length,
+    usingDefault: false
   }
-}
-
-function collectIntervals(records) {
-  const feedings = feedingRecords(records)
-  const intervals = []
-  for (let index = 1; index < feedings.length; index += 1) {
-    const minutes = minutesBetween(feedings[index - 1], feedings[index])
-    if (minutes !== null && minutes > 0 && minutes <= 12 * 60) {
-      intervals.push({ minutes, previous: feedings[index - 1], current: feedings[index] })
-    }
-  }
-  return intervals
 }
 
 function getFeedingPeriod(record) {
@@ -89,13 +84,33 @@ function getFeedingPeriod(record) {
   return Number.isFinite(hour) && hour >= 7 && hour < 19 ? 'daytime' : 'nighttime'
 }
 
+// 按一段等待时间的中点判断白天/夜间，推荐值统计与首页提醒共用同一口径
+function getPeriodForTimestamps(earlierTs, laterTs) {
+  const midpoint = new Date((earlierTs + laterTs) / 2)
+  const beijingHour = (midpoint.getUTCHours() + 8) % 24
+  return beijingHour >= 7 && beijingHour < 19 ? 'daytime' : 'nighttime'
+}
+
 function getIntervalPeriod(earlier, later) {
   const earlierTs = dateUtil.toBeijingTimestamp(earlier.date, earlier.time)
   const laterTs = dateUtil.toBeijingTimestamp(later.date, later.time)
   if (earlierTs === null || laterTs === null || laterTs <= earlierTs) return getFeedingPeriod(earlier)
-  const midpoint = new Date((earlierTs + laterTs) / 2)
-  const beijingHour = (midpoint.getUTCHours() + 8) % 24
-  return beijingHour >= 7 && beijingHour < 19 ? 'daytime' : 'nighttime'
+  return getPeriodForTimestamps(earlierTs, laterTs)
+}
+
+function collectIntervals(records) {
+  const feedings = feedingRecords(records)
+  const intervals = []
+  for (let index = 1; index < feedings.length; index += 1) {
+    const previous = feedings[index - 1]
+    const current = feedings[index]
+    const minutes = minutesBetween(previous, current)
+    if (minutes === null || minutes <= 0) continue
+    const period = getIntervalPeriod(previous, current)
+    const maxMinutes = period === 'nighttime' ? MAX_NIGHT_INTERVAL_MINUTES : MAX_DAY_INTERVAL_MINUTES
+    if (minutes <= maxMinutes) intervals.push({ minutes, period, previous, current })
+  }
+  return intervals
 }
 
 function recommendReminder(records) {
@@ -108,11 +123,26 @@ function recommendReminder(records) {
 
 function recommendReminderByPeriod(records) {
   const groups = { daytime: [], nighttime: [] }
-  collectIntervals(records).forEach(item => groups[getIntervalPeriod(item.previous, item.current)].push(item.minutes))
+  collectIntervals(records).forEach(item => groups[item.period].push(item.minutes))
   return {
     daytime: recommendFromIntervals(groups.daytime, MIN_RECOMMENDED_REMINDER_MINUTES, MAX_RECOMMENDED_REMINDER_MINUTES),
-    nighttime: recommendFromIntervals(groups.nighttime, 240, 480)
+    nighttime: recommendFromIntervals(groups.nighttime, MIN_NIGHT_REMINDER_MINUTES, MAX_NIGHT_REMINDER_MINUTES)
   }
+}
+
+// 批量补录：每一行和「当天已有记录 + 同批其它行」里最近的一条比对
+function batchDuplicateWarnings(existing, incoming) {
+  const rows = feedingRecords(incoming)
+  const existingFeedings = feedingRecords(existing)
+  const warnings = []
+  rows.forEach((row, index) => {
+    const others = existingFeedings.concat(rows.filter((_, otherIndex) => otherIndex !== index))
+    const nearest = nearestFeeding(others, row)
+    if (nearest && isPossibleDuplicate(nearest.minutes)) {
+      warnings.push({ time: row.time, otherTime: nearest.record.time, minutes: nearest.minutes })
+    }
+  })
+  return warnings
 }
 
 function buildDailyReview(records) {
@@ -150,8 +180,10 @@ module.exports = {
   getPreviousDayReviewDate,
   shouldShowDailyReview,
   getFeedingPeriod,
+  getPeriodForTimestamps,
   getIntervalPeriod,
   recommendReminder,
   recommendReminderByPeriod,
+  batchDuplicateWarnings,
   buildDailyReview
 }

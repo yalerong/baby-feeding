@@ -596,3 +596,10 @@
   color: #ccc;
   line-height: 1;
 }
+
+.feeding-period-sample {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #B0A89F;
+}

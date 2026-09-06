@@ -73,11 +73,13 @@ test('recommends a rounded reminder interval from recent feeding intervals', () 
 
   assert.deepStrictEqual(audit.recommendReminder(records), {
     minutes: 240,
-    sampleCount: 4
+    sampleCount: 4,
+    usingDefault: false
   })
   assert.deepStrictEqual(audit.recommendReminder(records.slice(0, 3)), {
     minutes: 240,
-    sampleCount: 2
+    sampleCount: 2,
+    usingDefault: true
   })
 })
 
@@ -98,9 +100,56 @@ test('recommends separate daytime and nighttime feeding intervals', () => {
   ]
 
   assert.deepStrictEqual(audit.recommendReminderByPeriod(records), {
-    daytime: { minutes: 210, sampleCount: 6 },
-    nighttime: { minutes: 360, sampleCount: 5 }
+    daytime: { minutes: 210, sampleCount: 6, usingDefault: false },
+    nighttime: { minutes: 360, sampleCount: 5, usingDefault: false }
   })
+})
+
+test('keeps overnight sleep intervals as nighttime samples instead of dropping them', () => {
+  // 宝宝整夜不吃：17:30 → 次日 06:30 约 13 小时，白天口径会当漏记丢掉，夜间口径必须保留
+  const records = []
+  for (let day = 1; day <= 5; day += 1) {
+    const date = `2026-09-0${day}`
+    records.push({ date, time: '06:30', formula: 210 })
+    records.push({ date, time: '10:30', formula: 210 })
+    records.push({ date, time: '14:30', formula: 210 })
+    records.push({ date, time: '17:30', formula: 240 })
+  }
+  const result = audit.recommendReminderByPeriod(records)
+  assert.strictEqual(result.nighttime.sampleCount, 4)
+  assert.strictEqual(result.nighttime.usingDefault, false)
+  assert.strictEqual(result.nighttime.minutes, 780)
+  // 超过 16 小时的夜间空档仍视为漏记
+  const gap = audit.recommendReminderByPeriod([
+    { date: '2026-09-01', time: '17:30', formula: 240 },
+    { date: '2026-09-02', time: '10:30', formula: 240 }
+  ])
+  assert.strictEqual(gap.nighttime.sampleCount, 0)
+})
+
+test('classifies the current wait by its midpoint for the home reminder', () => {
+  const day = require('../utils/date.js')
+  const at1830 = day.toBeijingTimestamp('2026-09-01', '18:30')
+  const at2130 = day.toBeijingTimestamp('2026-09-01', '21:30')
+  const at1000 = day.toBeijingTimestamp('2026-09-01', '10:00')
+  assert.strictEqual(audit.getPeriodForTimestamps(at1830, at2130), 'nighttime')
+  assert.strictEqual(audit.getPeriodForTimestamps(at1000, at1000 + 60 * 60000), 'daytime')
+})
+
+test('warns batch rows that sit within an hour of existing records or of each other', () => {
+  const existing = [{ _id: 'x', date: '2026-08-02', time: '08:00', breastMilk: 60, formula: 0 }]
+  const rows = [
+    { date: '2026-08-02', time: '08:30', breastMilk: 0, formula: 90 },
+    { date: '2026-08-02', time: '12:00', breastMilk: 0, formula: 90 },
+    { date: '2026-08-02', time: '12:20', breastMilk: 0, formula: 90 },
+    { date: '2026-08-02', time: '16:00', breastMilk: 0, formula: 0, stool: true }
+  ]
+  assert.deepStrictEqual(audit.batchDuplicateWarnings(existing, rows), [
+    { time: '08:30', otherTime: '08:00', minutes: 30 },
+    { time: '12:00', otherTime: '12:20', minutes: 20 },
+    { time: '12:20', otherTime: '12:00', minutes: 20 }
+  ])
+  assert.deepStrictEqual(audit.batchDuplicateWarnings([], [rows[1]]), [])
 })
 
 test('classifies an interval by its midpoint instead of only its first feeding', () => {

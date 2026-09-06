@@ -1,0 +1,7 @@
+{
+  "name": "baby-feeding-tracker",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.js"
+  }
+}

@@ -76,8 +76,16 @@
       <view class="feeding-settings-title">下次喂养参考</view>
       <view class="feeding-settings-desc">{{feedingRecommendationText}}</view>
       <view class="feeding-period-row">
-        <view class="feeding-period-item"><text>☀️ 白天 07–19</text><text class="feeding-period-value">{{feedingPeriodRecommendations.daytime.minutes / 60}} 小时</text></view>
-        <view class="feeding-period-item"><text>🌙 夜间 19–07</text><text class="feeding-period-value">{{feedingPeriodRecommendations.nighttime.minutes / 60}} 小时</text></view>
+        <view class="feeding-period-item">
+          <text>☀️ 白天 07–19</text>
+          <text class="feeding-period-value">{{feedingPeriodRecommendations.daytime.minutes / 60}} 小时</text>
+          <text class="feeding-period-sample">{{feedingPeriodRecommendations.daytime.usingDefault ? '样本不足，暂用默认' : '样本 ' + feedingPeriodRecommendations.daytime.sampleCount + ' 段'}}</text>
+        </view>
+        <view class="feeding-period-item">
+          <text>🌙 夜间 19–07</text>
+          <text class="feeding-period-value">{{feedingPeriodRecommendations.nighttime.minutes / 60}} 小时</text>
+          <text class="feeding-period-sample">{{feedingPeriodRecommendations.nighttime.usingDefault ? '样本不足，暂用默认' : '样本 ' + feedingPeriodRecommendations.nighttime.sampleCount + ' 段'}}</text>
+        </view>
       </view>
     </view>
   </view>

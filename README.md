@@ -7,8 +7,8 @@
 ## 当前功能
 
 - 喝奶记录：母乳/奶粉、快速录入、历史补录、编辑与删除。
-- 防漏记与防重复：1 小时内再次记录喝奶时提醒确认；次日可一次性审查前一天的疑似重复记录。
-- 喂养间隔参考：基于过去 10 个完整自然日的真实喝奶间隔，分别计算白天与夜间建议；按整段间隔的中点归类，首页当天缓存以减少重复查询。
+- 防漏记与防重复：单条录入、历史补录、批量补录都会和最近一条喝奶（含前一天）比对，1 小时内提醒确认；次日可一次性审查前一天的疑似重复记录。
+- 喂养间隔参考：基于过去 10 个完整自然日的真实喝奶间隔，分别计算白天与夜间建议；按整段间隔的中点归类，首页当天缓存以减少重复查询。卡片上显示每个时段的样本数，样本不足 4 段时明确标注“暂用默认”。夜间保留通宵睡眠间隔（最长 16 小时），宝宝整夜不吃时夜间参考值会反映真实间隔。
 - 大便与辅食：可同条记录保存大便详情，或保存辅食名称、克数和关联菜品。
 - 辅食菜单：按月龄生成周/月菜单；可替换菜品；疑似过敏食材会从生成和替换候选中排除。
 - 食材试吃：一次追踪一种新食材，连续 3 天记录后解锁；可标记疑似过敏。
@@ -29,7 +29,12 @@ addRecord          updateRecord        deleteRecord
 getRecords         getStats            batchFeeding
 growthRecord       batchVaccine        weeklyMenu
 foodTrial          dailyReview         supplement
+homeSummary
 ```
+
+`homeSummary` 是首页启动聚合接口，一次返回当天记录、昨日回顾、补剂状态和间隔建议。未部署时首页会自动回退为多次请求，功能不受影响但启动更慢。
+
+以下云函数是历史修数用的一次性脚本，日常不需要部署：`fixDates`（修正日期格式）、`fixFamilyCode`（批量改家庭码）、`initFamily`（初始化家庭）。
 
 如需使用哭声订阅提醒，再部署 `cryAlertSubscription` 和 `cryAlertWebhook`，并按各自的 `config.js.example` 配置密钥与模板。
 
@@ -57,10 +62,10 @@ foodTrial          dailyReview         supplement
 
 ## 开发校验
 
-项目使用无依赖的 Node.js 测试脚本：
+项目使用无依赖的 Node.js 测试脚本，一条命令跑完：
 
-```powershell
-Get-ChildItem tests -Filter '*.test.js' | ForEach-Object { node $_.FullName }
+```bash
+npm test
 ```
 
 修改云函数后，请在微信开发者工具中重新部署相应云函数；修改前端后重新编译小程序。
@@ -72,6 +77,7 @@ pages/           小程序页面
 utils/           日期、菜单、间隔审查与缓存等通用逻辑
 cloudfunctions/  微信云函数
 tests/           Node.js 回归测试
+add picture/     可选扩展：给记录添加图片的上传组件与接入说明，尚未接入
 ```
 
 ## GitHub

@@ -45,8 +45,8 @@ Page({
     feedingReminderAuto: true,
     feedingRecommendationText: `正在根据近 ${RECOMMENDATION_WINDOW_DAYS} 天喝奶记录计算建议`,
     feedingPeriodRecommendations: {
-      daytime: { minutes: 240, sampleCount: 0 },
-      nighttime: { minutes: 240, sampleCount: 0 }
+      daytime: { minutes: 240, sampleCount: 0, usingDefault: true },
+      nighttime: { minutes: 240, sampleCount: 0, usingDefault: true }
     },
     feedingReminderPickerLabel: '4 小时',
     feedingReminderOptions: [
@@ -232,7 +232,7 @@ Page({
       return
     }
     const diff = Math.floor((dateUtil.nowBeijingTimestamp() - this.data.lastFeedingTs) / 60000)
-    const period = feedingAudit.getFeedingPeriod({ time: this.data.lastFeedingTime })
+    const period = feedingAudit.getPeriodForTimestamps(this.data.lastFeedingTs, dateUtil.nowBeijingTimestamp())
     const suggested = this.data.feedingPeriodRecommendations[period]
     const reminderMinutes = this.data.feedingReminderAuto && suggested ? suggested.minutes : this.data.feedingReminderMinutes
     const overdue = feedingAudit.isFeedingOverdue(diff, reminderMinutes)
@@ -567,7 +567,6 @@ Page({
     const now = dateUtil.nowBeijingTimestamp()
     let chainTs = prevFeeding ? toTimestamp(prevFeeding.date, prevFeeding.time) : null
     let mostRecentPastTs = (chainTs !== null && chainTs <= now) ? chainTs : 0
-    let mostRecentPastTime = mostRecentPastTs && prevFeeding ? prevFeeding.time : ''
 
     const enriched = records.map(r => {
       const breastMilk = r.breastMilk || 0
@@ -586,10 +585,7 @@ Page({
         }
         if (curTs !== null) {
           chainTs = curTs
-          if (curTs <= now) {
-            mostRecentPastTs = curTs
-            mostRecentPastTime = r.time
-          }
+          if (curTs <= now) mostRecentPastTs = curTs
         }
       }
       return Object.assign({}, r, { intervalText, icons: recordIcons(r) })
@@ -600,7 +596,6 @@ Page({
     this.setData({
       records: enriched,
       lastFeedingTs: mostRecentPastTs,
-      lastFeedingTime: mostRecentPastTime,
       todayStats: {
         count,
         total,
