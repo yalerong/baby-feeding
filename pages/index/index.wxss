@@ -499,6 +499,16 @@
   margin-right: 20rpx;
   line-height: 1;
   flex-shrink: 0;
+  width: 56rpx;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.record-icon-multi {
+  font-size: 26rpx;
+  gap: 2rpx;
 }
 
 .empty-sub {

@@ -39,6 +39,22 @@ test('does not flag the first feeding of the day (no previous record) as duplica
   assert.strictEqual(audit.isPossibleDuplicate(undefined), false)
 })
 
+test('finds the nearest feeding by absolute distance so back-filled records are checked too', () => {
+  // 补录 09:30：最后一条是 14:30（间隔为负），但距 08:00 仅 90 分钟、距 11:00 仅 90 分钟
+  assert.deepStrictEqual(audit.nearestFeeding(records, { date: '2026-08-02', time: '09:30' }), {
+    record: records[0],
+    minutes: 90
+  })
+  // 补录 10:40：落在 08:00 与 11:00 之间，最近的是 11:00（20 分钟）→ 应被标记为疑似重复
+  const nearest = audit.nearestFeeding(records, { date: '2026-08-02', time: '10:40' })
+  assert.strictEqual(nearest.record._id, 'b')
+  assert.strictEqual(nearest.minutes, 20)
+  assert.strictEqual(audit.isPossibleDuplicate(nearest.minutes), true)
+  // 无记录时返回 null，且不把自己（编辑中的记录）算进去
+  assert.strictEqual(audit.nearestFeeding([], { date: '2026-08-02', time: '10:40' }), null)
+  assert.strictEqual(audit.nearestFeeding([records[1]], { _id: 'b', date: '2026-08-02', time: '11:05' }), null)
+})
+
 test('reviews yesterday and hides it after it has been confirmed', () => {
   const reviewDate = audit.getPreviousDayReviewDate('2026-08-02')
   assert.strictEqual(reviewDate, '2026-08-01')

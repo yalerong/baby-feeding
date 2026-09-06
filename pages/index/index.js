@@ -4,6 +4,7 @@ const familyRecordSync = require('../../utils/familyRecordSync.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
 const feedingReminderCache = require('../../utils/feedingReminderCache.js')
 const dailyReviewError = require('../../utils/dailyReviewError.js')
+const { recordIcons } = require('../../utils/recordIcons.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -591,7 +592,7 @@ Page({
           }
         }
       }
-      return Object.assign({}, r, { intervalText })
+      return Object.assign({}, r, { intervalText, icons: recordIcons(r) })
     })
     const total = breast + formula
     const ratio = total === 0 ? '0%' : (breast / total * 100).toFixed(1) + '%'

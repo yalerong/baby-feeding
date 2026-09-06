@@ -63,6 +63,7 @@ Page({
     }).then(res => {
       if (this.data.date !== date) return
       const feedings = feedingAudit.feedingRecords((res.result && res.result.data) || [])
+      this._dayFeedings = feedings
       this.setData({ latestFeeding: feedings.length ? feedings[feedings.length - 1] : null })
     }).catch(err => console.error(err))
   },
@@ -134,6 +135,7 @@ Page({
 
   bindDateChange(e) {
     const date = e.detail.value
+    this._dayFeedings = []
     this.setData({
       date,
       latestFeeding: null,
@@ -293,12 +295,11 @@ Page({
       ...solidFoodPayload
     }
 
-    const latest = this.data.latestFeeding
-    const minutes = latest ? feedingAudit.minutesBetween(latest, payload) : null
-    if (!this.data.isEdit && feedingAudit.isPossibleDuplicate(minutes)) {
+    const nearest = feedingAudit.nearestFeeding(this._dayFeedings, payload)
+    if (!this.data.isEdit && nearest && feedingAudit.isPossibleDuplicate(nearest.minutes)) {
       wx.showModal({
         title: '可能重复记录',
-        content: `距上一条 ${minutes} 分钟。请确认这不是同一次喂养的重复录入。`,
+        content: `距 ${nearest.record.time} 那条记录 ${nearest.minutes} 分钟。请确认这不是同一次喂养的重复录入。`,
         confirmText: '继续保存',
         cancelText: '返回检查',
         success: result => {

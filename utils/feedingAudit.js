@@ -23,6 +23,18 @@ function minutesBetween(earlier, later) {
   return Math.floor((laterTs - earlierTs) / 60000)
 }
 
+function nearestFeeding(feedings, record) {
+  let nearest = null
+  ;(feedings || []).forEach(feeding => {
+    if (record._id && feeding._id === record._id) return
+    const minutes = minutesBetween(feeding, record)
+    if (minutes === null) return
+    const distance = Math.abs(minutes)
+    if (!nearest || distance < nearest.minutes) nearest = { record: feeding, minutes: distance }
+  })
+  return nearest
+}
+
 function isFeedingOverdue(minutes, reminderMinutes) {
   return Number(minutes) > Number(reminderMinutes || DEFAULT_REMINDER_MINUTES)
 }
@@ -131,6 +143,7 @@ module.exports = {
   feedingTotal,
   feedingRecords,
   minutesBetween,
+  nearestFeeding,
   isFeedingOverdue,
   isPossibleDuplicate,
   formatReminderHours,
