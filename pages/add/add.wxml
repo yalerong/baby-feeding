@@ -66,12 +66,13 @@
       <view class="solid-food-choices">
         <view class="solid-food-choices-title">当前月龄常吃</view>
         <view class="solid-food-choice-list">
-          <view wx:for="{{solidFoodFrequentDishes}}" wx:key="name" class="solid-food-choice {{(item.id ? solidFoodDishId === item.id : solidFoodName === item.name) ? 'active' : ''}}" data-dish-id="{{item.id}}" data-name="{{item.name}}" bindtap="selectFrequentSolidFood">
+          <view wx:for="{{solidFoodFrequentDishes}}" wx:key="name" class="solid-food-choice {{(item.id ? solidFoodDishId === item.id : solidFoodName === item.name) ? 'active' : ''}}" data-dish-id="{{item.id}}" data-name="{{item.name}}" data-foods="{{item.foods}}" bindtap="selectFrequentSolidFood">
             {{item.imageEmoji}} {{item.name}}
           </view>
         </view>
-        <view class="solid-food-choice-hint">没在这里？直接填写下面的“其他辅食”即可</view>
+        <view class="solid-food-choice-hint">没在这里？直接填写下面的“其他辅食”即可，写上食材名（如 胡萝卜泥）会自动记试吃</view>
       </view>
+      <view class="solid-food-reused-tip" wx:if="{{solidFoodReused}}">已沿用上次：{{solidFoodName}} {{solidFoodGrams}}g，改动任一项即取消</view>
       <view class="form-item">
         <view class="form-label">其他辅食</view>
         <input value="{{solidFoodCustomName}}" bindinput="bindSolidFoodCustomNameInput" placeholder="例如：自制番薯泥" />

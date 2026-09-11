@@ -40,8 +40,39 @@ function getFrequentDishes(ageMonth) {
   return menuData.getDishCatalog({ ageMonth }).slice(0, 6)
 }
 
-// 按历史辅食记录出现次数排序（含自定义辅食），不足 6 个再用该月龄菜品目录补齐
-function rankFrequentDishes({ records, ageMonth, limit }) {
+// 一条辅食记录对应的规范试吃食材：菜库菜→配料表；自定义菜→保存时带的食材；手填名→按名字识别
+function getCanonicalFoods({ dishId, name, foods, extraFoods }) {
+  if (dishId) {
+    const dish = menuData.getDishById(dishId)
+    if (dish) return menuData.getDishFoods(dish)
+  }
+  if (Array.isArray(foods) && foods.length > 0) return foods.slice()
+  return menuData.matchFoodsInName(name, extraFoods)
+}
+
+// 本周菜单里家长自己写的菜，供录入页直接选
+function customDishesFromPlan(plan) {
+  const result = []
+  ;((plan && plan.days) || []).forEach(day => {
+    Object.keys(day.meals || {}).forEach(type => {
+      ;(day.meals[type] || []).forEach(dish => {
+        if (!dish || !dish.isCustom || !dish.name) return
+        if (result.some(item => item.name === dish.name)) return
+        const foods = []
+        ;(dish.ingredients || []).forEach(ingredient => {
+          menuData.getIngredientFoods(ingredient).forEach(food => {
+            if (!foods.includes(food)) foods.push(food)
+          })
+        })
+        result.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods })
+      })
+    })
+  })
+  return result
+}
+
+// 按历史辅食记录出现次数排序（含自定义辅食），再接本周自定义菜，不足 6 个再用该月龄菜品目录补齐
+function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
   const max = limit || 6
   const counts = {}
   const order = []
@@ -49,10 +80,11 @@ function rankFrequentDishes({ records, ageMonth, limit }) {
     if (!record || !record.solidFood || !record.solidFoodDishName) return
     const key = record.solidFoodDishId || `custom:${record.solidFoodDishName}`
     if (!counts[key]) {
-      counts[key] = { id: record.solidFoodDishId || '', name: record.solidFoodDishName, count: 0 }
+      counts[key] = { id: record.solidFoodDishId || '', name: record.solidFoodDishName, count: 0, foods: [] }
       order.push(key)
     }
     counts[key].count += 1
+    if (counts[key].foods.length === 0 && Array.isArray(record.solidFoodFoods)) counts[key].foods = record.solidFoodFoods.slice()
   })
   const result = order
     .map(key => counts[key])
@@ -60,8 +92,13 @@ function rankFrequentDishes({ records, ageMonth, limit }) {
     .slice(0, max)
     .map(item => {
       const dish = item.id ? menuData.getDishById(item.id) : null
-      return { id: item.id, name: item.name, imageEmoji: dish ? dish.imageEmoji : '🍚' }
+      return { id: item.id, name: item.name, imageEmoji: dish ? dish.imageEmoji : '🍚', foods: item.foods }
     })
+  ;(customDishes || []).forEach(dish => {
+    if (result.length >= max) return
+    if (result.some(item => item.name === dish.name)) return
+    result.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods: dish.foods || [] })
+  })
   if (result.length < max) {
     menuData.getDishCatalog({ ageMonth }).forEach(dish => {
       if (result.length >= max) return
@@ -76,5 +113,7 @@ module.exports = {
   normalize,
   restoreLastSelection,
   getFrequentDishes,
-  rankFrequentDishes
+  rankFrequentDishes,
+  getCanonicalFoods,
+  customDishesFromPlan
 }

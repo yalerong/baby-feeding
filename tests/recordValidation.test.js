@@ -27,6 +27,14 @@ test('normalizes valid solid-food fields for storage', () => {
     solidFood: true,
     solidFoodDishId: 'rice',
     solidFoodDishName: '米糊',
-    solidFoodGrams: 20
+    solidFoodGrams: 20,
+    solidFoodFoods: []
   })
+})
+
+test('keeps custom-dish foods trimmed and unique, drops them when solid food is off', () => {
+  assert.deepStrictEqual(validation.normalizeSolidFood({
+    solidFood: true, solidFoodDishName: '胡萝卜土豆泥', solidFoodGrams: 20, solidFoodFoods: [' 胡萝卜 ', '土豆', '胡萝卜', '']
+  }).solidFoodFoods, ['胡萝卜', '土豆'])
+  assert.deepStrictEqual(validation.normalizeSolidFood({ solidFood: false, solidFoodFoods: ['胡萝卜'] }).solidFoodFoods, [])
 })

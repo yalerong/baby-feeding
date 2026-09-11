@@ -172,6 +172,15 @@
       </view>
     </view>
 
+    <view class="card dish-option custom-dish-option" bindtap="addCustomDish">
+      <view class="dish-art" style="background: #F3F0EA;">✏️</view>
+      <view class="dish-main">
+        <view class="dish-name">自己写一道</view>
+        <view class="dish-note">填菜名和食材，保存后本周菜单和首页录入都能直接选</view>
+      </view>
+      <view class="select-arrow">›</view>
+    </view>
+
     <view class="card dish-option"
           wx:for="{{hallDishes}}"
           wx:key="id"
@@ -209,6 +218,15 @@
 
     <view class="trial-service-error" wx:if="{{foodTrialError}}">{{foodTrialError}}</view>
 
+    <view class="card custom-food-card">
+      <view class="custom-food-title">＋ 自定义食材</view>
+      <view class="custom-food-row">
+        <input class="custom-food-input" value="{{customFoodInput}}" bindinput="bindCustomFoodInput" bindconfirm="addCustomFood" confirm-type="done" placeholder="如：胡萝卜、玉米、鳕鱼" maxlength="20" />
+        <view class="custom-food-btn" bindtap="addCustomFood">添加</view>
+      </view>
+      <view class="custom-food-hint">菜库里没有的食材写在这里，同样连续吃 3 天解锁；写"胡萝卜泥"会自动识别成"胡萝卜"。</view>
+    </view>
+
     <view class="card trial-food {{item.status === 'allergic' ? 'trial-food-allergic' : ''}}" wx:for="{{trialFoods}}" wx:key="name">
       <view class="trial-food-main">
         <view class="trial-food-icon">{{item.emoji}}</view>
@@ -226,6 +244,7 @@
         <view wx:if="{{item.status !== 'allergic' && item.canUndoToday}}" class="trial-undo-btn trial-action" catchtap="undoFoodTrial" data-name="{{item.name}}">撤销今天记录</view>
         <button wx:if="{{item.status !== 'allergic'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
         <button wx:if="{{item.status === 'allergic'}}" class="trial-restore-btn" bindtap="restoreFood" data-name="{{item.name}}">恢复推荐</button>
+        <button wx:if="{{item.isOffCatalog}}" class="trial-remove-btn" bindtap="removeFood" data-name="{{item.name}}">移除</button>
       </view>
     </view>
   </block>

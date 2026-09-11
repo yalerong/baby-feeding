@@ -144,3 +144,35 @@ test('builds one stable document id for the same family and food', () => {
   assert.strictEqual(getTrialDocumentId('FAMILY', ' 鸡蛋 '), getTrialDocumentId('FAMILY', '鸡蛋'))
   assert.notStrictEqual(getTrialDocumentId('FAMILY', '鸡蛋'), getTrialDocumentId('OTHER', '鸡蛋'))
 })
+
+test('lists custom and off-catalog trial foods so they stay visible and undoable', () => {
+  const trials = [
+    { foodName: '胡萝卜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11' },
+    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-01' },
+    { foodName: '玉米', status: 'tracking', trialCount: 0, lastTriedDate: '' }
+  ]
+  assert.deepStrictEqual(foodUnlock.getMissingTrialFoodNames(trials, { '米粉': true }), ['胡萝卜', '玉米'])
+  assert.strictEqual(foodUnlock.getActiveFoodName(trials, '2026-09-11'), '胡萝卜')
+})
+
+test('does not auto-log a back-filled date earlier than the latest trial day', () => {
+  const trials = [{ foodName: '胡萝卜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-11' }]
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['胡萝卜'], trials, '2026-09-10'), null)
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['胡萝卜'], trials, '2026-09-12'), '胡萝卜')
+})
+
+test('reverts only trials logged that day and not covered by another record', () => {
+  const trials = [
+    { foodName: '胡萝卜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11' },
+    { foodName: '南瓜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-10' },
+    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-11' }
+  ]
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜', '南瓜', '米粉'], otherFoods: [], trials, date: '2026-09-11' }), ['胡萝卜', '米粉'])
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: ['胡萝卜'], trials, date: '2026-09-11' }), [])
+})
+
+test('flags peas and lentils as common allergens', () => {
+  assert.strictEqual(foodUnlock.getAllergenInfo('豌豆').level, 'common-allergen')
+  assert.strictEqual(foodUnlock.getAllergenInfo('红扁豆').level, 'common-allergen')
+  assert.strictEqual(foodUnlock.getAllergenInfo('土豆').level, 'observe')
+})

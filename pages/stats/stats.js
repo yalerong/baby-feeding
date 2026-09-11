@@ -6,6 +6,8 @@ Page({
       totalMilk: 0,
       totalBreast: 0,
       totalStool: 0,
+      totalSolid: 0,
+      totalSolidGrams: 0,
       ratio: '0%'
     },
     avgStats: {
@@ -111,8 +113,10 @@ Page({
     const totalMilk = dailyStats.reduce((sum, item) => sum + (item.total || 0), 0)
     const totalBreast = dailyStats.reduce((sum, item) => sum + (item.breast || 0), 0)
     const totalStool = dailyStats.reduce((sum, item) => sum + this.getStoolCount(item), 0)
+    const totalSolid = dailyStats.reduce((sum, item) => sum + (item.solidCount || 0), 0)
+    const totalSolidGrams = dailyStats.reduce((sum, item) => sum + (item.solidGrams || 0), 0)
     const ratio = totalMilk === 0 ? '0%' : (totalBreast / totalMilk * 100).toFixed(1) + '%'
-    return { totalCount, totalMilk, totalBreast, totalStool, ratio }
+    return { totalCount, totalMilk, totalBreast, totalStool, totalSolid, totalSolidGrams, ratio }
   },
 
   normalizeDailyStats(dailyStats) {
@@ -130,7 +134,7 @@ Page({
   },
 
   hasDailyRecord(item) {
-    return this.getFeedingCount(item) > 0 || this.getStoolCount(item) > 0 || (Number(item.total) || 0) > 0
+    return this.getFeedingCount(item) > 0 || this.getStoolCount(item) > 0 || (Number(item.total) || 0) > 0 || (Number(item.solidCount) || 0) > 0
   },
 
   getFeedingCount(item) {
@@ -161,8 +165,10 @@ Page({
       if (!this.hasDailyRecord(item)) return
       const month = item.date.substring(0, 7)
       if (!monthMap[month]) {
-        monthMap[month] = { month, monthLabel: this.formatMonthLabel(month), count: 0, breast: 0, formula: 0, total: 0, stool: 0, days: 0 }
+        monthMap[month] = { month, monthLabel: this.formatMonthLabel(month), count: 0, breast: 0, formula: 0, total: 0, stool: 0, solid: 0, solidGrams: 0, days: 0 }
       }
+      monthMap[month].solid += item.solidCount || 0
+      monthMap[month].solidGrams += item.solidGrams || 0
       monthMap[month].count += this.getFeedingCount(item)
       monthMap[month].breast += item.breast
       monthMap[month].formula += item.formula

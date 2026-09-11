@@ -400,7 +400,8 @@
 .trial-log-btn,
 .trial-alert-btn,
 .trial-undo-btn,
-.trial-restore-btn {
+.trial-restore-btn,
+.trial-remove-btn {
   margin: 0;
   padding: 0 14rpx;
   min-width: 122rpx;
@@ -754,4 +755,56 @@
 .month-preview {
   margin-top: 10rpx;
   color: #5BC58F;
+}
+
+.custom-food-card {
+  padding: 24rpx 28rpx;
+}
+
+.custom-food-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #2E8753;
+  margin-bottom: 14rpx;
+}
+
+.custom-food-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.custom-food-input {
+  flex: 1;
+  height: 72rpx;
+  padding: 0 20rpx;
+  border-radius: 18rpx;
+  background: #F6F5F1;
+  font-size: 28rpx;
+}
+
+.custom-food-btn {
+  padding: 0 32rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  border-radius: 18rpx;
+  background: #5BC58F;
+  color: #fff;
+  font-size: 28rpx;
+}
+
+.custom-food-hint {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #8C8578;
+  line-height: 1.5;
+}
+
+.custom-dish-option {
+  border: 2rpx dashed #BFD9C8;
+}
+
+.trial-remove-btn {
+  background: #F3F0EA;
+  color: #8C8578;
 }

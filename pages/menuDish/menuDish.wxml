@@ -24,7 +24,8 @@
     <input class="text-input" value="{{dish.texture}}" bindinput="bindTextureInput" placeholder="如：细腻泥糊" />
 
     <view class="form-label">食材</view>
-    <textarea value="{{ingredientsText}}" bindinput="bindIngredientsInput" auto-height maxlength="-1" />
+    <view class="form-hint" wx:if="{{dish.isCustom}}">每行一种，写食材名（如 胡萝卜、土豆）；首页录这道菜时会按这里自动记试吃</view>
+    <textarea value="{{ingredientsText}}" bindinput="bindIngredientsInput" auto-height maxlength="-1" placeholder="每行一种食材" />
 
     <view class="form-label">做法</view>
     <textarea value="{{stepsText}}" bindinput="bindStepsInput" auto-height maxlength="-1" />

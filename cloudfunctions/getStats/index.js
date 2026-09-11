@@ -52,11 +52,13 @@ exports.main = async (event) => {
     let totalMilk = 0
     let totalBreast = 0
     let totalStool = 0
+    let totalSolid = 0
+    let totalSolidGrams = 0
 
     list.forEach(item => {
       const d = item.date
       if (!dayMap[d]) {
-        dayMap[d] = { date: d, count: 0, feedingCount: 0, breast: 0, formula: 0, total: 0, stool: 0, stoolCount: 0 }
+        dayMap[d] = { date: d, count: 0, feedingCount: 0, breast: 0, formula: 0, total: 0, stool: 0, stoolCount: 0, solidCount: 0, solidGrams: 0 }
       }
       const breastMilk = Number(item.breastMilk) || 0
       const formulaMilk = Number(item.formula) || 0
@@ -72,6 +74,13 @@ exports.main = async (event) => {
       if (item.stool) {
         dayMap[d].stool += 1
         dayMap[d].stoolCount += 1
+      }
+      if (item.solidFood) {
+        const grams = Number(item.solidFoodGrams) || 0
+        dayMap[d].solidCount += 1
+        dayMap[d].solidGrams += grams
+        totalSolid += 1
+        totalSolidGrams += grams
       }
 
       if (hasFeeding) totalCount += 1
@@ -89,7 +98,7 @@ exports.main = async (event) => {
 
     return {
       success: true,
-      stats: { totalCount, totalMilk, totalBreast, totalStool, ratio },
+      stats: { totalCount, totalMilk, totalBreast, totalStool, totalSolid, totalSolidGrams, ratio },
       dailyStats
     }
   } catch (err) {
@@ -99,7 +108,7 @@ exports.main = async (event) => {
 }
 
 function empty() {
-  return { totalCount: 0, totalMilk: 0, totalBreast: 0, totalStool: 0, ratio: '0%' }
+  return { totalCount: 0, totalMilk: 0, totalBreast: 0, totalStool: 0, totalSolid: 0, totalSolidGrams: 0, ratio: '0%' }
 }
 
 function pad(n) {

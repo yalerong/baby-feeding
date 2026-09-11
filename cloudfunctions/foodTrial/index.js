@@ -32,8 +32,17 @@ exports.main = async event => {
     const existing = existingRes.data && existingRes.data[0]
     const documentId = existing ? existing._id : getTrialDocumentId(familyCode, foodName)
 
+    // 家长自定义食材：只建档不打卡，trialCount 0 不会占用"当前连续试吃"
+    if (action === 'add') {
+      if (existing) return { success: true, data: existing, existed: true }
+      const payload = { familyCode, foodName, trialCount: 0, status: 'tracking', lastTriedDate: '', isCustom: true, updateTime: db.serverDate(), createTime: db.serverDate() }
+      await db.collection('food_trials').doc(documentId).set({ data: payload })
+      return { success: true, data: { _id: documentId, ...payload } }
+    }
+
     if (action === 'log') {
       if (!date) return { success: false, error: 'date required' }
+      if (existing && existing.lastTriedDate && existing.lastTriedDate > date) return { success: false, error: `${existing.lastTriedDate} 已记录过，不能补录更早的日期` }
       const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
       const previousDate = previousDay(date)
       const active = (activeRes.data || []).find(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3 && (item.lastTriedDate === date || item.lastTriedDate === previousDate))
@@ -63,13 +72,16 @@ exports.main = async event => {
       if (!date) return { success: false, error: 'date required' }
       const nextState = getUndoTrialState(existing, date)
       if (!nextState) return { success: false, error: '只能撤销今天的试吃记录' }
-      if (nextState.action === 'remove') {
-        await db.collection('food_trials').doc(existing._id).remove()
-      } else {
-        await db.collection('food_trials').doc(existing._id).update({
-          data: { ...nextState, updateTime: db.serverDate() }
-        })
-      }
+      const { action: _ignored, ...data } = nextState
+      await db.collection('food_trials').doc(existing._id).update({
+        data: { ...data, updateTime: db.serverDate() }
+      })
+      return { success: true }
+    }
+
+    if (action === 'remove') {
+      if (!existing) return { success: true }
+      await db.collection('food_trials').doc(existing._id).remove()
       return { success: true }
     }
 

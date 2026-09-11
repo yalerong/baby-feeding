@@ -1,4 +1,5 @@
 const menuData = require('../../utils/menuData.js')
+const foodUnlock = require('../../utils/foodUnlock.js')
 
 Page({
   data: {
@@ -27,31 +28,36 @@ Page({
     this.loadDish()
   },
 
+  // 优先用菜单页跳转前缓存的那份菜单（和用户看到的一致），其次草稿、云端已保存，最后才按解锁状态重新生成
   loadDish() {
     const birthDate = wx.getStorageSync('babyBirthDate') || ''
-    const generated = menuData.generateWeeklyMenu({
-      birthDate,
-      weekStart: this.data.weekStart
-    })
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    const weekStart = this.data.weekStart
+    const cached = wx.getStorageSync(`menuPlanCache:${weekStart}`)
+    const draft = wx.getStorageSync(this.getDraftKey())
 
-    wx.cloud.callFunction({
-      name: 'weeklyMenu',
-      data: { action: 'get', familyCode, weekStart: this.data.weekStart }
-    })
+    const trialsReq = wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
+      .then(res => (res.result && res.result.data) || [])
+      .catch(err => { console.error(err); return null })
+    const savedReq = wx.cloud.callFunction({ name: 'weeklyMenu', data: { action: 'get', familyCode, weekStart } })
       .then(res => {
-        if (!res.result || !res.result.success) {
-          throw new Error(res.result && res.result.error)
-        }
-        const saved = res.result.data
-        const draft = wx.getStorageSync(this.getDraftKey())
-        const plan = draft || (saved ? { ...generated, days: saved.days || generated.days } : generated)
-        this.setDish(plan, saved ? saved._id : '')
+        if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+        return res.result.data
       })
-      .catch(err => {
-        console.error(err)
-        this.setDish(generated, '')
+      .catch(err => { console.error(err); return null })
+
+    Promise.all([trialsReq, savedReq]).then(([trials, saved]) => {
+      const generated = menuData.generateWeeklyMenu({
+        birthDate,
+        weekStart,
+        excludedIngredients: trials ? foodUnlock.getExcludedIngredients(trials) : [],
+        unlockedFoods: trials ? foodUnlock.getUnlockedFoodNames(trials) : null
       })
+      const fromCache = cached && cached.weekStart === weekStart && Array.isArray(cached.days) ? cached : null
+      const fromSaved = saved ? { ...generated, days: saved.days || generated.days, nutritionSummary: saved.nutritionSummary || generated.nutritionSummary } : null
+      const plan = fromCache || draft || fromSaved || generated
+      this.setDish(plan, saved ? saved._id : '')
+    })
   },
 
   getDraftKey() {
@@ -119,7 +125,7 @@ Page({
     days.forEach(day => {
       Object.keys(day.meals || {}).forEach(type => {
         ;(day.meals[type] || []).forEach(dish => {
-          dish.nutritionTags.forEach(tag => {
+          ;(dish.nutritionTags || []).forEach(tag => {
             summary[tag] = (summary[tag] || 0) + 1
           })
         })
@@ -166,6 +172,7 @@ Page({
         throw new Error(res.result && res.result.error)
       }
       wx.removeStorageSync(this.getDraftKey())
+      wx.removeStorageSync(`menuPlanCache:${this.data.weekStart}`)
       wx.showToast({ title: '已保存', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 700)
     }).catch(err => {

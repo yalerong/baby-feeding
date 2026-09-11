@@ -99,3 +99,28 @@ test('falls back to the age catalog when there is no solid-food history', () => 
   assert.strictEqual(ranked.length, 6)
   assert.ok(ranked.every(item => item.id && item.name && item.imageEmoji))
 })
+
+test('maps a record to canonical trial foods from dish, custom-dish foods or the typed name', () => {
+  assert.deepStrictEqual(solidFood.getCanonicalFoods({ dishId: 'pumpkin-rice-puree' }), ['南瓜', '米粉'])
+  assert.deepStrictEqual(solidFood.getCanonicalFoods({ dishId: '', name: '宝宝爱心餐', foods: ['胡萝卜', '土豆'] }), ['胡萝卜', '土豆'])
+  assert.deepStrictEqual(solidFood.getCanonicalFoods({ dishId: '', name: '胡萝卜泥' }), ['胡萝卜'])
+  assert.deepStrictEqual(solidFood.getCanonicalFoods({ dishId: '', name: '玉米糊', extraFoods: ['玉米'] }), ['玉米'])
+  assert.deepStrictEqual(solidFood.getCanonicalFoods({ dishId: '', name: '神秘料理' }), [])
+})
+
+test('offers custom dishes from the saved weekly plan right after real history', () => {
+  const plan = { days: [{ meals: { lunch: [{ id: 'custom-1', name: '胡萝卜土豆泥', isCustom: true, ingredients: ['胡萝卜', '土豆'] }], dinner: [{ id: 'pork-potato-puree', name: '猪肉土豆泥' }] } }] }
+  const custom = solidFood.customDishesFromPlan(plan)
+  assert.deepStrictEqual(custom, [{ id: '', name: '胡萝卜土豆泥', imageEmoji: '🍱', foods: ['胡萝卜', '土豆'] }])
+  const ranked = solidFood.rankFrequentDishes({ records: [{ solidFood: true, solidFoodDishId: '', solidFoodDishName: '南瓜泥' }], ageMonth: 6, customDishes: custom })
+  assert.strictEqual(ranked[0].name, '南瓜泥')
+  assert.strictEqual(ranked[1].name, '胡萝卜土豆泥')
+  assert.deepStrictEqual(ranked[1].foods, ['胡萝卜', '土豆'])
+})
+
+test('keeps custom-dish foods from feeding history on the frequent list', () => {
+  const records = [{ solidFood: true, solidFoodDishId: '', solidFoodDishName: '宝宝爱心餐', solidFoodFoods: ['胡萝卜', '土豆'] }]
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6 })
+  assert.strictEqual(ranked[0].name, '宝宝爱心餐')
+  assert.deepStrictEqual(ranked[0].foods, ['胡萝卜', '土豆'])
+})

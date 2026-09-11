@@ -525,6 +525,93 @@ function getIngredientFoods(name) {
   return mapped ? mapped.slice() : [name]
 }
 
+// 手填菜名里的常见写法 → 规范食材名（只收明确无歧义的别名，"面""米"这类单字不收）
+const FOOD_ALIASES = {
+  '米糊': '米粉',
+  '米粥': '大米',
+  '蛋黄': '鸡蛋',
+  '番薯': '红薯',
+  '地瓜': '红薯',
+  '西红柿': '番茄',
+  '红萝卜': '胡萝卜',
+  '洋芋': '土豆',
+  '马铃薯': '土豆',
+  '花椰菜': '西兰花',
+  '面条': '小麦面食',
+  '面片': '小麦面食',
+  '馒头': '小麦面食'
+}
+
+// 菜库里出现过的全部规范食材名
+function getKnownFoodNames() {
+  const names = []
+  DISHES.forEach(dish => {
+    getDishFoods(dish).forEach(food => {
+      if (!names.includes(food)) names.push(food)
+    })
+  })
+  return names
+}
+
+// 从手填菜名里识别规范食材："胡萝卜泥"→['胡萝卜']，"苹果燕麦糊"→['苹果','燕麦']。
+// 长名优先、位置不重叠（"三文鱼肉泥"只识别三文鱼，不再把"鱼肉"算一次）。
+// extraFoods 用来带上家庭自定义的试吃食材名。识别不到返回 []。
+function matchFoodsInName(name, extraFoods) {
+  const text = String(name || '').trim()
+  if (!text) return []
+  const dict = {}
+  getKnownFoodNames().forEach(food => { dict[food] = food })
+  ;(extraFoods || []).forEach(food => {
+    const key = String(food || '').trim()
+    if (key) dict[key] = key
+  })
+  Object.keys(FOOD_ALIASES).forEach(alias => {
+    if (!dict[alias]) dict[alias] = FOOD_ALIASES[alias]
+  })
+  const keys = Object.keys(dict).sort((left, right) => right.length - left.length)
+  const masked = new Array(text.length).fill(false)
+  const hits = []
+  keys.forEach(key => {
+    let from = 0
+    while (from <= text.length - key.length) {
+      const index = text.indexOf(key, from)
+      if (index < 0) break
+      from = index + 1
+      let free = true
+      for (let i = index; i < index + key.length; i++) {
+        if (masked[i]) { free = false; break }
+      }
+      if (!free) continue
+      for (let i = index; i < index + key.length; i++) masked[i] = true
+      hits.push({ index, food: dict[key] })
+    }
+  })
+  const foods = []
+  hits.sort((left, right) => left.index - right.index).forEach(hit => {
+    if (!foods.includes(hit.food)) foods.push(hit.food)
+  })
+  return foods
+}
+
+// 试吃表里可当作"额外食材词典"的名字：菜库已有的、或本身能从菜库词典识别出食材的（如早期误存的"胡萝卜泥"）都剔掉，
+// 否则这类名字会反过来抢走识别结果
+function filterExtraFoods(names) {
+  const known = getKnownFoodNames()
+  return (names || []).filter(name => {
+    const text = String(name || '').trim()
+    if (!text || known.includes(text)) return false
+    return matchFoodsInName(text).length === 0
+  })
+}
+
+// 自定义食材输入归一：恰好识别出一种已知食材就用规范名（"胡萝卜泥"→"胡萝卜"），否则用去空格后的原文
+function resolveFoodName(input, extraFoods) {
+  const text = String(input || '').trim()
+  if (!text) return ''
+  const matched = matchFoodsInName(text, extraFoods)
+  return matched.length === 1 ? matched[0] : text
+}
+
 function getDishFoods(dish) {
   const foods = []
   ;(dish.ingredients || []).forEach(name => {
@@ -781,6 +868,10 @@ module.exports = {
   DISHES,
   getIngredientFoods,
   getDishFoods,
+  getKnownFoodNames,
+  matchFoodsInName,
+  filterExtraFoods,
+  resolveFoodName,
   getAgeStage,
   getDishById,
   getDishesFor,

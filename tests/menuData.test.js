@@ -247,3 +247,25 @@ test('dish catalog has enough choices for each complementary feeding stage', () 
   assert.ok(menuData.getDishCatalog({ ageRange: '9-11' }).length >= 8)
   assert.ok(menuData.getDishCatalog({ ageRange: '12+' }).length >= 6)
 })
+
+test('recognises canonical foods inside a hand-typed dish name', () => {
+  assert.deepStrictEqual(menuData.matchFoodsInName('胡萝卜泥'), ['胡萝卜'])
+  assert.deepStrictEqual(menuData.matchFoodsInName('苹果燕麦糊'), ['苹果', '燕麦'])
+  assert.deepStrictEqual(menuData.matchFoodsInName('自制番薯泥'), ['红薯'])
+  assert.deepStrictEqual(menuData.matchFoodsInName('三文鱼肉泥'), ['三文鱼'])
+  assert.deepStrictEqual(menuData.matchFoodsInName('南瓜米糊'), ['南瓜', '米粉'])
+  assert.deepStrictEqual(menuData.matchFoodsInName('宝宝爱心餐'), [])
+  assert.deepStrictEqual(menuData.matchFoodsInName('玉米泥', ['玉米']), ['玉米'])
+})
+
+test('resolves a custom food input to one canonical name or keeps the typed text', () => {
+  assert.strictEqual(menuData.resolveFoodName(' 胡萝卜泥 '), '胡萝卜')
+  assert.strictEqual(menuData.resolveFoodName('玉米'), '玉米')
+  assert.strictEqual(menuData.resolveFoodName('胡萝卜土豆泥'), '胡萝卜土豆泥')
+  assert.strictEqual(menuData.resolveFoodName(''), '')
+})
+
+test('drops trial names that are catalog foods or derivable dish names from the extra-food dictionary', () => {
+  assert.deepStrictEqual(menuData.filterExtraFoods(['胡萝卜', '胡萝卜泥', '玉米', '', '南瓜米糊']), ['玉米'])
+  assert.deepStrictEqual(menuData.matchFoodsInName('胡萝卜泥', menuData.filterExtraFoods(['胡萝卜泥'])), ['胡萝卜'])
+})

@@ -11,9 +11,12 @@ function test(name, fn) {
   }
 }
 
-test('removes a first-day trial when undoing today\'s accidental tap', () => {
+test('resets a first-day trial to zero days (keeps the food listed) when undoing the same-day tap', () => {
   assert.deepStrictEqual(getUndoTrialState({ trialCount: 1, lastTriedDate: '2026-08-02' }, '2026-08-02'), {
-    action: 'remove'
+    action: 'reset',
+    trialCount: 0,
+    status: 'tracking',
+    lastTriedDate: ''
   })
 })
 

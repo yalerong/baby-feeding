@@ -89,3 +89,10 @@ textarea {
 textarea {
   min-height: 132rpx;
 }
+
+.form-hint {
+  font-size: 22rpx;
+  color: #8C8578;
+  margin: -6rpx 0 10rpx;
+  line-height: 1.5;
+}

@@ -3,7 +3,7 @@ const dateUtil = require('./date.js')
 const UNLOCK_DAYS = 3
 
 function getAllergenInfo(name) {
-  if (/(鸡蛋|虾|蟹|贝|鱼|奶|乳|面粉|小麦|麸质|豆腐|黄豆|大豆|豆类|芝麻|花生|坚果)/.test(name)) {
+  if (/(鸡蛋|虾|蟹|贝|鱼|奶|乳|面粉|小麦|麸质|豆腐|黄豆|大豆|豌豆|扁豆|红豆|绿豆|鹰嘴豆|芝麻|花生|坚果)/.test(name)) {
     return { level: 'common-allergen', label: '常见过敏原', hint: '单独尝试，留意反应' }
   }
   return { level: 'observe', label: '日常观察', hint: '新食材仍需单独尝试' }
@@ -67,6 +67,8 @@ function getAutoTrialTarget(foods, trials, date) {
     if (!trial) return true
     if (trial.status === 'allergic') return false
     if (trial.lastTriedDate === date) return false
+    // 补录早于最近一次试吃的日期会把连续天数算乱，不自动打卡
+    if (trial.lastTriedDate && trial.lastTriedDate > date) return false
     return Number(trial.trialCount) < UNLOCK_DAYS
   })
   if (eligible.length === 0) return null
@@ -94,6 +96,24 @@ function getMissingAllergicFoodNames(trials, knownFoodNames) {
     .map(trial => trial.foodName)
 }
 
+// 有试吃记录但不在当前月龄菜库食材里的（自定义食材、早期月龄食材），解锁页也要显示
+function getMissingTrialFoodNames(trials, knownFoodNames) {
+  return (trials || [])
+    .filter(trial => trial.foodName && !knownFoodNames[trial.foodName])
+    .map(trial => trial.foodName)
+}
+
+// 删除/修改辅食记录后要回退的试吃食材：当天打过卡、且这天没有别的记录再吃它
+function getTrialRevertFoods({ foods, otherFoods, trials, date }) {
+  const byName = {}
+  ;(trials || []).forEach(trial => { byName[trial.foodName] = trial })
+  const covered = otherFoods || []
+  return (foods || []).filter(name => {
+    const trial = byName[name]
+    return trial && trial.status !== 'allergic' && trial.lastTriedDate === date && Number(trial.trialCount) > 0 && !covered.includes(name)
+  })
+}
+
 function orderTrialFoods(foods) {
   return (foods || []).slice().sort((left, right) => {
     return Number(left.status === 'allergic') - Number(right.status === 'allergic')
@@ -111,5 +131,7 @@ module.exports = {
   getUnlockedFoodNames,
   getExcludedIngredients,
   getMissingAllergicFoodNames,
+  getMissingTrialFoodNames,
+  getTrialRevertFoods,
   orderTrialFoods
 }

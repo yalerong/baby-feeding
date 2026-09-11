@@ -170,3 +170,12 @@ input {
   font-size: 24rpx;
   line-height: 1.5;
 }
+
+.solid-food-reused-tip {
+  margin: 4rpx 0 12rpx;
+  padding: 12rpx 20rpx;
+  border-radius: 16rpx;
+  background: #FFF6E5;
+  color: #B7791F;
+  font-size: 24rpx;
+}
