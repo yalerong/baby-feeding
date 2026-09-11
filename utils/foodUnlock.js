@@ -42,6 +42,8 @@ function decorateFood(name, trial) {
     trialCount,
     remainingCount,
     status,
+    allergyNote: String(current.allergyNote || ''),
+    allergyDate: String(current.allergyDate || ''),
     statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : `再连续吃 ${remainingCount} 天解锁`)
   }
 }

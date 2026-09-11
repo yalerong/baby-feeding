@@ -67,6 +67,7 @@ function buildLogPayload(existing, familyCode, foodName, date, recordId) {
 
 exports.main = async event => {
   const { action, familyCode, date, status, recordId } = event
+  const note = String(event.note || '').trim().slice(0, 100)
   const foodName = normalizeFoodName(event.foodName)
   if (!familyCode) return { success: false, error: 'familyCode required' }
 
@@ -144,13 +145,15 @@ exports.main = async event => {
       if (!['allergic', 'tracking'].includes(status)) return { success: false, error: 'invalid status' }
       if (!existing && status === 'allergic') {
         await db.collection('food_trials').doc(documentId).set({
-          data: { familyCode, foodName, trialCount: 0, status: 'allergic', updateTime: db.serverDate(), createTime: db.serverDate() }
+          data: { familyCode, foodName, trialCount: 0, status: 'allergic', allergyNote: note, allergyDate: date || '', updateTime: db.serverDate(), createTime: db.serverDate() }
         })
         return { success: true }
       }
       if (!existing) return { success: false, error: 'food trial required' }
       const nextStatus = status === 'tracking' && Number(existing.trialCount) >= 3 ? 'unlocked' : status
-      await db.collection('food_trials').doc(existing._id).update({ data: { status: nextStatus, updateTime: db.serverDate() } })
+      // 标记过敏时记下症状备注和日期；恢复推荐时保留备注供以后参考
+      const extra = status === 'allergic' ? { allergyNote: note, allergyDate: date || '' } : {}
+      await db.collection('food_trials').doc(existing._id).update({ data: { status: nextStatus, ...extra, updateTime: db.serverDate() } })
       return { success: true }
     }
 

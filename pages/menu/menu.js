@@ -782,15 +782,18 @@ Page({
 
   markFoodAllergic(e) {
     const foodName = e.currentTarget.dataset.name
+    // editable 弹窗可以顺手记症状（基础库 2.17.1+）；confirmText 不能超过 4 个字
     wx.showModal({
-      title: '标记疑似过敏',
-      content: `后续新生成的菜单将排除含“${foodName}”的菜品，确定吗？`,
+      title: `标记 ${foodName} 疑似过敏`,
+      editable: true,
+      placeholderText: '症状和时间，如：饭后1小时嘴边起疹',
+      confirmText: '确定标记',
       confirmColor: '#D9534F',
       success: result => {
         if (!result.confirm) return
         wx.cloud.callFunction({
           name: 'foodTrial',
-          data: { action: 'setStatus', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, status: 'allergic' }
+          data: { action: 'setStatus', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, status: 'allergic', note: result.content || '', date: this.data.today }
         }).then(res => {
           if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
           return this.loadFoodTrials()

@@ -234,6 +234,7 @@
           <view class="trial-food-name">{{item.name}} <text class="trial-category">{{item.category}}</text> <text class="allergen-tag {{item.allergenLevel}}">{{item.allergenLabel}}</text></view>
           <view class="trial-food-status {{item.status}}">{{item.statusText}}</view>
           <view class="allergen-hint">{{item.allergenHint}}</view>
+          <view class="allergy-note" wx:if="{{item.status === 'allergic' && (item.allergyNote || item.allergyDate)}}">{{item.allergyDate ? item.allergyDate + ' ' : ''}}{{item.allergyNote || '未填写症状'}}</view>
         </view>
       </view>
       <view class="trial-progress" wx:if="{{item.status !== 'allergic'}}">
