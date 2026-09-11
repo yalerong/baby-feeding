@@ -403,7 +403,7 @@ Page({
       savedDocId: saved ? saved._id : '',
       dirty: !!draft,
       loading: false,
-      unlockNotice: this.buildUnlockNotice(plan, saved, draft)
+      unlockNotice: this.buildUnlockNotice(plan, saved)
     }, () => {
       this.updatePlanningNotice(plan)
       this.syncSelectedDay(this.getDefaultDayIndex(plan))
@@ -412,8 +412,8 @@ Page({
   },
 
   // 保存过的菜单，之后又解锁了新食材、且这周还有今天以后的常规餐位 → 提示刷新
-  buildUnlockNotice(plan, saved, draft) {
-    if (!saved || draft || !plan || plan.status !== 'ready') return null
+  buildUnlockNotice(plan, saved) {
+    if (!saved || !plan || plan.status !== 'ready') return null
     const foods = menuRefresh.getNewlyUnlockedFoods(this.data.unlockedFoods, saved.unlockedFoods)
     if (foods.length === 0) return null
     const hasFuture = (plan.days || []).some(day => day.phase === 'regular' && dateUtil.compareDates(day.date, this.data.today) > 0)

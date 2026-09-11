@@ -6,9 +6,22 @@ const { getUndoTrialState, withLogSource, nextLogDates } = require('./trialState
 
 const TRIAL_MODES = ['strict', 'relaxed']
 
-// 试吃模式存在 families 文档上，两台手机共用；查询成功但没设置过才算严格模式，查询失败直接抛错
+// 集合还没建（全新部署）不算错误，按没设置处理；其它数据库错误照常抛出
+function isCollectionMissing(err) {
+  const code = err && (err.errCode || err.code)
+  const text = String((err && (err.errMsg || err.message)) || '')
+  return code === -502005 || code === 'DATABASE_COLLECTION_NOT_EXIST' || /collection.*not exist/i.test(text)
+}
+
+// 试吃模式存在 families 文档上，两台手机共用；查到没设置或集合不存在才算严格模式，其它查询失败直接抛错
 async function getTrialMode(familyCode) {
-  const res = await db.collection('families').where({ familyCode }).limit(1).get()
+  let res
+  try {
+    res = await db.collection('families').where({ familyCode }).limit(1).get()
+  } catch (err) {
+    if (isCollectionMissing(err)) return 'strict'
+    throw err
+  }
   const doc = res.data && res.data[0]
   return doc && TRIAL_MODES.includes(doc.trialMode) ? doc.trialMode : 'strict'
 }

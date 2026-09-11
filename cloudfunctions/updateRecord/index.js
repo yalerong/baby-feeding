@@ -32,7 +32,11 @@ exports.main = async (event) => {
         stool: Boolean(stool),
         stoolDesc: stoolDesc || '',
         ...normalizedSolidFood,
-        images: normalizeImages(images),
+        // 旧版客户端不带这两个字段：没传（undefined）就保留原值，传了空数组才是真的清空
+        solidFoodFoods: solidFoodFoods === undefined && normalizedSolidFood.solidFood
+          ? (Array.isArray(existing.data.solidFoodFoods) ? existing.data.solidFoodFoods : [])
+          : normalizedSolidFood.solidFoodFoods,
+        images: images === undefined ? (Array.isArray(existing.data.images) ? existing.data.images : []) : normalizeImages(images),
         updateBy: OPENID || '',
         updateTime: db.serverDate()
       }

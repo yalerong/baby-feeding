@@ -72,11 +72,17 @@ exports.main = async event => {
         await db.collection('custom_dishes').add({ data: { _id: documentId, ...payload, createBy: OPENID || '', createTime: db.serverDate() } })
         return { success: true, _id: documentId }
       } catch (err) {
-        // 主键冲突：别人刚建了同名菜，在它之上更新
         const raced = await db.collection('custom_dishes').where({ _id: documentId, familyCode }).limit(1).get()
-        if (!raced.data || !raced.data[0]) throw err
-        await db.collection('custom_dishes').doc(documentId).update({ data: payload })
-        return { success: true, _id: documentId }
+        const doc = raced.data && raced.data[0]
+        if (!doc) throw err
+        if (doc.name === dish.name) {
+          // 主键冲突且同名：别人刚建了同名菜，在它之上更新
+          await db.collection('custom_dishes').doc(documentId).update({ data: payload })
+          return { success: true, _id: documentId }
+        }
+        // 占着这个 _id 的是一道改过名的菜：另起随机 _id，不能覆盖它
+        const res = await db.collection('custom_dishes').add({ data: { ...payload, createBy: OPENID || '', createTime: db.serverDate() } })
+        return { success: true, _id: res._id }
       }
     }
 

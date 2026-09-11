@@ -137,12 +137,14 @@ function rankFrequentDishes({ records, ageMonth, limit, customDishes, libraryDis
     })
   // 家庭菜谱库里的菜：历史和本周菜单里没出现过的，补在菜库菜之前
   ;(libraryDishes || []).forEach(dish => {
-    if (result.length >= max || !dish || !dish.name) return
+    if (!dish || !dish.name) return
     const same = result.find(item => item.name === dish.name)
     if (same) {
+      // 同名历史条目（老记录可能没存食材）先回填，再考虑名额
       if (!same.foods || same.foods.length === 0) same.foods = (dish.foods || []).slice()
       return
     }
+    if (result.length >= max) return
     result.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods: (dish.foods || []).slice() })
   })
   if (result.length < max) {

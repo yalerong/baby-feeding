@@ -49,6 +49,7 @@ homeSummary        customDish
 | `daily_reviews` | 家庭共享的昨日记录审查确认状态 |
 | `weekly_menus` | 家庭周菜单 |
 | `custom_dishes` | 家庭菜谱库（家长自己写的菜，跨周复用） |
+| `families` | 家庭级设置（`trialMode` 试吃模式）；未建时 foodTrial 按严格模式运行，切换模式时会自动创建文档 |
 | `growth_records` | 身高、体重记录 |
 | `vaccine_records` | 疫苗计划与接种记录 |
 | `supplement_records` | 营养补充剂记录（如启用） |

@@ -190,3 +190,12 @@ test('library dishes fill the picker after history and before catalog fillers, a
   assert.deepStrictEqual(ranked.find(item => item.name === '宝宝爱心餐').foods, ['鸡蛋', '红薯'])
   assert.ok(ranked.slice(3).every(item => item.id))
 })
+
+test('a full picker still back-fills foods onto a same-named legacy history entry from the library', () => {
+  const records = []
+  for (let i = 0; i < 6; i++) records.push({ solidFood: true, solidFoodDishId: '', solidFoodDishName: `历史菜${i}` })
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6, libraryDishes: [{ name: '历史菜3', foods: ['胡萝卜'] }, { name: '新菜', foods: ['土豆'] }] })
+  assert.strictEqual(ranked.length, 6)
+  assert.deepStrictEqual(ranked.find(item => item.name === '历史菜3').foods, ['胡萝卜'])
+  assert.ok(!ranked.some(item => item.name === '新菜'))
+})
