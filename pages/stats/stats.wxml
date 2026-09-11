@@ -47,6 +47,7 @@
         <view class="month-detail">
           <text class="month-count">喂养 {{item.count}} 次</text>
           <text class="month-stool" wx:if="{{item.stool > 0}}">大便 {{item.stool}} 次</text>
+          <text class="month-stool" wx:if="{{item.solid > 0}}">辅食 {{item.solid}} 次 · {{item.solidGrams}}g</text>
           <text class="month-milk">奶量 {{item.total}}ml</text>
           <text class="month-ratio">母乳 {{item.ratio}}</text>
         </view>
@@ -77,6 +78,9 @@
     </view>
     <view class="summary-ratio">
       母乳总量 {{stats.totalBreast}}ml，占比 <text class="ratio-num">{{stats.ratio}}</text>
+    </view>
+    <view class="summary-ratio" wx:if="{{stats.totalSolid > 0}}">
+      🍚 辅食 {{stats.totalSolid}} 次，共 <text class="ratio-num">{{stats.totalSolidGrams}}</text>g
     </view>
     <view class="avg-box">
       <view class="avg-title">平均每日（{{avgStats.days}}天）</view>
@@ -113,6 +117,7 @@
         </view>
         <view class="day-ratio">母乳占比 {{item.ratio}}</view>
         <view class="day-stool" wx:if="{{item.stoolCount > 0}}">大便 {{item.stoolCount}} 次</view>
+        <view class="day-stool" wx:if="{{item.solidCount > 0}}">辅食 {{item.solidCount}} 次 · {{item.solidGrams}}g</view>
       </view>
     </view>
   </view>

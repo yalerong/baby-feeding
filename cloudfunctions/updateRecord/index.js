@@ -4,13 +4,13 @@ const db = cloud.database()
 const { normalizeSolidFood } = require('./validation.js')
 
 exports.main = async (event) => {
-  const { _id, familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams } = event
+  const { _id, familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams, solidFoodFoods } = event
   const { OPENID } = cloud.getWXContext()
 
   if (!_id || !familyCode) {
     return { success: false, error: '_id/familyCode required' }
   }
-  const normalizedSolidFood = normalizeSolidFood({ solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams })
+  const normalizedSolidFood = normalizeSolidFood({ solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams, solidFoodFoods })
   if (!normalizedSolidFood) return { success: false, error: 'valid solid food name and grams required' }
 
   try {

@@ -1,4 +1,5 @@
 const menuData = require('../../utils/menuData.js')
+const foodUnlock = require('../../utils/foodUnlock.js')
 
 Page({
   data: {
@@ -12,7 +13,8 @@ Page({
     mealLabel: '',
     ingredientsText: '',
     stepsText: '',
-    cautionsText: ''
+    cautionsText: '',
+    isNewCustom: false
   },
 
   onLoad(options) {
@@ -22,45 +24,75 @@ Page({
       dayIndex: parseInt(options.dayIndex, 10) || 0,
       mealType,
       dishIndex: parseInt(options.dishIndex, 10) || 0,
-      mealLabel: menuData.MEAL_LABELS[mealType] || ''
+      mealLabel: menuData.MEAL_LABELS[mealType] || '',
+      isNewCustom: options.custom === '1'
     })
     this.loadDish()
   },
 
+  // 优先用菜单页跳转前缓存的那份菜单（和用户看到的一致），其次草稿、云端已保存，最后才按解锁状态重新生成
   loadDish() {
     const birthDate = wx.getStorageSync('babyBirthDate') || ''
-    const generated = menuData.generateWeeklyMenu({
-      birthDate,
-      weekStart: this.data.weekStart
-    })
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    const weekStart = this.data.weekStart
+    const cached = wx.getStorageSync(`menuPlanCache:${weekStart}`)
+    const draft = wx.getStorageSync(this.getDraftKey())
 
-    wx.cloud.callFunction({
-      name: 'weeklyMenu',
-      data: { action: 'get', familyCode, weekStart: this.data.weekStart }
-    })
+    const trialsReq = wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
       .then(res => {
-        if (!res.result || !res.result.success) {
-          throw new Error(res.result && res.result.error)
-        }
-        const saved = res.result.data
-        const draft = wx.getStorageSync(this.getDraftKey())
-        const plan = draft || (saved ? { ...generated, days: saved.days || generated.days } : generated)
-        this.setDish(plan, saved ? saved._id : '')
+        if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+        return res.result.data || []
       })
-      .catch(err => {
-        console.error(err)
-        this.setDish(generated, '')
+      .catch(err => { console.error(err); return null })
+    const savedReq = wx.cloud.callFunction({ name: 'weeklyMenu', data: { action: 'get', familyCode, weekStart } })
+      .then(res => {
+        if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+        return res.result.data
       })
+      .catch(err => { console.error(err); return null })
+
+    Promise.all([trialsReq, savedReq]).then(([trials, saved]) => {
+      const generated = menuData.generateWeeklyMenu({
+        birthDate,
+        weekStart,
+        excludedIngredients: trials ? foodUnlock.getExcludedIngredients(trials) : [],
+        unlockedFoods: trials ? foodUnlock.getUnlockedFoodNames(trials) : null
+      })
+      const fromCache = cached && cached.weekStart === weekStart && Array.isArray(cached.days) ? cached : null
+      const fromSaved = saved ? { ...generated, days: saved.days || generated.days, nutritionSummary: saved.nutritionSummary || generated.nutritionSummary } : null
+      const plan = fromCache || draft || fromSaved || generated
+      this.setDish(plan, saved ? saved._id : '')
+    })
   },
 
   getDraftKey() {
     return `menuDraft:${this.data.weekStart}`
   },
 
+  // 新建自定义菜：只在本页内存里占位，用户点保存才写进菜单
+  buildCustomDish(plan) {
+    return {
+      id: `custom-${Date.now()}`,
+      name: '',
+      ageMinMonth: plan.ageMonth,
+      ageMaxMonth: plan.ageMonth,
+      mealTypes: [this.data.mealType],
+      nutritionTags: [],
+      foodGroups: [],
+      texture: '按月龄处理',
+      imageEmoji: '🍱',
+      color: '#F3F0EA',
+      ingredients: [],
+      steps: [],
+      cautions: ['新食材仍要单独尝试、少量观察'],
+      isCustom: true
+    }
+  },
+
   setDish(plan, savedDocId) {
     const day = plan.days[this.data.dayIndex]
-    const dish = day && day.meals[this.data.mealType] && day.meals[this.data.mealType][this.data.dishIndex]
+    const slot = day && day.meals[this.data.mealType]
+    const dish = this.data.isNewCustom ? this.buildCustomDish(plan) : (slot && slot[this.data.dishIndex])
     if (!dish) {
       wx.showToast({ title: '菜品不存在', icon: 'none' })
       return
@@ -119,7 +151,7 @@ Page({
     days.forEach(day => {
       Object.keys(day.meals || {}).forEach(type => {
         ;(day.meals[type] || []).forEach(dish => {
-          dish.nutritionTags.forEach(tag => {
+          ;(dish.nutritionTags || []).forEach(tag => {
             summary[tag] = (summary[tag] || 0) + 1
           })
         })
@@ -145,7 +177,9 @@ Page({
       isCustom: true
     }
 
-    plan.days[this.data.dayIndex].meals[this.data.mealType].splice(this.data.dishIndex, 1, dish)
+    const meals = plan.days[this.data.dayIndex].meals
+    if (!meals[this.data.mealType]) meals[this.data.mealType] = []
+    meals[this.data.mealType].splice(this.data.dishIndex, 1, dish)
     plan.nutritionSummary = this.calculateNutrition(plan.days)
 
     wx.showLoading({ title: '保存中...', mask: true })
@@ -166,6 +200,7 @@ Page({
         throw new Error(res.result && res.result.error)
       }
       wx.removeStorageSync(this.getDraftKey())
+      wx.removeStorageSync(`menuPlanCache:${this.data.weekStart}`)
       wx.showToast({ title: '已保存', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 700)
     }).catch(err => {

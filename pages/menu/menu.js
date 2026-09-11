@@ -59,7 +59,8 @@ Page({
     unlockedFoods: null,
     guideVisible: false,
     guidePosition: 'top',
-    foodTrialError: ''
+    foodTrialError: '',
+    customFoodInput: ''
   },
 
   onShow() {
@@ -114,6 +115,11 @@ Page({
     return `menuDraft:${weekStart}`
   },
 
+  // 打开菜品详情前把当前看到的整周菜单存下来，详情页照这份显示，不再各自重新生成
+  getPlanCacheKey(weekStart) {
+    return `menuPlanCache:${weekStart}`
+  },
+
   dismissGuide() {
     wx.setStorageSync('menuGuideDismissed', true)
     this.setData({ guideVisible: false })
@@ -144,7 +150,8 @@ Page({
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
       .then(res => {
-        const foodTrials = (res.result && res.result.data) || []
+        if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+        const foodTrials = res.result.data || []
         this.setData({
           foodTrials,
           activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today),
@@ -187,8 +194,12 @@ Page({
         })
       })
     })
-    foodUnlock.getMissingAllergicFoodNames(this.data.foodTrials, used).forEach(name => {
-      const food = foodUnlock.decorateFood(name, byName[name])
+    // 有试吃记录但不在当前月龄菜库里的食材（自定义、早期月龄、疑似过敏）也要显示，否则会出现"看不见的当前试吃"
+    foodUnlock.getMissingTrialFoodNames(this.data.foodTrials, used).forEach(name => {
+      if (used[name]) return
+      used[name] = true
+      const trial = byName[name]
+      const food = foodUnlock.decorateFood(name, trial)
       const allergen = foodUnlock.getAllergenInfo(name)
       trialFoods.push({
         ...food,
@@ -197,11 +208,14 @@ Page({
         allergenHint: allergen.hint,
         progressSteps: foodUnlock.buildTrialSteps(food.trialCount, food.status),
         emoji: this.getFoodEmoji(name),
-        category: this.getFoodCategory({}, name),
-        isActive: false,
-        canUndoToday: byName[name] && byName[name].lastTriedDate === this.data.today
+        category: trial && trial.isCustom ? '自定义' : this.getFoodCategory({}, name),
+        isActive: this.data.activeTrialFood === name,
+        canUndoToday: trial && trial.lastTriedDate === this.data.today
       })
     })
+    // "移除"只给完整菜库里没有的食材（自定义/误存的菜名）；只是超出当前月龄的菜库食材不算
+    const knownFoods = menuData.getKnownFoodNames()
+    trialFoods.forEach(food => { food.isOffCatalog = !knownFoods.includes(food.name) })
     const orderedTrialFoods = foodUnlock.orderTrialFoods(trialFoods)
     this.setData({
       trialFoods: orderedTrialFoods,
@@ -210,7 +224,7 @@ Page({
   },
 
   getFoodEmoji(name) {
-    if (/(南瓜|胡萝卜|西兰花|菠菜|番茄|土豆|豌豆|山药|白菜|青菜)/.test(name)) return '🥬'
+    if (/(南瓜|胡萝卜|西兰花|菠菜|番茄|土豆|豌豆|山药|白菜|青菜|红薯|西葫芦|玉米|扁豆)/.test(name)) return '🥬'
     if (/(苹果|香蕉|梨|桃|牛油果)/.test(name)) return '🍎'
     if (/(鸡|牛|猪|鱼|虾|蛋|肉)/.test(name)) return '🥩'
     if (/(米|面|粥|燕麦)/.test(name)) return '🌾'
@@ -490,12 +504,26 @@ Page({
 
   openDish(e) {
     const { mealType, dishIndex } = e.currentTarget.dataset
-    const dayIndex = this.data.selectedDayIndex
-    if (this.data.dirty && this.data.currentPlan) {
-      wx.setStorageSync(this.getDraftKey(this.data.weekStart), this.data.currentPlan)
+    this.navigateToDish(this.data.selectedDayIndex, mealType, dishIndex)
+  },
+
+  navigateToDish(dayIndex, mealType, dishIndex, options) {
+    if (this.data.currentPlan) {
+      wx.setStorageSync(this.getPlanCacheKey(this.data.weekStart), this.data.currentPlan)
+      if (this.data.dirty) wx.setStorageSync(this.getDraftKey(this.data.weekStart), this.data.currentPlan)
     }
+    const custom = options && options.custom ? '&custom=1' : ''
     wx.navigateTo({
-      url: `/pages/menuDish/menuDish?weekStart=${this.data.weekStart}&dayIndex=${dayIndex}&mealType=${mealType}&dishIndex=${dishIndex}`
+      url: `/pages/menuDish/menuDish?weekStart=${this.data.weekStart}&dayIndex=${dayIndex}&mealType=${mealType}&dishIndex=${dishIndex}${custom}`
+    })
+  },
+
+  // 大厅里"自己写一道"：不动当前餐位，带 custom=1 去详情页，详情页保存时才把自定义菜写进去
+  addCustomDish() {
+    const context = this.data.hallContext
+    if (!context || !this.data.currentPlan) return
+    this.setData({ viewMode: 'week', hallDishes: [], hallContext: null }, () => {
+      this.navigateToDish(context.dayIndex, context.mealType, context.dishIndex, { custom: true })
     })
   },
 
@@ -556,7 +584,7 @@ Page({
     days.forEach(day => {
       Object.keys(day.meals || {}).forEach(type => {
         ;(day.meals[type] || []).forEach(dish => {
-          dish.nutritionTags.forEach(tag => {
+          ;(dish.nutritionTags || []).forEach(tag => {
             summary[tag] = (summary[tag] || 0) + 1
           })
         })
@@ -618,9 +646,75 @@ Page({
       console.error(err)
       wx.showToast({ title: '保存失败，请检查 weekly_menus 集合', icon: 'none' })
     })
-  }
+  },
 
-  ,recordFoodTrial(e) {
+  bindCustomFoodInput(e) {
+    this.setData({ customFoodInput: e.detail.value })
+  },
+
+  // 菜库没有的食材（胡萝卜、玉米……）自己加进解锁列表；输入菜名会识别成食材
+  addCustomFood() {
+    if (this.data.foodTrialError) {
+      wx.showModal({ title: '试吃功能暂不可用', content: this.data.foodTrialError, showCancel: false, confirmText: '知道了' })
+      return
+    }
+    const known = menuData.filterExtraFoods(this.data.foodTrials.map(trial => trial.foodName))
+    const foodName = menuData.resolveFoodName(this.data.customFoodInput, known)
+    if (!foodName) {
+      wx.showToast({ title: '请输入食材名', icon: 'none' })
+      return
+    }
+    if (foodName.length > 20) {
+      wx.showToast({ title: '食材名太长了', icon: 'none' })
+      return
+    }
+    if (this.data.trialFoods.some(food => food.name === foodName)) {
+      wx.showToast({ title: `${foodName} 已在列表里`, icon: 'none' })
+      this.setData({ customFoodInput: '' })
+      return
+    }
+    wx.showLoading({ title: '添加中', mask: true })
+    wx.cloud.callFunction({
+      name: 'foodTrial',
+      data: { action: 'add', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName }
+    }).then(res => {
+      if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+      this.setData({ customFoodInput: '' })
+      return this.loadFoodTrials()
+    }).then(() => {
+      wx.hideLoading()
+      wx.showToast({ title: `已添加 ${foodName}`, icon: 'success' })
+    }).catch(err => {
+      wx.hideLoading()
+      wx.showToast({ title: err.message || '添加失败', icon: 'none' })
+    })
+  },
+
+  // 菜库外的食材条目可以整条移除（自定义加错的、早期误存的菜名）
+  removeFood(e) {
+    const foodName = e.currentTarget.dataset.name
+    wx.showModal({
+      title: '移除这项食材',
+      content: `会删除“${foodName}”的全部试吃记录，确定吗？`,
+      confirmColor: '#D9534F',
+      success: result => {
+        if (!result.confirm) return
+        wx.cloud.callFunction({
+          name: 'foodTrial',
+          data: { action: 'remove', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          return this.loadFoodTrials()
+        }).then(() => {
+          this.loadWeek(this.data.weekStart)
+          this.buildMonth(this.data.monthStart)
+          wx.showToast({ title: '已移除', icon: 'success' })
+        }).catch(err => wx.showToast({ title: err.message || '移除失败', icon: 'none' }))
+      }
+    })
+  },
+
+  recordFoodTrial(e) {
     const foodName = e.currentTarget.dataset.name
     if (this.data.foodTrialError) {
       wx.showModal({
