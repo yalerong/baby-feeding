@@ -1,10 +1,10 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
-const { normalizeSolidFood } = require('./validation.js')
+const { normalizeSolidFood, normalizeImages } = require('./validation.js')
 
 exports.main = async (event) => {
-  const { familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams, solidFoodFoods } = event
+  const { familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams, solidFoodFoods, images } = event
   const { OPENID } = cloud.getWXContext()
 
   if (!familyCode || !date || !time) {
@@ -25,6 +25,7 @@ exports.main = async (event) => {
         stool: Boolean(stool),
         stoolDesc: stoolDesc || '',
         ...normalizedSolidFood,
+        images: normalizeImages(images),
         createBy: OPENID || '',
         createTime: db.serverDate()
       }

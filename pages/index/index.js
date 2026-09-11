@@ -588,7 +588,7 @@ Page({
           if (curTs <= now) mostRecentPastTs = curTs
         }
       }
-      return Object.assign({}, r, { intervalText, icons: recordIcons(r) })
+      return Object.assign({}, r, { intervalText, icons: recordIcons(r), images: Array.isArray(r.images) ? r.images : [] })
     })
     const total = breast + formula
     const ratio = total === 0 ? '0%' : (breast / total * 100).toFixed(1) + '%'
@@ -712,6 +712,12 @@ Page({
 
   goBatch() {
     wx.navigateTo({ url: '/pages/batch/batch' })
+  },
+
+  previewRecordImage(e) {
+    const { url, urls } = e.currentTarget.dataset
+    if (!url) return
+    wx.previewImage({ current: url, urls: Array.isArray(urls) && urls.length ? urls : [url] })
   },
 
   goEdit(e) {

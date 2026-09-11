@@ -34,7 +34,8 @@ Page({
     solidFoodFoods: [],
     solidFoodFrequentDishes: [],
     solidFoodReused: false,
-    solidFoodGramPresets: [5, 10, 20, 30, 50]
+    solidFoodGramPresets: [5, 10, 20, 30, 50],
+    images: []
   },
 
   onLoad(options) {
@@ -110,7 +111,8 @@ Page({
           solidFoodName: r.solidFoodDishName || '',
           solidFoodCustomName: r.solidFoodDishId ? '' : (r.solidFoodDishName || ''),
           solidFoodGrams: r.solidFoodGrams > 0 ? String(r.solidFoodGrams) : '',
-          solidFoodFoods: Array.isArray(r.solidFoodFoods) ? r.solidFoodFoods : []
+          solidFoodFoods: Array.isArray(r.solidFoodFoods) ? r.solidFoodFoods : [],
+          images: Array.isArray(r.images) ? r.images : []
         })
       }
     }).catch(err => {
@@ -192,6 +194,17 @@ Page({
 
   bindStoolChange(e) {
     this.setData({ stool: e.detail.value })
+  },
+
+  onImagesChange(e) {
+    this.setData({ images: (e.detail && e.detail.images) || [] })
+  },
+
+  // 编辑时去掉的、或整条删除的照片，顺手清掉云存储（另一位家长传的可能没权限删，失败忽略）
+  cleanupImages(fileList) {
+    const list = (fileList || []).filter(Boolean)
+    if (!list.length || !wx.cloud || !wx.cloud.deleteFile) return
+    wx.cloud.deleteFile({ fileList: list }).catch(err => console.error(err))
   },
 
   bindSolidFoodChange(e) {
@@ -309,8 +322,8 @@ Page({
       return
     }
 
-    if (breast === 0 && formula === 0 && !this.data.stool && !solidFoodPayload.solidFood) {
-      wx.showToast({ title: '请至少填写奶量、大便或辅食', icon: 'none' })
+    if (breast === 0 && formula === 0 && !this.data.stool && !solidFoodPayload.solidFood && this.data.images.length === 0) {
+      wx.showToast({ title: '请至少填写奶量、大便、辅食或照片', icon: 'none' })
       return
     }
 
@@ -324,7 +337,8 @@ Page({
       stool: this.data.stool,
       stoolDesc: this.data.stool ? this.buildStoolDesc() : '',
       ...solidFoodPayload,
-      solidFoodFoods: solidFoodPayload.solidFood ? solidFood.normalizeFoods(this.data.solidFoodFoods) : []
+      solidFoodFoods: solidFoodPayload.solidFood ? solidFood.normalizeFoods(this.data.solidFoodFoods) : [],
+      images: this.data.images.slice(0, 3)
     }
 
     const nearest = feedingAudit.nearestFeeding(this._dayFeedings, payload)
@@ -368,6 +382,9 @@ Page({
           after: payload,
           recordId: isEdit ? this.data._id : (res.result._id || '')
         })
+        if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
+          this.cleanupImages(this._originalRecord.images.filter(url => !payload.images.includes(url)))
+        }
         wx.showToast({ title: isEdit ? '修改成功' : '保存成功', icon: 'success' })
         setTimeout(() => wx.navigateBack(), 800)
         return
@@ -511,6 +528,7 @@ Page({
             }
             feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
             this.syncSolidFoodTrial({ before: this._originalRecord, after: null, recordId: this.data._id })
+            this.cleanupImages(this._originalRecord.images)
             wx.showToast({ title: '已删除', icon: 'success' })
             setTimeout(() => wx.navigateBack(), 800)
           }).catch(err => {

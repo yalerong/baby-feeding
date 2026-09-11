@@ -1,4 +1,6 @@
 {
-  "usingComponents": {},
+  "usingComponents": {
+    "photo-uploader": "/components/photo-uploader/photo-uploader"
+  },
   "navigationBarTitleText": "记录"
 }
