@@ -161,14 +161,17 @@ test('does not auto-log a back-filled date earlier than the latest trial day', (
   assert.strictEqual(foodUnlock.getAutoTrialTarget(['胡萝卜'], trials, '2026-09-12'), '胡萝卜')
 })
 
-test('reverts only trials logged that day and not covered by another record', () => {
+test('reverts only trials this record logged that day and not covered by another record', () => {
   const trials = [
-    { foodName: '胡萝卜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11' },
-    { foodName: '南瓜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-10' },
-    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-11' }
+    { foodName: '胡萝卜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', lastLogRecordId: 'r1' },
+    { foodName: '南瓜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-10', lastLogRecordId: 'r1' },
+    { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-11', lastLogRecordId: 'r1' },
+    { foodName: '苹果', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', lastLogRecordId: '' }
   ]
-  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜', '南瓜', '米粉'], otherFoods: [], trials, date: '2026-09-11' }), ['胡萝卜', '米粉'])
-  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: ['胡萝卜'], trials, date: '2026-09-11' }), [])
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜', '南瓜', '米粉', '苹果'], otherFoods: [], trials, date: '2026-09-11', recordId: 'r1' }), ['胡萝卜', '米粉'])
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: ['胡萝卜'], trials, date: '2026-09-11', recordId: 'r1' }), [])
+  // 手动在解锁页打的卡（无 recordId）和别的记录打的卡都不动
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['苹果', '胡萝卜'], otherFoods: [], trials, date: '2026-09-11', recordId: 'r2' }), [])
 })
 
 test('flags peas and lentils as common allergens', () => {

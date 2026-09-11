@@ -604,6 +604,15 @@ function filterExtraFoods(names) {
   })
 }
 
+// 家长手写的配料行 → 规范食材：先查配料映射表，再按词典/别名识别（蛋黄→鸡蛋、番薯→红薯），都认不出就原样保留
+function canonicalizeIngredient(name) {
+  const text = String(name || '').trim()
+  if (!text) return []
+  if (Object.prototype.hasOwnProperty.call(INGREDIENT_FOODS, text)) return INGREDIENT_FOODS[text].slice()
+  const matched = matchFoodsInName(text)
+  return matched.length > 0 ? matched : [text]
+}
+
 // 自定义食材输入归一：恰好识别出一种已知食材就用规范名（"胡萝卜泥"→"胡萝卜"），否则用去空格后的原文
 function resolveFoodName(input, extraFoods) {
   const text = String(input || '').trim()
@@ -871,6 +880,7 @@ module.exports = {
   getKnownFoodNames,
   matchFoodsInName,
   filterExtraFoods,
+  canonicalizeIngredient,
   resolveFoodName,
   getAgeStage,
   getDishById,

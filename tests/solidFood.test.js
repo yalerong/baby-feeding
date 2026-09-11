@@ -70,9 +70,12 @@ test('restores the last valid solid-food selection for quick entry', () => {
     solidFood: true,
     solidFoodDishId: 'iron-rice-cereal',
     solidFoodDishName: '铁强化米粉糊',
-    solidFoodGrams: 30
+    solidFoodGrams: 30,
+    solidFoodFoods: []
   })
   assert.strictEqual(solidFood.restoreLastSelection({ dishId: 'missing', grams: 30 }), null)
+  // 自定义菜的食材要跟着上次选择一起恢复
+  assert.deepStrictEqual(solidFood.restoreLastSelection({ dishId: '', name: '宝宝爱心餐', grams: 20, solidFoodFoods: ['胡萝卜', '土豆'] }).solidFoodFoods, ['胡萝卜', '土豆'])
 })
 
 test('ranks frequent dishes by real feeding history before catalog fillers', () => {
@@ -118,9 +121,17 @@ test('offers custom dishes from the saved weekly plan right after real history',
   assert.deepStrictEqual(ranked[1].foods, ['胡萝卜', '土豆'])
 })
 
-test('keeps custom-dish foods from feeding history on the frequent list', () => {
-  const records = [{ solidFood: true, solidFoodDishId: '', solidFoodDishName: '宝宝爱心餐', solidFoodFoods: ['胡萝卜', '土豆'] }]
+test('keeps the latest custom-dish foods from feeding history on the frequent list', () => {
+  const records = [
+    { solidFood: true, solidFoodDishId: '', solidFoodDishName: '宝宝爱心餐', solidFoodFoods: ['胡萝卜', '土豆'] },
+    { solidFood: true, solidFoodDishId: '', solidFoodDishName: '宝宝爱心餐', solidFoodFoods: ['胡萝卜', '南瓜'] }
+  ]
   const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6 })
   assert.strictEqual(ranked[0].name, '宝宝爱心餐')
-  assert.deepStrictEqual(ranked[0].foods, ['胡萝卜', '土豆'])
+  assert.deepStrictEqual(ranked[0].foods, ['胡萝卜', '南瓜'])
+})
+
+test('canonicalises alias ingredients of custom dishes from the weekly plan', () => {
+  const plan = { days: [{ meals: { lunch: [{ id: 'custom-1', name: '蛋黄番薯泥', isCustom: true, ingredients: ['蛋黄', '番薯', '玉米', '温水'] }] } }] }
+  assert.deepStrictEqual(solidFood.customDishesFromPlan(plan)[0].foods, ['鸡蛋', '红薯', '玉米'])
 })

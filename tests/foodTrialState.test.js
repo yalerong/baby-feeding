@@ -16,7 +16,8 @@ test('resets a first-day trial to zero days (keeps the food listed) when undoing
     action: 'reset',
     trialCount: 0,
     status: 'tracking',
-    lastTriedDate: ''
+    lastTriedDate: '',
+    lastLogRecordId: ''
   })
 })
 
@@ -25,7 +26,8 @@ test('reverts a later trial day and its unlocked status', () => {
     action: 'update',
     trialCount: 2,
     status: 'tracking',
-    lastTriedDate: '2026-08-01'
+    lastTriedDate: '2026-08-01',
+    lastLogRecordId: ''
   })
 })
 

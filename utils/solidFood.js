@@ -33,7 +33,9 @@ function restoreLastSelection(selection) {
     customName: selection.name,
     grams: selection.grams
   })
-  return normalized && normalized.solidFood ? normalized : null
+  if (!normalized || !normalized.solidFood) return null
+  const foods = Array.isArray(selection.solidFoodFoods) ? selection.solidFoodFoods.slice() : []
+  return { ...normalized, solidFoodFoods: normalized.solidFoodDishId ? [] : foods }
 }
 
 function getFrequentDishes(ageMonth) {
@@ -60,7 +62,7 @@ function customDishesFromPlan(plan) {
         if (result.some(item => item.name === dish.name)) return
         const foods = []
         ;(dish.ingredients || []).forEach(ingredient => {
-          menuData.getIngredientFoods(ingredient).forEach(food => {
+          menuData.canonicalizeIngredient(ingredient).forEach(food => {
             if (!foods.includes(food)) foods.push(food)
           })
         })
@@ -84,7 +86,8 @@ function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
       order.push(key)
     }
     counts[key].count += 1
-    if (counts[key].foods.length === 0 && Array.isArray(record.solidFoodFoods)) counts[key].foods = record.solidFoodFoods.slice()
+    // 记录按时间升序，同名菜以最近一次的食材为准（菜谱改过名字没改时不沿用旧食材）
+    if (Array.isArray(record.solidFoodFoods) && record.solidFoodFoods.length > 0) counts[key].foods = record.solidFoodFoods.slice()
   })
   const result = order
     .map(key => counts[key])

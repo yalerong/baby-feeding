@@ -29,6 +29,7 @@ function makeWorld() {
       callFunction: ({ name, data }) => {
         world.calls.push(`${name}:${data.action || data.date || ''}`)
         if (name === 'getRecords') {
+          if (world.recordsDown) return Promise.reject(new Error('records down'))
           return Promise.resolve({ result: { success: true, data: world.records.filter(r => !data.date || r.date === data.date) } })
         }
         if (name === 'weeklyMenu') return Promise.resolve({ result: { success: true, data: null } })
@@ -39,15 +40,15 @@ function makeWorld() {
           const existing = find()
           const consecutive = existing && existing.lastTriedDate && dateUtil.addDays(existing.lastTriedDate, 1) === data.date
           const trialCount = consecutive ? existing.trialCount + 1 : 1
-          const next = { foodName: data.foodName, trialCount, status: trialCount >= 3 ? 'unlocked' : 'tracking', lastTriedDate: data.date }
+          const next = { foodName: data.foodName, trialCount, status: trialCount >= 3 ? 'unlocked' : 'tracking', lastTriedDate: data.date, lastLogRecordId: data.recordId || '' }
           if (existing) Object.assign(existing, next); else world.trials.push(next)
           return Promise.resolve({ result: { success: true, data: { ...next } } })
         }
         if (data.action === 'undoLog') {
           const existing = find()
           if (!existing || existing.lastTriedDate !== data.date) return Promise.resolve({ result: { success: false, error: 'only today' } })
-          if (existing.trialCount <= 1) Object.assign(existing, { trialCount: 0, lastTriedDate: '', status: 'tracking' })
-          else Object.assign(existing, { trialCount: existing.trialCount - 1, lastTriedDate: dateUtil.addDays(data.date, -1), status: 'tracking' })
+          if (existing.trialCount <= 1) Object.assign(existing, { trialCount: 0, lastTriedDate: '', status: 'tracking', lastLogRecordId: '' })
+          else Object.assign(existing, { trialCount: existing.trialCount - 1, lastTriedDate: dateUtil.addDays(data.date, -1), status: 'tracking', lastLogRecordId: '' })
           return Promise.resolve({ result: { success: true } })
         }
         return Promise.resolve({ result: { success: false, error: 'unknown' } })
@@ -75,7 +76,7 @@ async function run() {
 
   await test('deleting that record reverts the same-day trial log', async () => {
     const world = makeWorld()
-    world.trials.push({ foodName: '胡萝卜', trialCount: 2, status: 'tracking', lastTriedDate: today })
+    world.trials.push({ foodName: '胡萝卜', trialCount: 2, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
     const rec = record({ solidFoodDishName: '胡萝卜泥' })
     world.records.push(rec)
     await world.page.syncSolidFoodTrial({ before: rec, after: null, recordId: 'r1' })
@@ -86,7 +87,7 @@ async function run() {
 
   await test('does not revert when another record that day still has the food', async () => {
     const world = makeWorld()
-    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today })
+    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
     const rec = record({ _id: 'r1', solidFoodDishName: '胡萝卜泥' })
     world.records.push(rec, record({ _id: 'r2', solidFoodDishName: '胡萝卜土豆泥' }))
     await world.page.syncSolidFoodTrial({ before: rec, after: null, recordId: 'r1' })
@@ -96,7 +97,7 @@ async function run() {
 
   await test('editing only the grams of a logged food neither reverts nor re-logs', async () => {
     const world = makeWorld()
-    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today })
+    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
     const before = record({ solidFoodDishName: '胡萝卜泥', solidFoodGrams: 10 })
     world.records.push(before)
     await world.page.syncSolidFoodTrial({ before, after: record({ solidFoodDishName: '胡萝卜泥', solidFoodGrams: 30 }), recordId: 'r1' })
@@ -106,7 +107,7 @@ async function run() {
 
   await test('changing the dish reverts the old food and logs the new one', async () => {
     const world = makeWorld()
-    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today })
+    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
     const before = record({ solidFoodDishName: '胡萝卜泥' })
     world.records.push(before)
     await world.page.syncSolidFoodTrial({ before, after: record({ solidFoodDishName: '玉米糊', solidFoodFoods: ['玉米'] }), recordId: 'r1' })
@@ -114,6 +115,32 @@ async function run() {
     world.trials.forEach(t => { byName[t.foodName] = t })
     assert.strictEqual(byName['胡萝卜'].trialCount, 0)
     assert.strictEqual(byName['玉米'].trialCount, 1)
+  })
+
+  await test('auto-log stamps the record id so the trial carries provenance', async () => {
+    const world = makeWorld()
+    await world.page.syncSolidFoodTrial({ before: null, after: record({ solidFoodDishName: '胡萝卜泥' }), recordId: 'r9' })
+    assert.strictEqual(world.trials[0].lastLogRecordId, 'r9')
+  })
+
+  await test('deleting a record never touches a trial that was logged manually on the unlock page', async () => {
+    const world = makeWorld()
+    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: '' })
+    const rec = record({ solidFoodDishName: '胡萝卜泥' })
+    world.records.push(rec)
+    await world.page.syncSolidFoodTrial({ before: rec, after: null, recordId: 'r1' })
+    assert.strictEqual(world.trials[0].trialCount, 1)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:undoLog').length, 0)
+  })
+
+  await test('skips the rollback when same-day sibling records cannot be loaded', async () => {
+    const world = makeWorld()
+    world.recordsDown = true
+    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
+    const rec = record({ solidFoodDishName: '胡萝卜泥' })
+    await world.page.syncSolidFoodTrial({ before: rec, after: null, recordId: 'r1' })
+    assert.strictEqual(world.trials[0].trialCount, 1)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:undoLog').length, 0)
   })
 
   await test('an unrecognised name warns instead of storing the dish name as a food', async () => {

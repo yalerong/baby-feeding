@@ -504,104 +504,23 @@ Page({
     this.navigateToDish(this.data.selectedDayIndex, mealType, dishIndex)
   },
 
-  navigateToDish(dayIndex, mealType, dishIndex) {
+  navigateToDish(dayIndex, mealType, dishIndex, options) {
     if (this.data.currentPlan) {
       wx.setStorageSync(this.getPlanCacheKey(this.data.weekStart), this.data.currentPlan)
       if (this.data.dirty) wx.setStorageSync(this.getDraftKey(this.data.weekStart), this.data.currentPlan)
     }
+    const custom = options && options.custom ? '&custom=1' : ''
     wx.navigateTo({
-      url: `/pages/menuDish/menuDish?weekStart=${this.data.weekStart}&dayIndex=${dayIndex}&mealType=${mealType}&dishIndex=${dishIndex}`
+      url: `/pages/menuDish/menuDish?weekStart=${this.data.weekStart}&dayIndex=${dayIndex}&mealType=${mealType}&dishIndex=${dishIndex}${custom}`
     })
   },
 
-  // 大厅里"自己写一道"：先放一个空白自定义菜进餐位，再跳详情页填菜名和食材
+  // 大厅里"自己写一道"：不动当前餐位，带 custom=1 去详情页，详情页保存时才把自定义菜写进去
   addCustomDish() {
     const context = this.data.hallContext
-    const plan = this.data.currentPlan
-    if (!context || !plan) return
-    const dish = {
-      id: `custom-${Date.now()}`,
-      name: '自定义辅食',
-      ageMinMonth: plan.ageMonth,
-      ageMaxMonth: plan.ageMonth,
-      mealTypes: [context.mealType],
-      nutritionTags: [],
-      foodGroups: [],
-      texture: '按月龄处理',
-      imageEmoji: '🍱',
-      color: '#F3F0EA',
-      ingredients: [],
-      steps: [],
-      cautions: ['新食材仍要单独尝试、少量观察'],
-      isCustom: true
-    }
-    const meals = plan.days[context.dayIndex].meals
-    if (!meals[context.mealType]) meals[context.mealType] = []
-    meals[context.mealType].splice(context.dishIndex, 1, dish)
-    plan.nutritionSummary = this.calculateNutrition(plan.days)
-    const draft = this.decoratePlan(plan)
-    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
-    this.setData({
-      currentPlan: draft,
-      dirty: true,
-      viewMode: 'week',
-      hallDishes: [],
-      hallContext: null
-    }, () => {
-      this.syncSelectedDay(context.dayIndex)
-      this.navigateToDish(context.dayIndex, context.mealType, context.dishIndex)
-    })
-  },
-
-  replaceDish(e) {
-    const { mealType, dishIndex } = e.currentTarget.dataset
-    const dayIndex = this.data.selectedDayIndex
-    const plan = this.data.currentPlan
-    const current = plan.days[dayIndex].meals[mealType][dishIndex]
-    const hallDishes = menuData.getDishesFor(plan.ageMonth, mealType, this.data.excludedIngredients)
-      .filter(dish => menuData.dishAllowedByUnlocked(dish, this.data.unlockedFoods))
-      .map(dish => ({
-        ...dish,
-        ingredientsLabel: dish.ingredients.join('、'),
-        isCurrent: current && dish.id === current.id
-      }))
-    this.setData({
-      viewMode: 'hall',
-      hallDishes,
-      hallContext: {
-        dayIndex,
-        mealType,
-        dishIndex,
-        currentDishId: current ? current.id : '',
-        mealLabel: this.data.mealLabels[mealType]
-      }
-    })
-  },
-
-  closeHall() {
-    this.setData({ viewMode: 'week', hallDishes: [], hallContext: null })
-  },
-
-  chooseHallDish(e) {
-    const id = e.currentTarget.dataset.id
-    const dish = menuData.getDishById(id)
-    const context = this.data.hallContext
-    if (!dish || !context) return
-
-    const plan = this.data.currentPlan
-    const selected = JSON.parse(JSON.stringify(dish))
-    plan.days[context.dayIndex].meals[context.mealType].splice(context.dishIndex, 1, selected)
-    plan.nutritionSummary = this.calculateNutrition(plan.days)
-    const draft = this.decoratePlan(plan)
-    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
-    this.setData({
-      currentPlan: draft,
-      dirty: true,
-      viewMode: 'week',
-      hallDishes: [],
-      hallContext: null
-    }, () => {
-      this.syncSelectedDay(context.dayIndex)
+    if (!context || !this.data.currentPlan) return
+    this.setData({ viewMode: 'week', hallDishes: [], hallContext: null }, () => {
+      this.navigateToDish(context.dayIndex, context.mealType, context.dishIndex, { custom: true })
     })
   },
 

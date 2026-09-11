@@ -2,7 +2,7 @@
   <view class="card dish-hero">
     <view class="dish-art" style="background: {{dish.color}};">{{dish.imageEmoji}}</view>
     <view class="dish-title-wrap">
-      <input class="dish-title-input" value="{{dish.name}}" bindinput="bindNameInput" />
+      <input class="dish-title-input" value="{{dish.name}}" bindinput="bindNameInput" placeholder="{{isNewCustom ? '给这道菜起个名字' : ''}}" />
       <view class="dish-sub">{{mealLabel}} · {{dish.ageMinMonth}}-{{dish.ageMaxMonth}} 月龄</view>
     </view>
   </view>

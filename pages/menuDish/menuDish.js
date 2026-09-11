@@ -13,7 +13,8 @@ Page({
     mealLabel: '',
     ingredientsText: '',
     stepsText: '',
-    cautionsText: ''
+    cautionsText: '',
+    isNewCustom: false
   },
 
   onLoad(options) {
@@ -23,7 +24,8 @@ Page({
       dayIndex: parseInt(options.dayIndex, 10) || 0,
       mealType,
       dishIndex: parseInt(options.dishIndex, 10) || 0,
-      mealLabel: menuData.MEAL_LABELS[mealType] || ''
+      mealLabel: menuData.MEAL_LABELS[mealType] || '',
+      isNewCustom: options.custom === '1'
     })
     this.loadDish()
   },
@@ -64,9 +66,30 @@ Page({
     return `menuDraft:${this.data.weekStart}`
   },
 
+  // 新建自定义菜：只在本页内存里占位，用户点保存才写进菜单
+  buildCustomDish(plan) {
+    return {
+      id: `custom-${Date.now()}`,
+      name: '',
+      ageMinMonth: plan.ageMonth,
+      ageMaxMonth: plan.ageMonth,
+      mealTypes: [this.data.mealType],
+      nutritionTags: [],
+      foodGroups: [],
+      texture: '按月龄处理',
+      imageEmoji: '🍱',
+      color: '#F3F0EA',
+      ingredients: [],
+      steps: [],
+      cautions: ['新食材仍要单独尝试、少量观察'],
+      isCustom: true
+    }
+  },
+
   setDish(plan, savedDocId) {
     const day = plan.days[this.data.dayIndex]
-    const dish = day && day.meals[this.data.mealType] && day.meals[this.data.mealType][this.data.dishIndex]
+    const slot = day && day.meals[this.data.mealType]
+    const dish = this.data.isNewCustom ? this.buildCustomDish(plan) : (slot && slot[this.data.dishIndex])
     if (!dish) {
       wx.showToast({ title: '菜品不存在', icon: 'none' })
       return
@@ -151,7 +174,9 @@ Page({
       isCustom: true
     }
 
-    plan.days[this.data.dayIndex].meals[this.data.mealType].splice(this.data.dishIndex, 1, dish)
+    const meals = plan.days[this.data.dayIndex].meals
+    if (!meals[this.data.mealType]) meals[this.data.mealType] = []
+    meals[this.data.mealType].splice(this.data.dishIndex, 1, dish)
     plan.nutritionSummary = this.calculateNutrition(plan.days)
 
     wx.showLoading({ title: '保存中...', mask: true })

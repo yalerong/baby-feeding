@@ -16,8 +16,34 @@ function previousDay(date) {
   return value.toISOString().slice(0, 10)
 }
 
+// 用固定 _id 做原子创建：并发时第二个请求会因主键冲突失败，然后读回已有文档，不会互相覆盖
+async function createOrGet(documentId, data) {
+  try {
+    await db.collection('food_trials').add({ data: { _id: documentId, ...data } })
+    return { created: true, data: { _id: documentId, ...data } }
+  } catch (err) {
+    const res = await db.collection('food_trials').doc(documentId).get().catch(() => null)
+    if (res && res.data) return { created: false, data: res.data }
+    throw err
+  }
+}
+
+function buildLogPayload(existing, familyCode, foodName, date, recordId) {
+  const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
+  const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1
+  return {
+    familyCode,
+    foodName,
+    trialCount,
+    status: trialCount >= 3 ? 'unlocked' : 'tracking',
+    lastTriedDate: date,
+    lastLogRecordId: String(recordId || ''),
+    updateTime: db.serverDate()
+  }
+}
+
 exports.main = async event => {
-  const { action, familyCode, date, status } = event
+  const { action, familyCode, date, status, recordId } = event
   const foodName = normalizeFoodName(event.foodName)
   if (!familyCode) return { success: false, error: 'familyCode required' }
 
@@ -35,9 +61,9 @@ exports.main = async event => {
     // 家长自定义食材：只建档不打卡，trialCount 0 不会占用"当前连续试吃"
     if (action === 'add') {
       if (existing) return { success: true, data: existing, existed: true }
-      const payload = { familyCode, foodName, trialCount: 0, status: 'tracking', lastTriedDate: '', isCustom: true, updateTime: db.serverDate(), createTime: db.serverDate() }
-      await db.collection('food_trials').doc(documentId).set({ data: payload })
-      return { success: true, data: { _id: documentId, ...payload } }
+      const payload = { familyCode, foodName, trialCount: 0, status: 'tracking', lastTriedDate: '', lastLogRecordId: '', isCustom: true, updateTime: db.serverDate(), createTime: db.serverDate() }
+      const result = await createOrGet(documentId, payload)
+      return { success: true, data: result.data, existed: !result.created }
     }
 
     if (action === 'log') {
@@ -50,22 +76,20 @@ exports.main = async event => {
       if (existing && existing.status === 'allergic') return { success: false, error: '该食材已标记疑似过敏' }
       if (existing && existing.status === 'unlocked') return { success: false, error: '该食材已解锁，无需再记录' }
       if (existing && existing.lastTriedDate === date) return { success: false, error: '今天已记录过这项食物' }
-      const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
-      const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1
-      const payload = {
-        familyCode,
-        foodName,
-        trialCount,
-        status: trialCount >= 3 ? 'unlocked' : 'tracking',
-        lastTriedDate: date,
-        updateTime: db.serverDate()
-      }
       if (existing) {
+        const payload = buildLogPayload(existing, familyCode, foodName, date, recordId)
         await db.collection('food_trials').doc(existing._id).update({ data: payload })
         return { success: true, data: { ...existing, ...payload } }
       }
-      await db.collection('food_trials').doc(documentId).set({ data: { ...payload, createTime: db.serverDate() } })
-      return { success: true, data: { _id: documentId, ...payload } }
+      const payload = buildLogPayload(null, familyCode, foodName, date, recordId)
+      const result = await createOrGet(documentId, { ...payload, createTime: db.serverDate() })
+      if (result.created) return { success: true, data: result.data }
+      // 并发下别人刚建了档（比如同时点了"添加"）：在它之上按正常规则更新
+      const raced = result.data
+      if (raced.lastTriedDate === date) return { success: false, error: '今天已记录过这项食物' }
+      const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId)
+      await db.collection('food_trials').doc(raced._id).update({ data: nextPayload })
+      return { success: true, data: { ...raced, ...nextPayload } }
     }
 
     if (action === 'undoLog') {

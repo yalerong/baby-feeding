@@ -401,7 +401,7 @@ Page({
         const beforeFoods = solidFood.getCanonicalFoods({ dishId: before.solidFoodDishId, name: before.solidFoodDishName, foods: before.solidFoodFoods, extraFoods })
         chain = this.loadOtherSolidFoods(before.date, recordId, extraFoods).then(otherFoods => {
           const covered = otherFoods.concat(afterSolid && after.date === before.date ? afterFoods : [])
-          const revert = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: covered, trials, date: before.date })
+          const revert = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: covered, trials, date: before.date, recordId })
           if (revert.length === 0) return trials
           return revert.reduce((prev, food) => prev.then(() => wx.cloud.callFunction({
             name: 'foodTrial',
@@ -412,6 +412,10 @@ Page({
               wx.showToast({ title: `已回退 ${revert.join('、')} 当天试吃`, icon: 'none' })
               return (listRes.result && listRes.result.data) || []
             })
+        }).catch(err => {
+          // 同日其它记录拉不到时宁可不回退，也不能把别的记录撑着的试吃减掉
+          console.error(err)
+          return trials
         })
       }
       return chain.then(freshTrials => {
@@ -421,7 +425,7 @@ Page({
           if (nameChanged) wx.showToast({ title: '没认出食材，未自动记试吃；可在菜单-食物解锁里手动记', icon: 'none', duration: 2500 })
           return
         }
-        return this.autoLogSolidFoodTrial(after, afterFoods, freshTrials)
+        return this.autoLogSolidFoodTrial(after, afterFoods, freshTrials, recordId)
       })
     }).catch(err => console.error(err))
   },
@@ -430,6 +434,7 @@ Page({
   loadOtherSolidFoods(date, recordId, extraFoods) {
     const familyCode = wx.getStorageSync('familyCode')
     return wx.cloud.callFunction({ name: 'getRecords', data: { familyCode, date } }).then(res => {
+      if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'getRecords failed')
       const foods = []
       ;((res.result && res.result.data) || []).forEach(record => {
         if (!record || record._id === recordId || !record.solidFood) return
@@ -437,11 +442,11 @@ Page({
           .forEach(food => { if (!foods.includes(food)) foods.push(food) })
       })
       return foods
-    }).catch(err => { console.error(err); return [] })
+    })
   },
 
   // 沿用「一次只试一种」纪律，规则见 foodUnlock.getAutoTrialTarget
-  autoLogSolidFoodTrial(payload, foods, trials) {
+  autoLogSolidFoodTrial(payload, foods, trials, recordId) {
     const familyCode = wx.getStorageSync('familyCode')
     const target = foodUnlock.getAutoTrialTarget(foods, trials, payload.date)
     if (target === null) return
@@ -452,7 +457,7 @@ Page({
     const dateLabel = payload.date === todayStr() ? '' : `${payload.date.substring(5)} `
     return wx.cloud.callFunction({
       name: 'foodTrial',
-      data: { action: 'log', familyCode, foodName: target, date: payload.date }
+      data: { action: 'log', familyCode, foodName: target, date: payload.date, recordId: recordId || '' }
     }).then(logRes => {
       if (logRes.result && logRes.result.success) {
         const count = Number(logRes.result.data.trialCount) || 0
@@ -479,14 +484,19 @@ Page({
           wx.cloud.callFunction({
             name: 'deleteRecord',
             data: { _id: this.data._id, familyCode: wx.getStorageSync('familyCode') }
-          }).then(() => {
+          }).then(res => {
             wx.hideLoading()
+            if (!res.result || !res.result.success) {
+              wx.showToast({ title: '删除失败', icon: 'none' })
+              return
+            }
             feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
             this.syncSolidFoodTrial({ before: this._originalRecord, after: null, recordId: this.data._id })
             wx.showToast({ title: '已删除', icon: 'success' })
             setTimeout(() => wx.navigateBack(), 800)
           }).catch(err => {
             wx.hideLoading()
+            console.error(err)
             wx.showToast({ title: '删除失败', icon: 'none' })
           })
         }

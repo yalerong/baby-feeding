@@ -269,3 +269,11 @@ test('drops trial names that are catalog foods or derivable dish names from the 
   assert.deepStrictEqual(menuData.filterExtraFoods(['胡萝卜', '胡萝卜泥', '玉米', '', '南瓜米糊']), ['玉米'])
   assert.deepStrictEqual(menuData.matchFoodsInName('胡萝卜泥', menuData.filterExtraFoods(['胡萝卜泥'])), ['胡萝卜'])
 })
+
+test('canonicalises a hand-written ingredient line through the mapping table and aliases', () => {
+  assert.deepStrictEqual(menuData.canonicalizeIngredient('蛋黄'), ['鸡蛋'])
+  assert.deepStrictEqual(menuData.canonicalizeIngredient('瘦猪肉'), ['猪肉'])
+  assert.deepStrictEqual(menuData.canonicalizeIngredient('温水'), [])
+  assert.deepStrictEqual(menuData.canonicalizeIngredient('玉米'), ['玉米'])
+  assert.deepStrictEqual(menuData.canonicalizeIngredient('胡萝卜土豆'), ['胡萝卜', '土豆'])
+})

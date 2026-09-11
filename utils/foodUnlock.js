@@ -103,14 +103,17 @@ function getMissingTrialFoodNames(trials, knownFoodNames) {
     .map(trial => trial.foodName)
 }
 
-// 删除/修改辅食记录后要回退的试吃食材：当天打过卡、且这天没有别的记录再吃它
-function getTrialRevertFoods({ foods, otherFoods, trials, date }) {
+// 删除/修改辅食记录后要回退的试吃食材：当天那次卡是这条记录自动打的（lastLogRecordId 对得上）、
+// 且这天没有别的记录再吃它。手动在解锁页打的卡（没有 recordId）不回退。
+function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId }) {
   const byName = {}
   ;(trials || []).forEach(trial => { byName[trial.foodName] = trial })
   const covered = otherFoods || []
   return (foods || []).filter(name => {
     const trial = byName[name]
-    return trial && trial.status !== 'allergic' && trial.lastTriedDate === date && Number(trial.trialCount) > 0 && !covered.includes(name)
+    if (!trial || trial.status === 'allergic' || trial.lastTriedDate !== date || Number(trial.trialCount) <= 0) return false
+    if (!recordId || trial.lastLogRecordId !== recordId) return false
+    return !covered.includes(name)
   })
 }
 
