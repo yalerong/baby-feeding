@@ -302,6 +302,14 @@
       </view>
     </view>
 
+    <view class="card unlock-notice-card" wx:if="{{unlockNotice}}">
+      <view class="unlock-notice-text">保存这份菜单之后又解锁了：{{unlockNotice.foodsLabel}}。要把今天之后的餐位按新解锁重新排吗？</view>
+      <view class="unlock-notice-actions">
+        <view class="unlock-notice-btn" bindtap="refreshFutureDays">刷新今天之后</view>
+        <view class="unlock-notice-dismiss" bindtap="dismissUnlockNotice">先不用</view>
+      </view>
+    </view>
+
     <view class="card phase-tip-card" wx:if="{{currentPlan.lockedFallback}}">
       解锁的食材还不多，部分餐位暂时用高铁米粉糊代替；去「食物解锁」逐个尝试新食材后，菜单会更丰富。
     </view>

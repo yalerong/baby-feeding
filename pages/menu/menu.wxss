@@ -858,3 +858,35 @@
   color: #8C8578;
   font-size: 24rpx;
 }
+
+.unlock-notice-card {
+  background: #EAF6EF;
+}
+
+.unlock-notice-text {
+  font-size: 26rpx;
+  color: #2E5C44;
+  line-height: 1.6;
+}
+
+.unlock-notice-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 14rpx;
+}
+
+.unlock-notice-btn {
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  background: #5BC58F;
+  color: #fff;
+  font-size: 26rpx;
+}
+
+.unlock-notice-dismiss {
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: #6B655C;
+  font-size: 26rpx;
+}

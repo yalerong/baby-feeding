@@ -2,6 +2,7 @@ const dateUtil = require('../../utils/date.js')
 const menuData = require('../../utils/menuData.js')
 const familyRecordSync = require('../../utils/familyRecordSync.js')
 const foodUnlock = require('../../utils/foodUnlock.js')
+const menuRefresh = require('../../utils/menuRefresh.js')
 
 Page({
   data: {
@@ -64,7 +65,8 @@ Page({
     trialMode: 'strict',
     trialModes: foodUnlock.TRIAL_MODES,
     libraryDishes: [],
-    hallLibraryDishes: []
+    hallLibraryDishes: [],
+    unlockNotice: null
   },
 
   onShow() {
@@ -338,7 +340,7 @@ Page({
       return
     }
 
-    this.setData({ loading: true })
+    this.setData({ loading: true, unlockNotice: null })
     const generated = menuData.generateWeeklyMenu({
       birthDate: this.data.birthDate,
       weekStart,
@@ -400,12 +402,49 @@ Page({
       ageMonth: plan.ageMonth,
       savedDocId: saved ? saved._id : '',
       dirty: !!draft,
-      loading: false
+      loading: false,
+      unlockNotice: this.buildUnlockNotice(plan, saved, draft)
     }, () => {
       this.updatePlanningNotice(plan)
       this.syncSelectedDay(this.getDefaultDayIndex(plan))
       this.buildCatalog(plan.ageMonth)
     })
+  },
+
+  // 保存过的菜单，之后又解锁了新食材、且这周还有今天以后的常规餐位 → 提示刷新
+  buildUnlockNotice(plan, saved, draft) {
+    if (!saved || draft || !plan || plan.status !== 'ready') return null
+    const foods = menuRefresh.getNewlyUnlockedFoods(this.data.unlockedFoods, saved.unlockedFoods)
+    if (foods.length === 0) return null
+    const hasFuture = (plan.days || []).some(day => day.phase === 'regular' && dateUtil.compareDates(day.date, this.data.today) > 0)
+    return hasFuture ? { foods, foodsLabel: foods.join('、') } : null
+  },
+
+  refreshFutureDays() {
+    const plan = this.data.currentPlan
+    if (!plan || plan.status !== 'ready') return
+    const generated = menuData.generateWeeklyMenu({
+      birthDate: this.data.birthDate,
+      weekStart: this.data.weekStart,
+      excludedIngredients: this.data.excludedIngredients,
+      unlockedFoods: this.data.unlockedFoods
+    })
+    const result = menuRefresh.refreshFutureDays({ plan: JSON.parse(JSON.stringify(plan)), generated, today: this.data.today })
+    if (result.changedDates.length === 0) {
+      wx.showToast({ title: '这周没有可刷新的餐位', icon: 'none' })
+      this.setData({ unlockNotice: null })
+      return
+    }
+    const draft = this.decoratePlan(result.plan)
+    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
+    this.setData({ currentPlan: draft, dirty: true, unlockNotice: null }, () => {
+      this.syncSelectedDay(this.data.selectedDayIndex)
+      wx.showToast({ title: `已刷新 ${result.changedDates.length} 天，记得保存`, icon: 'none' })
+    })
+  },
+
+  dismissUnlockNotice() {
+    this.setData({ unlockNotice: null })
   },
 
   startMenuSync(familyCode, weekStart, generated) {
@@ -720,7 +759,8 @@ Page({
       ageMonth: plan.ageMonth,
       stage: plan.stage,
       days: plan.days,
-      nutritionSummary: plan.nutritionSummary
+      nutritionSummary: plan.nutritionSummary,
+      unlockedFoods: this.data.unlockedFoods
     }
 
     wx.cloud.callFunction({
@@ -732,7 +772,7 @@ Page({
         throw new Error(res.result && res.result.error)
       }
       wx.removeStorageSync(this.getDraftKey(plan.weekStart))
-      this.setData({ savedDocId: res.result._id || this.data.savedDocId, dirty: false })
+      this.setData({ savedDocId: res.result._id || this.data.savedDocId, dirty: false, unlockNotice: null })
       wx.showToast({ title: '已保存', icon: 'success' })
     }).catch(err => {
       wx.hideLoading()

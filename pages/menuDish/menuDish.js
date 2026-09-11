@@ -52,6 +52,7 @@ Page({
       .catch(err => { console.error(err); return null })
 
     Promise.all([trialsReq, savedReq]).then(([trials, saved]) => {
+      this._unlockedFoods = trials ? foodUnlock.getUnlockedFoodNames(trials) : null
       const generated = menuData.generateWeeklyMenu({
         birthDate,
         weekStart,
@@ -188,7 +189,8 @@ Page({
       ageMonth: plan.ageMonth,
       stage: plan.stage,
       days: plan.days,
-      nutritionSummary: plan.nutritionSummary
+      nutritionSummary: plan.nutritionSummary,
+      unlockedFoods: this._unlockedFoods || null
     }
 
     // 自定义菜先进家庭菜谱库（拿到 libraryId 挂在菜上），库存失败不影响周菜单保存
