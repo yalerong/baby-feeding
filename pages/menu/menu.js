@@ -794,7 +794,7 @@ Page({
         wx.showLoading({ title: '切换中', mask: true })
         wx.cloud.callFunction({
           name: 'foodTrial',
-          data: { action: 'setTrialMode', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', mode: next }
+          data: { action: 'setTrialMode', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', mode: next, date: this.data.today }
         }).then(res => {
           if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
           return this.loadFoodTrials()
@@ -803,7 +803,12 @@ Page({
           wx.showToast({ title: `已切换到${info.label}`, icon: 'success' })
         }).catch(err => {
           wx.hideLoading()
-          wx.showToast({ title: err.message || '切换失败', icon: 'none' })
+          const message = err.message || '切换失败'
+          if (message.length > 20) {
+            wx.showModal({ title: '暂时不能切换', content: message, showCancel: false, confirmText: '知道了' })
+          } else {
+            wx.showToast({ title: message, icon: 'none' })
+          }
         })
       }
     })

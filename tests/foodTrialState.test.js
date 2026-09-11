@@ -1,5 +1,5 @@
 const assert = require('assert')
-const { getUndoTrialState, withLogSource, nextLogDates } = require('../cloudfunctions/foodTrial/trialState.js')
+const { getUndoTrialState, withLogSource, nextLogDates, seedLogDates } = require('../cloudfunctions/foodTrial/trialState.js')
 
 function test(name, fn) {
   try {
@@ -30,7 +30,7 @@ test('reverts a later trial day and its unlocked status', () => {
     status: 'tracking',
     lastTriedDate: '2026-08-01',
     logSources: { '2026-07-31': 'r1', '2026-08-01': 'r2' },
-    logDates: [],
+    logDates: ['2026-07-31', '2026-08-01'],
     lastLogRecordId: 'r2'
   })
 })
@@ -62,4 +62,14 @@ test('log dates continue the streak when consecutive/relaxed and restart otherwi
   assert.deepStrictEqual(nextLogDates({ logDates: ['2026-08-01'] }, '2026-08-02', true), ['2026-08-01', '2026-08-02'])
   assert.deepStrictEqual(nextLogDates({ logDates: ['2026-08-01'] }, '2026-08-03', false), ['2026-08-03'])
   assert.deepStrictEqual(nextLogDates(null, '2026-08-03', false), ['2026-08-03'])
+})
+
+test('seeds log dates for pre-upgrade trials from their consecutive streak', () => {
+  assert.deepStrictEqual(seedLogDates({ trialCount: 2, lastTriedDate: '2026-09-01' }), ['2026-08-31', '2026-09-01'])
+  assert.deepStrictEqual(seedLogDates({ trialCount: 0, lastTriedDate: '' }), [])
+  assert.deepStrictEqual(seedLogDates({ trialCount: 3, lastTriedDate: '2026-09-01', logDates: ['2026-09-01'] }), ['2026-09-01'])
+  // 老文档切到宽松模式后隔了几天再记，撤销要能回到原来的最后一天
+  assert.deepStrictEqual(nextLogDates({ trialCount: 2, lastTriedDate: '2026-09-01' }, '2026-09-10', true), ['2026-08-31', '2026-09-01', '2026-09-10'])
+  const undo = getUndoTrialState({ trialCount: 3, lastTriedDate: '2026-09-10', logDates: ['2026-08-31', '2026-09-01', '2026-09-10'] }, '2026-09-10')
+  assert.strictEqual(undo.lastTriedDate, '2026-09-01')
 })

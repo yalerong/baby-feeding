@@ -29,7 +29,7 @@ addRecord          updateRecord        deleteRecord
 getRecords         getStats            batchFeeding
 growthRecord       batchVaccine        weeklyMenu
 foodTrial          dailyReview         supplement
-homeSummary
+homeSummary        customDish
 ```
 
 `homeSummary` 是首页启动聚合接口，一次返回当天记录、昨日回顾、补剂状态和间隔建议。未部署时首页会自动回退为多次请求，功能不受影响但启动更慢。

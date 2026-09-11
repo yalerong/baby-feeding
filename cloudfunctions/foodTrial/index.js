@@ -6,14 +6,30 @@ const { getUndoTrialState, withLogSource, nextLogDates } = require('./trialState
 
 const TRIAL_MODES = ['strict', 'relaxed']
 
-// 试吃模式存在 families 文档上，两台手机共用；没设置过就是严格模式
+// 试吃模式存在 families 文档上，两台手机共用；查询成功但没设置过才算严格模式，查询失败直接抛错
 async function getTrialMode(familyCode) {
-  const res = await db.collection('families').where({ familyCode }).limit(1).get().catch(() => null)
-  const doc = res && res.data && res.data[0]
+  const res = await db.collection('families').where({ familyCode }).limit(1).get()
+  const doc = res.data && res.data[0]
   return doc && TRIAL_MODES.includes(doc.trialMode) ? doc.trialMode : 'strict'
 }
 
-async function setTrialMode(familyCode, mode) {
+// 切回严格模式前：宽松模式下可能有好几种食材同时进行中，严格模式只允许一种，多于一种就拒绝切换
+function findCompetingTrials(trials, today) {
+  const yesterday = previousDay(today)
+  return (trials || []).filter(item =>
+    item.status === 'tracking' && item.trialCount > 0 && item.trialCount < 3 &&
+    (item.lastTriedDate === today || item.lastTriedDate === yesterday)
+  )
+}
+
+async function setTrialMode(familyCode, mode, today) {
+  if (mode === 'strict') {
+    const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
+    const competing = findCompetingTrials(activeRes.data, today)
+    if (competing.length > 1) {
+      return { success: false, error: `有 ${competing.map(item => item.foodName).join('、')} 同时在试吃中，严格模式只能保留一种；先在列表里撤销或等它们解锁后再切换` }
+    }
+  }
   const res = await db.collection('families').where({ familyCode }).limit(1).get()
   const doc = res.data && res.data[0]
   if (doc) {
@@ -21,6 +37,7 @@ async function setTrialMode(familyCode, mode) {
   } else {
     await db.collection('families').add({ data: { familyCode, members: [], trialMode: mode, createTime: db.serverDate() } })
   }
+  return { success: true, settings: { trialMode: mode } }
 }
 
 function nextDay(date) {
@@ -103,8 +120,8 @@ exports.main = async event => {
 
     if (action === 'setTrialMode') {
       if (!TRIAL_MODES.includes(event.mode)) return { success: false, error: 'invalid mode' }
-      await setTrialMode(familyCode, event.mode)
-      return { success: true, settings: { trialMode: event.mode } }
+      if (!date) return { success: false, error: 'date required' }
+      return setTrialMode(familyCode, event.mode, date)
     }
 
     if (!foodName) return { success: false, error: 'foodName required' }

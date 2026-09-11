@@ -234,7 +234,7 @@
     </view>
 
     <view class="card trial-note">
-      “已解锁”仅表示已连续记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
+      “已解锁”仅表示已{{trialMode === 'relaxed' ? '累计' : '连续'}}记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
     </view>
 
     <view class="trial-service-error" wx:if="{{foodTrialError}}">{{foodTrialError}}</view>
@@ -245,7 +245,7 @@
         <input class="custom-food-input" value="{{customFoodInput}}" bindinput="bindCustomFoodInput" bindconfirm="addCustomFood" confirm-type="done" placeholder="如：胡萝卜、玉米、鳕鱼" maxlength="20" />
         <view class="custom-food-btn" bindtap="addCustomFood">添加</view>
       </view>
-      <view class="custom-food-hint">菜库里没有的食材写在这里，同样连续吃 3 天解锁；写"胡萝卜泥"会自动识别成"胡萝卜"。</view>
+      <view class="custom-food-hint">菜库里没有的食材写在这里，同样{{trialMode === 'relaxed' ? '累计' : '连续'}}吃 3 天解锁；写"胡萝卜泥"会自动识别成"胡萝卜"。</view>
     </view>
 
     <view class="card trial-food {{item.status === 'allergic' ? 'trial-food-allergic' : ''}}" wx:for="{{trialFoods}}" wx:key="name">

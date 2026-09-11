@@ -1,6 +1,12 @@
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+
+// 同一家庭同名菜固定一个 _id，两位家长同时新建同名菜时后到的会撞主键，然后改走更新
+function dishDocumentId(familyCode, name) {
+  return `dish_${crypto.createHash('sha256').update(`${familyCode}\u0000${name}`).digest('hex')}`
+}
 
 // 家庭菜谱库：家长自己写的菜，跨周复用；周菜单、大厅、录入页常吃列表都从这里取
 const MAX_ITEMS = 20
@@ -61,15 +67,26 @@ exports.main = async event => {
         await db.collection('custom_dishes').doc(existing._id).update({ data: payload })
         return { success: true, _id: existing._id }
       }
-      const res = await db.collection('custom_dishes').add({ data: { ...payload, createBy: OPENID || '', createTime: db.serverDate() } })
-      return { success: true, _id: res._id }
+      const documentId = dishDocumentId(familyCode, dish.name)
+      try {
+        await db.collection('custom_dishes').add({ data: { _id: documentId, ...payload, createBy: OPENID || '', createTime: db.serverDate() } })
+        return { success: true, _id: documentId }
+      } catch (err) {
+        // 主键冲突：别人刚建了同名菜，在它之上更新
+        const raced = await db.collection('custom_dishes').where({ _id: documentId, familyCode }).limit(1).get()
+        if (!raced.data || !raced.data[0]) throw err
+        await db.collection('custom_dishes').doc(documentId).update({ data: payload })
+        return { success: true, _id: documentId }
+      }
     }
 
     if (action === 'remove') {
       if (!_id) return { success: false, error: '_id required' }
-      const res = await db.collection('custom_dishes').doc(_id).get().catch(() => null)
-      if (!res || !res.data) return { success: true }
-      if (res.data.familyCode !== familyCode) return { success: false, error: 'familyCode mismatch' }
+      // 用 where 查：不存在返回空数组，真正的查询错误会抛到外层
+      const res = await db.collection('custom_dishes').where({ _id }).limit(1).get()
+      const doc = res.data && res.data[0]
+      if (!doc) return { success: true, missing: true }
+      if (doc.familyCode !== familyCode) return { success: false, error: 'familyCode mismatch' }
       await db.collection('custom_dishes').doc(_id).remove()
       return { success: true }
     }
