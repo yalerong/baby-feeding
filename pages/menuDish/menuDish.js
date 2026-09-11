@@ -191,10 +191,34 @@ Page({
       nutritionSummary: plan.nutritionSummary
     }
 
-    wx.cloud.callFunction({
+    // 自定义菜先进家庭菜谱库（拿到 libraryId 挂在菜上），库存失败不影响周菜单保存
+    const foods = []
+    dish.ingredients.forEach(ingredient => {
+      menuData.canonicalizeIngredient(ingredient).forEach(food => { if (!foods.includes(food)) foods.push(food) })
+    })
+    const libraryDish = {
+      name: dish.name,
+      ingredients: dish.ingredients,
+      foods,
+      steps: dish.steps,
+      cautions: dish.cautions,
+      texture: dish.texture,
+      mealTypes: dish.mealTypes && dish.mealTypes.length ? dish.mealTypes : [this.data.mealType],
+      nutritionTags: dish.nutritionTags || [],
+      imageEmoji: dish.imageEmoji,
+      color: dish.color
+    }
+    const libraryReq = wx.cloud.callFunction({
+      name: 'customDish',
+      data: { action: 'save', familyCode, _id: dish.libraryId || '', dish: libraryDish }
+    }).then(res => {
+      if (res.result && res.result.success && res.result._id) dish.libraryId = res.result._id
+    }).catch(err => console.error(err))
+
+    libraryReq.then(() => wx.cloud.callFunction({
       name: 'weeklyMenu',
       data: { action: 'save', familyCode, weekStart: plan.weekStart, data }
-    }).then(res => {
+    })).then(res => {
       wx.hideLoading()
       if (!res.result || !res.result.success) {
         throw new Error(res.result && res.result.error)

@@ -175,3 +175,18 @@ test('a weekly dish whose same-named history ranks below the cut still gets a sl
   assert.deepStrictEqual(hit.foods, ['胡萝卜'])
   assert.ok(!ranked.some(item => item.name === '历史菜1'), 'the lowest-ranked genuine history entry gives way')
 })
+
+test('library dishes fill the picker after history and before catalog fillers, and back-fill foods', () => {
+  const records = [{ solidFood: true, solidFoodDishId: '', solidFoodDishName: '南瓜泥' }, { solidFood: true, solidFoodDishId: '', solidFoodDishName: '宝宝爱心餐' }]
+  const library = solidFood.libraryDishesFromDocs([
+    { _id: 'a', name: '宝宝爱心餐', ingredients: ['蛋黄', '番薯'] },
+    { _id: 'b', name: '牛油果泥', foods: ['牛油果'], imageEmoji: '🥑' }
+  ])
+  assert.deepStrictEqual(library[0].foods, ['鸡蛋', '红薯'])
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6, libraryDishes: library })
+  assert.strictEqual(ranked.length, 6)
+  assert.strictEqual(ranked[2].name, '牛油果泥')
+  assert.strictEqual(ranked[2].imageEmoji, '🥑')
+  assert.deepStrictEqual(ranked.find(item => item.name === '宝宝爱心餐').foods, ['鸡蛋', '红薯'])
+  assert.ok(ranked.slice(3).every(item => item.id))
+})

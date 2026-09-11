@@ -63,6 +63,19 @@ function getCanonicalFoods({ dishId, name, foods, extraFoods }) {
   return menuData.matchFoodsInName(name, extraFoods)
 }
 
+// 菜谱库文档 → 录入页可选项
+function libraryDishesFromDocs(docs) {
+  return (docs || []).filter(doc => doc && doc.name).map(doc => ({
+    id: '',
+    name: doc.name,
+    imageEmoji: doc.imageEmoji || '🍱',
+    foods: Array.isArray(doc.foods) && doc.foods.length ? doc.foods.slice() : (doc.ingredients || []).reduce((acc, ingredient) => {
+      menuData.canonicalizeIngredient(ingredient).forEach(food => { if (!acc.includes(food)) acc.push(food) })
+      return acc
+    }, [])
+  }))
+}
+
 // 本周菜单里家长自己写的菜，供录入页直接选
 function customDishesFromPlan(plan) {
   const result = []
@@ -86,7 +99,7 @@ function customDishesFromPlan(plan) {
 
 // 常吃列表：历史辅食按出现次数排序；本周自定义菜一定在列表里（同名历史条目沿用其排名、食材以本周为准），
 // 不足 limit 个再用该月龄菜品目录补齐
-function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
+function rankFrequentDishes({ records, ageMonth, limit, customDishes, libraryDishes }) {
   const max = limit || 6
   const counts = {}
   const order = []
@@ -122,6 +135,16 @@ function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
       const dish = item.id ? menuData.getDishById(item.id) : null
       return { id: item.id, name: item.name, imageEmoji: dish ? dish.imageEmoji : (item.customEmoji || '🍚'), foods: item.foods }
     })
+  // 家庭菜谱库里的菜：历史和本周菜单里没出现过的，补在菜库菜之前
+  ;(libraryDishes || []).forEach(dish => {
+    if (result.length >= max || !dish || !dish.name) return
+    const same = result.find(item => item.name === dish.name)
+    if (same) {
+      if (!same.foods || same.foods.length === 0) same.foods = (dish.foods || []).slice()
+      return
+    }
+    result.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods: (dish.foods || []).slice() })
+  })
   if (result.length < max) {
     menuData.getDishCatalog({ ageMonth }).forEach(dish => {
       if (result.length >= max) return
@@ -139,5 +162,6 @@ module.exports = {
   rankFrequentDishes,
   getCanonicalFoods,
   customDishesFromPlan,
+  libraryDishesFromDocs,
   normalizeFoods
 }

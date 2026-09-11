@@ -176,10 +176,27 @@
       <view class="dish-art" style="background: #F3F0EA;">✏️</view>
       <view class="dish-main">
         <view class="dish-name">自己写一道</view>
-        <view class="dish-note">填菜名和食材，保存后本周菜单和首页录入都能直接选</view>
+        <view class="dish-note">填菜名和食材，保存后进家庭菜谱库，以后每周和首页录入都能选</view>
       </view>
       <view class="select-arrow">›</view>
     </view>
+
+    <block wx:if="{{hallLibraryDishes.length > 0}}">
+      <view class="hall-section-title">我的菜谱</view>
+      <view class="card dish-option library-dish-option" wx:for="{{hallLibraryDishes}}" wx:key="_id" bindtap="chooseLibraryDish" data-id="{{item._id}}">
+        <view class="dish-art" style="background: {{item.color}};">{{item.imageEmoji}}</view>
+        <view class="dish-main">
+          <view class="dish-name-row">
+            <text class="dish-name">{{item.name}}</text>
+            <text class="current-tag" wx:if="{{hallContext.currentDishId === 'custom-' + item._id}}">当前</text>
+          </view>
+          <view class="dish-meta">{{item.texture}}</view>
+          <view class="dish-note">{{item.ingredientsLabel}}</view>
+        </view>
+        <view class="library-remove" catchtap="removeLibraryDish" data-id="{{item._id}}">删</view>
+      </view>
+      <view class="hall-section-title">菜库</view>
+    </block>
 
     <view class="card dish-option"
           wx:for="{{hallDishes}}"

@@ -62,7 +62,9 @@ Page({
     foodTrialError: '',
     customFoodInput: '',
     trialMode: 'strict',
-    trialModes: foodUnlock.TRIAL_MODES
+    trialModes: foodUnlock.TRIAL_MODES,
+    libraryDishes: [],
+    hallLibraryDishes: []
   },
 
   onShow() {
@@ -84,9 +86,95 @@ Page({
       guideVisible: !wx.getStorageSync('menuGuideDismissed'),
       guidePosition: wx.getStorageSync('menuGuidePosition') === 'bottom' ? 'bottom' : 'top'
     })
+    this.loadLibraryDishes()
     this.loadFoodTrials().then(() => {
       this.loadWeek(weekStart)
       this.buildMonth(monthStart)
+    })
+  },
+
+  // 家庭菜谱库：家长自己写过的菜，跨周复用
+  loadLibraryDishes() {
+    const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    return wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
+      .then(res => {
+        const libraryDishes = res.result && res.result.success ? (res.result.data || []) : []
+        this.setData({ libraryDishes })
+        if (this.data.hallContext) this.setData({ hallLibraryDishes: this.buildHallLibraryDishes(this.data.hallContext.mealType) })
+      })
+      .catch(err => console.error(err))
+  },
+
+  buildHallLibraryDishes(mealType) {
+    return this.data.libraryDishes
+      .filter(dish => !dish.mealTypes || dish.mealTypes.length === 0 || dish.mealTypes.includes(mealType))
+      .map(dish => ({
+        ...dish,
+        ingredientsLabel: (dish.ingredients || []).join('、') || '未填食材'
+      }))
+  },
+
+  chooseLibraryDish(e) {
+    const id = e.currentTarget.dataset.id
+    const source = this.data.libraryDishes.find(dish => dish._id === id)
+    const context = this.data.hallContext
+    const plan = this.data.currentPlan
+    if (!source || !context || !plan) return
+    const dish = {
+      id: `custom-${source._id}`,
+      libraryId: source._id,
+      name: source.name,
+      ageMinMonth: plan.ageMonth,
+      ageMaxMonth: plan.ageMonth,
+      mealTypes: source.mealTypes && source.mealTypes.length ? source.mealTypes : [context.mealType],
+      nutritionTags: source.nutritionTags || [],
+      foodGroups: [],
+      texture: source.texture || '按月龄处理',
+      imageEmoji: source.imageEmoji || '🍱',
+      color: source.color || '#F3F0EA',
+      ingredients: source.ingredients || [],
+      steps: source.steps || [],
+      cautions: source.cautions || [],
+      isCustom: true
+    }
+    const meals = plan.days[context.dayIndex].meals
+    if (!meals[context.mealType]) meals[context.mealType] = []
+    meals[context.mealType].splice(context.dishIndex, 1, dish)
+    plan.nutritionSummary = this.calculateNutrition(plan.days)
+    const draft = this.decoratePlan(plan)
+    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
+    this.setData({
+      currentPlan: draft,
+      dirty: true,
+      viewMode: 'week',
+      hallDishes: [],
+      hallLibraryDishes: [],
+      hallContext: null
+    }, () => {
+      this.syncSelectedDay(context.dayIndex)
+    })
+  },
+
+  removeLibraryDish(e) {
+    const id = e.currentTarget.dataset.id
+    const source = this.data.libraryDishes.find(dish => dish._id === id)
+    if (!source) return
+    wx.showModal({
+      title: '从菜谱库删除',
+      content: `删除“${source.name}”后已排进菜单的不受影响，确定吗？`,
+      confirmText: '删除',
+      confirmColor: '#D9534F',
+      success: result => {
+        if (!result.confirm) return
+        wx.cloud.callFunction({
+          name: 'customDish',
+          data: { action: 'remove', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', _id: id }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          return this.loadLibraryDishes()
+        }).then(() => wx.showToast({ title: '已删除', icon: 'success' }))
+          .catch(err => wx.showToast({ title: err.message || '删除失败', icon: 'none' }))
+      }
     })
   },
 
@@ -546,6 +634,7 @@ Page({
     this.setData({
       viewMode: 'hall',
       hallDishes,
+      hallLibraryDishes: this.buildHallLibraryDishes(mealType),
       hallContext: {
         dayIndex,
         mealType,
@@ -557,7 +646,7 @@ Page({
   },
 
   closeHall() {
-    this.setData({ viewMode: 'week', hallDishes: [], hallContext: null })
+    this.setData({ viewMode: 'week', hallDishes: [], hallLibraryDishes: [], hallContext: null })
   },
 
   chooseHallDish(e) {

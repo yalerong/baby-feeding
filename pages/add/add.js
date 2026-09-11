@@ -127,11 +127,12 @@ Page({
     return solidFood.rankFrequentDishes({
       records: this._recentSolidFoodRecords || [],
       ageMonth,
-      customDishes: this._customDishes || []
+      customDishes: this._customDishes || [],
+      libraryDishes: this._libraryDishes || []
     })
   },
 
-  // 常吃列表 = 最近 30 天辅食记录 + 本周菜单里家长自己写的菜（含未保存草稿）
+  // 常吃列表 = 最近 30 天辅食记录 + 本周菜单里家长自己写的菜（含未保存草稿）+ 家庭菜谱库
   loadFrequentSolidFoods() {
     const familyCode = wx.getStorageSync('familyCode')
     if (!familyCode) return
@@ -154,9 +155,13 @@ Page({
           return merged
         })
     }
-    Promise.all([recordsReq, menuReq]).then(([records, customDishes]) => {
+    const libraryReq = wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
+      .then(res => solidFood.libraryDishesFromDocs(res.result && res.result.success ? res.result.data : []))
+      .catch(() => [])
+    Promise.all([recordsReq, menuReq, libraryReq]).then(([records, customDishes, libraryDishes]) => {
       this._recentSolidFoodRecords = records
       this._customDishes = customDishes
+      this._libraryDishes = libraryDishes
       this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(this.data.date) })
     })
   },
