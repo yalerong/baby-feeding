@@ -150,7 +150,8 @@ Page({
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
       .then(res => {
-        const foodTrials = (res.result && res.result.data) || []
+        if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+        const foodTrials = res.result.data || []
         this.setData({
           foodTrials,
           activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today),

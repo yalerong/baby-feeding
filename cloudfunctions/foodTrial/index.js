@@ -2,7 +2,7 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const { normalizeFoodName, getTrialDocumentId } = require('./trialId.js')
-const { getUndoTrialState } = require('./trialState.js')
+const { getUndoTrialState, withLogSource } = require('./trialState.js')
 
 function nextDay(date) {
   const value = new Date(`${date}T00:00:00Z`)
@@ -38,22 +38,28 @@ function validateLogTarget(existing, date) {
   return ''
 }
 
-// 同一天另一条记录仍吃到该食材时，把打卡来源移交给它，避免来源指向已删除的记录
+// 同一天另一条记录仍吃到该食材时，把这一天的打卡来源移交给它，避免来源指向已删除的记录
 async function transferLogSource(existing, date, recordId) {
-  if (!existing || existing.lastTriedDate !== date) return { success: false, error: '不是当天的记录' }
-  await db.collection('food_trials').doc(existing._id).update({ data: { lastLogRecordId: String(recordId || ''), updateTime: db.serverDate() } })
+  if (!existing || !(existing.logSources || {})[date] && existing.lastTriedDate !== date) return { success: false, error: '这一天没有打卡记录' }
+  const sources = withLogSource(existing.logSources, date, recordId)
+  await db.collection('food_trials').doc(existing._id).update({
+    data: { logSources: sources, lastLogRecordId: sources[existing.lastTriedDate] || '', updateTime: db.serverDate() }
+  })
   return { success: true }
 }
 
+// 连续则在原 streak 上加一天并沿用各天来源；断了就重开 streak，旧来源作废
 function buildLogPayload(existing, familyCode, foodName, date, recordId) {
   const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
   const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1
+  const logSources = withLogSource(consecutive ? existing.logSources : {}, date, recordId)
   return {
     familyCode,
     foodName,
     trialCount,
     status: trialCount >= 3 ? 'unlocked' : 'tracking',
     lastTriedDate: date,
+    logSources,
     lastLogRecordId: String(recordId || ''),
     updateTime: db.serverDate()
   }
@@ -78,7 +84,7 @@ exports.main = async event => {
     // 家长自定义食材：只建档不打卡，trialCount 0 不会占用"当前连续试吃"
     if (action === 'add') {
       if (existing) return { success: true, data: existing, existed: true }
-      const payload = { familyCode, foodName, trialCount: 0, status: 'tracking', lastTriedDate: '', lastLogRecordId: '', isCustom: true, updateTime: db.serverDate(), createTime: db.serverDate() }
+      const payload = { familyCode, foodName, trialCount: 0, status: 'tracking', lastTriedDate: '', logSources: {}, lastLogRecordId: '', isCustom: true, updateTime: db.serverDate(), createTime: db.serverDate() }
       const result = await createOrGet(documentId, payload)
       return { success: true, data: result.data, existed: !result.created }
     }

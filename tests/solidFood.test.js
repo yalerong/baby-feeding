@@ -143,3 +143,10 @@ test('keeps current-week custom dishes on the picker even when history already f
   assert.strictEqual(ranked.length, 6)
   assert.ok(ranked.some(item => item.name === '宝宝爱心餐'))
 })
+
+test('a current-week custom dish overrides same-named history ingredients', () => {
+  const records = [{ solidFood: true, solidFoodDishId: '', solidFoodDishName: '宝宝爱心餐', solidFoodFoods: ['胡萝卜'] }]
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6, customDishes: [{ name: '宝宝爱心餐', foods: ['胡萝卜', '土豆'] }] })
+  assert.strictEqual(ranked.filter(item => item.name === '宝宝爱心餐').length, 1)
+  assert.deepStrictEqual(ranked[0].foods, ['胡萝卜', '土豆'])
+})

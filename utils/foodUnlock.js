@@ -103,16 +103,23 @@ function getMissingTrialFoodNames(trials, knownFoodNames) {
     .map(trial => trial.foodName)
 }
 
-// 删除/修改辅食记录后要回退的试吃食材：当天那次卡是这条记录自动打的（lastLogRecordId 对得上）、
-// 且这天没有别的记录再吃它。手动在解锁页打的卡（没有 recordId）不回退。
+// 某天的打卡来源（哪条喂养记录自动打的）；兼容只有 lastLogRecordId 的旧文档
+function getLogSource(trial, date) {
+  const sources = trial && trial.logSources
+  if (sources && sources[date]) return sources[date]
+  return trial && trial.lastTriedDate === date ? (trial.lastLogRecordId || '') : ''
+}
+
+// 删除/修改辅食记录后要回退的试吃食材：那天的卡是这条记录自动打的、且这天没有别的记录再吃它。
+// 手动在解锁页打的卡（没有来源）不回退。只有 streak 最后一天能真正撤销，中间某天由云函数拒绝。
 function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId }) {
   const byName = {}
   ;(trials || []).forEach(trial => { byName[trial.foodName] = trial })
   const covered = otherFoods || []
   return (foods || []).filter(name => {
     const trial = byName[name]
-    if (!trial || trial.status === 'allergic' || trial.lastTriedDate !== date || Number(trial.trialCount) <= 0) return false
-    if (!recordId || trial.lastLogRecordId !== recordId) return false
+    if (!trial || trial.status === 'allergic' || Number(trial.trialCount) <= 0) return false
+    if (!recordId || getLogSource(trial, date) !== recordId) return false
     return !covered.includes(name)
   })
 }
@@ -135,6 +142,7 @@ module.exports = {
   getExcludedIngredients,
   getMissingAllergicFoodNames,
   getMissingTrialFoodNames,
+  getLogSource,
   getTrialRevertFoods,
   orderTrialFoods
 }

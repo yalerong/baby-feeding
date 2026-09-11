@@ -105,8 +105,14 @@ function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
       return { id: item.id, name: item.name, imageEmoji: dish ? dish.imageEmoji : '🍚', foods: item.foods }
     })
   custom.forEach(dish => {
+    const same = result.find(item => item.name === dish.name)
+    if (same) {
+      // 历史里有同名条目：食材以本周菜单当前写法为准
+      same.foods = dish.foods.slice()
+      same.imageEmoji = dish.imageEmoji
+      return
+    }
     if (result.length >= max) return
-    if (result.some(item => item.name === dish.name)) return
     result.push(dish)
   })
   if (result.length < max) {

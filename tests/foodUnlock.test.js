@@ -163,10 +163,11 @@ test('does not auto-log a back-filled date earlier than the latest trial day', (
 
 test('reverts only trials this record logged that day and not covered by another record', () => {
   const trials = [
-    { foodName: '胡萝卜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', lastLogRecordId: 'r1' },
-    { foodName: '南瓜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-10', lastLogRecordId: 'r1' },
+    { foodName: '胡萝卜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', logSources: { '2026-09-11': 'r1' } },
+    { foodName: '南瓜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-10', logSources: { '2026-09-10': 'r1' } },
+    // 旧文档只有 lastLogRecordId 也认
     { foodName: '米粉', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-11', lastLogRecordId: 'r1' },
-    { foodName: '苹果', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', lastLogRecordId: '' }
+    { foodName: '苹果', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', logSources: {} }
   ]
   assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜', '南瓜', '米粉', '苹果'], otherFoods: [], trials, date: '2026-09-11', recordId: 'r1' }), ['胡萝卜', '米粉'])
   assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: ['胡萝卜'], trials, date: '2026-09-11', recordId: 'r1' }), [])
@@ -178,4 +179,11 @@ test('flags peas and lentils as common allergens', () => {
   assert.strictEqual(foodUnlock.getAllergenInfo('豌豆').level, 'common-allergen')
   assert.strictEqual(foodUnlock.getAllergenInfo('红扁豆').level, 'common-allergen')
   assert.strictEqual(foodUnlock.getAllergenInfo('土豆').level, 'observe')
+})
+
+test('per-day log sources survive undoing the later day', () => {
+  const trial = { foodName: '胡萝卜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-11', logSources: { '2026-09-10': 'r1', '2026-09-11': 'r2' } }
+  assert.strictEqual(foodUnlock.getLogSource(trial, '2026-09-10'), 'r1')
+  assert.strictEqual(foodUnlock.getLogSource(trial, '2026-09-11'), 'r2')
+  assert.strictEqual(foodUnlock.getLogSource(trial, '2026-09-09'), '')
 })

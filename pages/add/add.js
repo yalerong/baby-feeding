@@ -391,7 +391,8 @@ Page({
     const afterSolid = !!(after && after.solidFood && after.date && after.date <= today)
     if (!familyCode || (!beforeSolid && !afterSolid)) return Promise.resolve()
     return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }).then(res => {
-      const trials = (res.result && res.result.data) || []
+      if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+      const trials = res.result.data || []
       const extraFoods = menuData.filterExtraFoods(trials.map(trial => trial.foodName))
       const afterFoods = afterSolid
         ? solidFood.getCanonicalFoods({ dishId: after.solidFoodDishId, name: after.solidFoodDishName, foods: after.solidFoodFoods, extraFoods })
@@ -415,8 +416,9 @@ Page({
           })), Promise.resolve())
             .then(() => wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }))
             .then(listRes => {
+              if (!listRes.result || !listRes.result.success) throw new Error('foodTrial list failed')
               if (revert.length) wx.showToast({ title: `已回退 ${revert.join('、')} 当天试吃`, icon: 'none' })
-              return (listRes.result && listRes.result.data) || []
+              return listRes.result.data || []
             })
             .catch(err => {
               // 回退/移交没成功就不再给新记录打卡，避免试吃状态和记录对不上
@@ -485,6 +487,10 @@ Page({
 
   deleteRecord() {
     if (!this.data.isEdit || !this.data._id) return
+    if (!this._originalRecord) {
+      wx.showToast({ title: '记录还没加载完成，稍后再试', icon: 'none' })
+      return
+    }
 
     wx.showModal({
       title: '确认删除',

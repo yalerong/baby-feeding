@@ -39,7 +39,10 @@ Page({
     const draft = wx.getStorageSync(this.getDraftKey())
 
     const trialsReq = wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
-      .then(res => (res.result && res.result.data) || [])
+      .then(res => {
+        if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+        return res.result.data || []
+      })
       .catch(err => { console.error(err); return null })
     const savedReq = wx.cloud.callFunction({ name: 'weeklyMenu', data: { action: 'get', familyCode, weekStart } })
       .then(res => {
