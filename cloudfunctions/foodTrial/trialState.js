@@ -13,21 +13,30 @@ function withLogSource(logSources, date, recordId) {
   return next
 }
 
+// logDates：这一轮试吃打过卡的日期列表（升序）。严格模式是连续日期，宽松模式可以有间隔
+function nextLogDates(existing, date, consecutive) {
+  const base = consecutive && existing && Array.isArray(existing.logDates) ? existing.logDates : []
+  return base.filter(item => item !== date).concat(date).sort()
+}
+
 function getUndoTrialState(trial, date) {
   if (!trial || trial.lastTriedDate !== date) return null
   const trialCount = Number(trial.trialCount) || 0
   const logSources = withLogSource(trial.logSources, date, '')
   // 第一天撤销回到 0 天而不是删档：自定义食材要留在解锁页里
-  if (trialCount <= 1) return { action: 'reset', trialCount: 0, status: 'tracking', lastTriedDate: '', logSources: {}, lastLogRecordId: '' }
-  const prev = previousDay(date)
+  if (trialCount <= 1) return { action: 'reset', trialCount: 0, status: 'tracking', lastTriedDate: '', logSources: {}, logDates: [], lastLogRecordId: '' }
+  // 有日期列表就回到列表里的上一天（宽松模式可能不是昨天）；老文档没有列表时按连续假设退一天
+  const logDates = (Array.isArray(trial.logDates) ? trial.logDates : []).filter(item => item !== date)
+  const prev = logDates.length ? logDates[logDates.length - 1] : previousDay(date)
   return {
     action: 'update',
     trialCount: trialCount - 1,
     status: 'tracking',
     lastTriedDate: prev,
     logSources,
+    logDates,
     lastLogRecordId: logSources[prev] || ''
   }
 }
 
-module.exports = { getUndoTrialState, withLogSource }
+module.exports = { getUndoTrialState, withLogSource, nextLogDates }

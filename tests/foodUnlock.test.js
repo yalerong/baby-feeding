@@ -212,3 +212,14 @@ test('carries the allergy note and date onto the decorated food', () => {
   assert.strictEqual(food.allergyNote, '饭后1小时嘴边起疹')
   assert.strictEqual(food.allergyDate, '2026-09-12')
 })
+
+test('relaxed mode logs every eligible food, ignores the one-at-a-time lock and wording changes', () => {
+  const trials = [{ foodName: '南瓜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', logSources: {} }]
+  assert.strictEqual(foodUnlock.getActiveFoodName(trials, '2026-09-11', 'relaxed'), '')
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜', '土豆'], trials, '2026-09-11', 'relaxed'), { targets: ['胡萝卜', '土豆'], ambiguous: false })
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜', '土豆'], trials, '2026-09-11', 'strict'), { targets: [], ambiguous: false })
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜', '土豆'], [], '2026-09-11', 'strict'), { targets: [], ambiguous: true })
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜'], [], '2026-09-11', 'strict'), { targets: ['胡萝卜'], ambiguous: false })
+  assert.strictEqual(foodUnlock.decorateFood('南瓜', trials[0], 'relaxed').statusText, '再吃 2 天解锁')
+  assert.strictEqual(foodUnlock.normalizeMode('anything'), 'strict')
+})

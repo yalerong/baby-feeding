@@ -60,7 +60,9 @@ Page({
     guideVisible: false,
     guidePosition: 'top',
     foodTrialError: '',
-    customFoodInput: ''
+    customFoodInput: '',
+    trialMode: 'strict',
+    trialModes: foodUnlock.TRIAL_MODES
   },
 
   onShow() {
@@ -152,9 +154,11 @@ Page({
       .then(res => {
         if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
         const foodTrials = res.result.data || []
+        const trialMode = foodUnlock.normalizeMode(res.result.settings && res.result.settings.trialMode)
         this.setData({
           foodTrials,
-          activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today),
+          trialMode,
+          activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today, trialMode),
           excludedIngredients: foodUnlock.getExcludedIngredients(foodTrials),
           unlockedFoods: foodUnlock.getUnlockedFoodNames(foodTrials),
           foodTrialError: ''
@@ -179,7 +183,7 @@ Page({
       menuData.getDishFoods(dish).forEach(name => {
         if (used[name]) return
         used[name] = true
-        const food = foodUnlock.decorateFood(name, byName[name])
+        const food = foodUnlock.decorateFood(name, byName[name], this.data.trialMode)
         const allergen = foodUnlock.getAllergenInfo(name)
         trialFoods.push({
           ...food,
@@ -199,7 +203,7 @@ Page({
       if (used[name]) return
       used[name] = true
       const trial = byName[name]
-      const food = foodUnlock.decorateFood(name, trial)
+      const food = foodUnlock.decorateFood(name, trial, this.data.trialMode)
       const allergen = foodUnlock.getAllergenInfo(name)
       trialFoods.push({
         ...food,
@@ -645,6 +649,34 @@ Page({
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '保存失败，请检查 weekly_menus 集合', icon: 'none' })
+    })
+  },
+
+  // 严格/宽松模式切换，存在云端 families 文档上，全家共用
+  toggleTrialMode() {
+    const next = this.data.trialMode === 'relaxed' ? 'strict' : 'relaxed'
+    const info = foodUnlock.TRIAL_MODES[next]
+    wx.showModal({
+      title: `切换到${info.label}`,
+      content: `${info.desc}${next === 'strict' ? ' 已有的累计天数保留，之后的打卡按连续要求计算。' : ''}`,
+      confirmText: '切换',
+      success: result => {
+        if (!result.confirm) return
+        wx.showLoading({ title: '切换中', mask: true })
+        wx.cloud.callFunction({
+          name: 'foodTrial',
+          data: { action: 'setTrialMode', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', mode: next }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          return this.loadFoodTrials()
+        }).then(() => {
+          wx.hideLoading()
+          wx.showToast({ title: `已切换到${info.label}`, icon: 'success' })
+        }).catch(err => {
+          wx.hideLoading()
+          wx.showToast({ title: err.message || '切换失败', icon: 'none' })
+        })
+      }
     })
   },
 

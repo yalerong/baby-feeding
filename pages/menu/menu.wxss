@@ -818,3 +818,25 @@
   font-size: 22rpx;
   line-height: 1.5;
 }
+
+.trial-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.trial-mode-label {
+  font-size: 24rpx;
+  color: #6B655C;
+}
+
+.trial-mode-btn {
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: #EAF6EF;
+  color: #2E8753;
+  font-size: 24rpx;
+}

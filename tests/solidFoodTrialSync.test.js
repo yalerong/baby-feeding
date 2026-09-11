@@ -37,11 +37,11 @@ function makeWorld() {
         const find = () => world.trials.find(t => t.foodName === data.foodName)
         if (data.action === 'list') {
           if (world.listDown) return Promise.resolve({ result: { success: false, error: 'db error' } })
-          return Promise.resolve({ result: { success: true, data: world.trials.map(t => ({ ...t, logSources: { ...(t.logSources || {}) } })) } })
+          return Promise.resolve({ result: { success: true, data: world.trials.map(t => ({ ...t, logSources: { ...(t.logSources || {}) } })), settings: { trialMode: world.mode || 'strict' } } })
         }
         if (data.action === 'log') {
           const existing = find()
-          const consecutive = existing && existing.lastTriedDate && dateUtil.addDays(existing.lastTriedDate, 1) === data.date
+          const consecutive = existing && existing.lastTriedDate && (world.mode === 'relaxed' || dateUtil.addDays(existing.lastTriedDate, 1) === data.date)
           const trialCount = consecutive ? existing.trialCount + 1 : 1
           const logSources = { ...(consecutive ? existing.logSources : {}) }
           if (data.recordId) logSources[data.date] = data.recordId
@@ -87,7 +87,7 @@ async function run() {
     const world = makeWorld()
     await world.page.syncSolidFoodTrial({ before: null, after: record({ solidFoodDishName: '胡萝卜泥' }), recordId: 'r1' })
     assert.deepStrictEqual(world.trials.map(t => [t.foodName, t.trialCount]), [['胡萝卜', 1]])
-    assert.ok(world.toasts.some(t => t.includes('已自动记 胡萝卜 试吃 1/3')))
+    assert.ok(world.toasts.some(t => t.includes('已自动记试吃 胡萝卜 1/3')))
   })
 
   await test('deleting that record reverts the same-day trial log', async () => {
@@ -201,6 +201,14 @@ async function run() {
     assert.strictEqual(world.trials.length, 1)
     assert.strictEqual(world.trials[0].trialCount, 1)
     assert.strictEqual(world.calls.filter(c => c === 'foodTrial:log' || c === 'foodTrial:undoLog').length, 0)
+  })
+
+  await test('relaxed mode logs both new foods of a mixed dish in one go', async () => {
+    const world = makeWorld()
+    world.mode = 'relaxed'
+    await world.page.syncSolidFoodTrial({ before: null, after: record({ solidFoodDishName: '胡萝卜土豆泥' }), recordId: 'r1' })
+    assert.deepStrictEqual(world.trials.map(t => t.foodName).sort(), ['土豆', '胡萝卜'])
+    assert.ok(world.toasts.some(t => t.includes('胡萝卜 1/3') && t.includes('土豆 1/3')))
   })
 
   await test('an unrecognised name warns instead of storing the dish name as a food', async () => {

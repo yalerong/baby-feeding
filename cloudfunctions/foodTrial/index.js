@@ -2,7 +2,26 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const { normalizeFoodName, getTrialDocumentId } = require('./trialId.js')
-const { getUndoTrialState, withLogSource } = require('./trialState.js')
+const { getUndoTrialState, withLogSource, nextLogDates } = require('./trialState.js')
+
+const TRIAL_MODES = ['strict', 'relaxed']
+
+// 试吃模式存在 families 文档上，两台手机共用；没设置过就是严格模式
+async function getTrialMode(familyCode) {
+  const res = await db.collection('families').where({ familyCode }).limit(1).get().catch(() => null)
+  const doc = res && res.data && res.data[0]
+  return doc && TRIAL_MODES.includes(doc.trialMode) ? doc.trialMode : 'strict'
+}
+
+async function setTrialMode(familyCode, mode) {
+  const res = await db.collection('families').where({ familyCode }).limit(1).get()
+  const doc = res.data && res.data[0]
+  if (doc) {
+    await db.collection('families').doc(doc._id).update({ data: { trialMode: mode, updateTime: db.serverDate() } })
+  } else {
+    await db.collection('families').add({ data: { familyCode, members: [], trialMode: mode, createTime: db.serverDate() } })
+  }
+}
 
 function nextDay(date) {
   const value = new Date(`${date}T00:00:00Z`)
@@ -48,9 +67,10 @@ async function transferLogSource(existing, date, recordId) {
   return { success: true }
 }
 
-// 连续则在原 streak 上加一天并沿用各天来源；断了就重开 streak，旧来源作废
-function buildLogPayload(existing, familyCode, foodName, date, recordId) {
-  const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
+// 严格模式：连续则在原 streak 上加一天并沿用各天来源，断了就重开；宽松模式：不要求连续，累计计数
+function buildLogPayload(existing, familyCode, foodName, date, recordId, mode) {
+  const relaxed = mode === 'relaxed'
+  const consecutive = !!(existing && existing.lastTriedDate && (relaxed || nextDay(existing.lastTriedDate) === date))
   const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1
   const logSources = withLogSource(consecutive ? existing.logSources : {}, date, recordId)
   return {
@@ -60,6 +80,7 @@ function buildLogPayload(existing, familyCode, foodName, date, recordId) {
     status: trialCount >= 3 ? 'unlocked' : 'tracking',
     lastTriedDate: date,
     logSources,
+    logDates: nextLogDates(existing, date, consecutive),
     lastLogRecordId: String(recordId || ''),
     updateTime: db.serverDate()
   }
@@ -73,8 +94,17 @@ exports.main = async event => {
 
   try {
     if (action === 'list') {
-      const res = await db.collection('food_trials').where({ familyCode }).limit(1000).get()
-      return { success: true, data: res.data || [] }
+      const [res, trialMode] = await Promise.all([
+        db.collection('food_trials').where({ familyCode }).limit(1000).get(),
+        getTrialMode(familyCode)
+      ])
+      return { success: true, data: res.data || [], settings: { trialMode } }
+    }
+
+    if (action === 'setTrialMode') {
+      if (!TRIAL_MODES.includes(event.mode)) return { success: false, error: 'invalid mode' }
+      await setTrialMode(familyCode, event.mode)
+      return { success: true, settings: { trialMode: event.mode } }
     }
 
     if (!foodName) return { success: false, error: 'foodName required' }
@@ -94,27 +124,30 @@ exports.main = async event => {
       if (!date) return { success: false, error: 'date required' }
       const guard = validateLogTarget(existing, date)
       if (guard) return { success: false, error: guard }
-      const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
-      const previousDate = previousDay(date)
-      const ongoing = (activeRes.data || []).filter(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3)
-      const active = ongoing.find(item => item.lastTriedDate === date || item.lastTriedDate === previousDate)
-      if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
-      // 补录：别的食材在这天之后还有进行中的试吃，也不能往这天塞第二种
-      const later = ongoing.find(item => item.lastTriedDate && item.lastTriedDate > date)
-      if (later) return { success: false, error: `${later.foodName} 的连续试吃晚于这一天，不能补录` }
+      const mode = await getTrialMode(familyCode)
+      if (mode !== 'relaxed') {
+        const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
+        const previousDate = previousDay(date)
+        const ongoing = (activeRes.data || []).filter(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3)
+        const active = ongoing.find(item => item.lastTriedDate === date || item.lastTriedDate === previousDate)
+        if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
+        // 补录：别的食材在这天之后还有进行中的试吃，也不能往这天塞第二种
+        const later = ongoing.find(item => item.lastTriedDate && item.lastTriedDate > date)
+        if (later) return { success: false, error: `${later.foodName} 的连续试吃晚于这一天，不能补录` }
+      }
       if (existing) {
-        const payload = buildLogPayload(existing, familyCode, foodName, date, recordId)
+        const payload = buildLogPayload(existing, familyCode, foodName, date, recordId, mode)
         await db.collection('food_trials').doc(existing._id).update({ data: payload })
         return { success: true, data: { ...existing, ...payload } }
       }
-      const payload = buildLogPayload(null, familyCode, foodName, date, recordId)
+      const payload = buildLogPayload(null, familyCode, foodName, date, recordId, mode)
       const result = await createOrGet(documentId, { ...payload, createTime: db.serverDate() })
       if (result.created) return { success: true, data: result.data }
       // 并发下别人刚建了档（比如同时点了"添加"）：在它之上按正常规则更新
       const raced = result.data
       const racedGuard = validateLogTarget(raced, date)
       if (racedGuard) return { success: false, error: racedGuard }
-      const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId)
+      const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId, mode)
       await db.collection('food_trials').doc(raced._id).update({ data: nextPayload })
       return { success: true, data: { ...raced, ...nextPayload } }
     }

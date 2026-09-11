@@ -205,11 +205,15 @@
   <block wx:elif="{{currentPlan && viewMode === 'trial'}}">
     <view class="card trial-hero">
       <view class="trial-hero-top">
-        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">一次只尝试一种新食物；连续吃 3 天且未记录异常后解锁。在首页记录辅食餐会自动打卡当天试吃。</view></view>
+        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">{{trialModes[trialMode].desc}} 在首页记录辅食餐会自动打卡当天试吃。</view></view>
         <view class="trial-score"><text class="trial-score-number">{{unlockedFoodCount}}</text><text> / {{trialFoods.length}}</text><view>已解锁</view></view>
       </view>
+      <view class="trial-mode-row">
+        <text class="trial-mode-label">当前：{{trialModes[trialMode].label}}</text>
+        <view class="trial-mode-btn" bindtap="toggleTrialMode">切换到{{trialMode === 'relaxed' ? '严格' : '宽松'}}模式</view>
+      </view>
       <view class="trial-active" wx:if="{{activeTrialFood}}">当前连续试吃：{{activeTrialFood}}</view>
-      <view class="trial-desc" wx:else>点击“今天已吃”开始一种新食物的连续试吃。</view>
+      <view class="trial-desc" wx:elif="{{trialMode === 'strict'}}">点击“今天已吃”开始一种新食物的连续试吃。</view>
     </view>
 
     <view class="card trial-note">
