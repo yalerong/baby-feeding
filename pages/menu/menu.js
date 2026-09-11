@@ -524,6 +524,58 @@ Page({
     })
   },
 
+  replaceDish(e) {
+    const { mealType, dishIndex } = e.currentTarget.dataset
+    const dayIndex = this.data.selectedDayIndex
+    const plan = this.data.currentPlan
+    const current = plan.days[dayIndex].meals[mealType][dishIndex]
+    const hallDishes = menuData.getDishesFor(plan.ageMonth, mealType, this.data.excludedIngredients)
+      .filter(dish => menuData.dishAllowedByUnlocked(dish, this.data.unlockedFoods))
+      .map(dish => ({
+        ...dish,
+        ingredientsLabel: dish.ingredients.join('、'),
+        isCurrent: current && dish.id === current.id
+      }))
+    this.setData({
+      viewMode: 'hall',
+      hallDishes,
+      hallContext: {
+        dayIndex,
+        mealType,
+        dishIndex,
+        currentDishId: current ? current.id : '',
+        mealLabel: this.data.mealLabels[mealType]
+      }
+    })
+  },
+
+  closeHall() {
+    this.setData({ viewMode: 'week', hallDishes: [], hallContext: null })
+  },
+
+  chooseHallDish(e) {
+    const id = e.currentTarget.dataset.id
+    const dish = menuData.getDishById(id)
+    const context = this.data.hallContext
+    if (!dish || !context) return
+
+    const plan = this.data.currentPlan
+    const selected = JSON.parse(JSON.stringify(dish))
+    plan.days[context.dayIndex].meals[context.mealType].splice(context.dishIndex, 1, selected)
+    plan.nutritionSummary = this.calculateNutrition(plan.days)
+    const draft = this.decoratePlan(plan)
+    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
+    this.setData({
+      currentPlan: draft,
+      dirty: true,
+      viewMode: 'week',
+      hallDishes: [],
+      hallContext: null
+    }, () => {
+      this.syncSelectedDay(context.dayIndex)
+    })
+  },
+
   calculateNutrition(days) {
     const summary = {}
     days.forEach(day => {

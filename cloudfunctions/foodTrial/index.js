@@ -28,6 +28,23 @@ async function createOrGet(documentId, data) {
   }
 }
 
+// 打卡前对已有文档的全部守卫；并发冲突后读回的文档也要过同一遍
+function validateLogTarget(existing, date) {
+  if (!existing) return ''
+  if (existing.status === 'allergic') return '该食材已标记疑似过敏'
+  if (existing.status === 'unlocked') return '该食材已解锁，无需再记录'
+  if (existing.lastTriedDate === date) return '今天已记录过这项食物'
+  if (existing.lastTriedDate && existing.lastTriedDate > date) return `${existing.lastTriedDate} 已记录过，不能补录更早的日期`
+  return ''
+}
+
+// 同一天另一条记录仍吃到该食材时，把打卡来源移交给它，避免来源指向已删除的记录
+async function transferLogSource(existing, date, recordId) {
+  if (!existing || existing.lastTriedDate !== date) return { success: false, error: '不是当天的记录' }
+  await db.collection('food_trials').doc(existing._id).update({ data: { lastLogRecordId: String(recordId || ''), updateTime: db.serverDate() } })
+  return { success: true }
+}
+
 function buildLogPayload(existing, familyCode, foodName, date, recordId) {
   const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
   const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1
@@ -68,14 +85,12 @@ exports.main = async event => {
 
     if (action === 'log') {
       if (!date) return { success: false, error: 'date required' }
-      if (existing && existing.lastTriedDate && existing.lastTriedDate > date) return { success: false, error: `${existing.lastTriedDate} 已记录过，不能补录更早的日期` }
+      const guard = validateLogTarget(existing, date)
+      if (guard) return { success: false, error: guard }
       const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
       const previousDate = previousDay(date)
       const active = (activeRes.data || []).find(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3 && (item.lastTriedDate === date || item.lastTriedDate === previousDate))
       if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
-      if (existing && existing.status === 'allergic') return { success: false, error: '该食材已标记疑似过敏' }
-      if (existing && existing.status === 'unlocked') return { success: false, error: '该食材已解锁，无需再记录' }
-      if (existing && existing.lastTriedDate === date) return { success: false, error: '今天已记录过这项食物' }
       if (existing) {
         const payload = buildLogPayload(existing, familyCode, foodName, date, recordId)
         await db.collection('food_trials').doc(existing._id).update({ data: payload })
@@ -86,10 +101,16 @@ exports.main = async event => {
       if (result.created) return { success: true, data: result.data }
       // 并发下别人刚建了档（比如同时点了"添加"）：在它之上按正常规则更新
       const raced = result.data
-      if (raced.lastTriedDate === date) return { success: false, error: '今天已记录过这项食物' }
+      const racedGuard = validateLogTarget(raced, date)
+      if (racedGuard) return { success: false, error: racedGuard }
       const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId)
       await db.collection('food_trials').doc(raced._id).update({ data: nextPayload })
       return { success: true, data: { ...raced, ...nextPayload } }
+    }
+
+    if (action === 'transferLogSource') {
+      if (!date) return { success: false, error: 'date required' }
+      return transferLogSource(existing, date, recordId)
     }
 
     if (action === 'undoLog') {

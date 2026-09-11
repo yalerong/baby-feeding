@@ -135,3 +135,11 @@ test('canonicalises alias ingredients of custom dishes from the weekly plan', ()
   const plan = { days: [{ meals: { lunch: [{ id: 'custom-1', name: '蛋黄番薯泥', isCustom: true, ingredients: ['蛋黄', '番薯', '玉米', '温水'] }] } }] }
   assert.deepStrictEqual(solidFood.customDishesFromPlan(plan)[0].foods, ['鸡蛋', '红薯', '玉米'])
 })
+
+test('keeps current-week custom dishes on the picker even when history already fills it', () => {
+  const records = []
+  for (let i = 0; i < 8; i++) records.push({ solidFood: true, solidFoodDishId: '', solidFoodDishName: `历史菜${i}` })
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6, customDishes: [{ name: '宝宝爱心餐', foods: ['胡萝卜'] }] })
+  assert.strictEqual(ranked.length, 6)
+  assert.ok(ranked.some(item => item.name === '宝宝爱心餐'))
+})

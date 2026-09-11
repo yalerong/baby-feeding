@@ -399,18 +399,30 @@ Page({
       let chain = Promise.resolve(trials)
       if (beforeSolid) {
         const beforeFoods = solidFood.getCanonicalFoods({ dishId: before.solidFoodDishId, name: before.solidFoodDishName, foods: before.solidFoodFoods, extraFoods })
-        chain = this.loadOtherSolidFoods(before.date, recordId, extraFoods).then(otherFoods => {
-          const covered = otherFoods.concat(afterSolid && after.date === before.date ? afterFoods : [])
+        chain = this.loadOtherSolidFoods(before.date, recordId, extraFoods).then(otherSources => {
+          const otherFoods = Object.keys(otherSources)
+          const sameDayAfter = afterSolid && after.date === before.date
+          const covered = otherFoods.concat(sameDayAfter ? afterFoods : [])
           const revert = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: covered, trials, date: before.date, recordId })
-          if (revert.length === 0) return trials
-          return revert.reduce((prev, food) => prev.then(() => wx.cloud.callFunction({
-            name: 'foodTrial',
-            data: { action: 'undoLog', familyCode, foodName: food, date: before.date }
+          // 本记录打的卡、但同一天别的记录还吃着：把来源移交过去（改成同一天同食材时来源仍是本记录，不用动）
+          const transfer = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: sameDayAfter ? afterFoods : [], trials, date: before.date, recordId })
+            .filter(food => otherSources[food])
+          const calls = revert.map(food => ({ action: 'undoLog', familyCode, foodName: food, date: before.date }))
+            .concat(transfer.map(food => ({ action: 'transferLogSource', familyCode, foodName: food, date: before.date, recordId: otherSources[food] })))
+          if (calls.length === 0) return trials
+          return calls.reduce((prev, data) => prev.then(() => wx.cloud.callFunction({ name: 'foodTrial', data }).then(res => {
+            if (!res.result || !res.result.success) throw new Error(`${data.foodName}：${(res.result && res.result.error) || '试吃状态更新失败'}`)
           })), Promise.resolve())
             .then(() => wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }))
             .then(listRes => {
-              wx.showToast({ title: `已回退 ${revert.join('、')} 当天试吃`, icon: 'none' })
+              if (revert.length) wx.showToast({ title: `已回退 ${revert.join('、')} 当天试吃`, icon: 'none' })
               return (listRes.result && listRes.result.data) || []
+            })
+            .catch(err => {
+              // 回退/移交没成功就不再给新记录打卡，避免试吃状态和记录对不上
+              console.error(err)
+              wx.showToast({ title: `试吃回退失败：${err.message || ''}`.slice(0, 40), icon: 'none', duration: 2500 })
+              return null
             })
         }).catch(err => {
           // 同日其它记录拉不到时宁可不回退，也不能把别的记录撑着的试吃减掉
@@ -419,7 +431,7 @@ Page({
         })
       }
       return chain.then(freshTrials => {
-        if (!afterSolid) return
+        if (!freshTrials || !afterSolid) return
         const nameChanged = !before || before.solidFoodDishName !== after.solidFoodDishName
         if (afterFoods.length === 0) {
           if (nameChanged) wx.showToast({ title: '没认出食材，未自动记试吃；可在菜单-食物解锁里手动记', icon: 'none', duration: 2500 })
@@ -430,18 +442,18 @@ Page({
     }).catch(err => console.error(err))
   },
 
-  // 同一天其它记录吃到的食材，用来判断回退时是否还有别的记录撑着这次试吃
+  // 同一天其它记录吃到的食材 → 其中一条记录的 _id，用来判断回退时是否还有别的记录撑着、以及来源移交给谁
   loadOtherSolidFoods(date, recordId, extraFoods) {
     const familyCode = wx.getStorageSync('familyCode')
     return wx.cloud.callFunction({ name: 'getRecords', data: { familyCode, date } }).then(res => {
       if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'getRecords failed')
-      const foods = []
+      const sources = {}
       ;((res.result && res.result.data) || []).forEach(record => {
         if (!record || record._id === recordId || !record.solidFood) return
         solidFood.getCanonicalFoods({ dishId: record.solidFoodDishId, name: record.solidFoodDishName, foods: record.solidFoodFoods, extraFoods })
-          .forEach(food => { if (!foods.includes(food)) foods.push(food) })
+          .forEach(food => { if (!sources[food]) sources[food] = record._id || '' })
       })
-      return foods
+      return sources
     })
   },
 

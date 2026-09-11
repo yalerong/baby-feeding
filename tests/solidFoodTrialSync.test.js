@@ -44,7 +44,14 @@ function makeWorld() {
           if (existing) Object.assign(existing, next); else world.trials.push(next)
           return Promise.resolve({ result: { success: true, data: { ...next } } })
         }
+        if (data.action === 'transferLogSource') {
+          const existing = find()
+          if (!existing || existing.lastTriedDate !== data.date) return Promise.resolve({ result: { success: false, error: 'not today' } })
+          existing.lastLogRecordId = data.recordId
+          return Promise.resolve({ result: { success: true } })
+        }
         if (data.action === 'undoLog') {
+          if (world.undoDown) return Promise.resolve({ result: { success: false, error: 'db error' } })
           const existing = find()
           if (!existing || existing.lastTriedDate !== data.date) return Promise.resolve({ result: { success: false, error: 'only today' } })
           if (existing.trialCount <= 1) Object.assign(existing, { trialCount: 0, lastTriedDate: '', status: 'tracking', lastLogRecordId: '' })
@@ -85,14 +92,31 @@ async function run() {
     assert.ok(world.toasts.some(t => t.includes('已回退 胡萝卜')))
   })
 
-  await test('does not revert when another record that day still has the food', async () => {
+  await test('does not revert when another record that day still has the food, and hands provenance to it', async () => {
     const world = makeWorld()
     world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
     const rec = record({ _id: 'r1', solidFoodDishName: '胡萝卜泥' })
     world.records.push(rec, record({ _id: 'r2', solidFoodDishName: '胡萝卜土豆泥' }))
     await world.page.syncSolidFoodTrial({ before: rec, after: null, recordId: 'r1' })
     assert.strictEqual(world.trials[0].trialCount, 1)
+    assert.strictEqual(world.trials[0].lastLogRecordId, 'r2')
     assert.strictEqual(world.calls.filter(c => c === 'foodTrial:undoLog').length, 0)
+    // 之后删掉 r2 就能正常回退
+    world.records = world.records.filter(r => r._id !== 'r1')
+    await world.page.syncSolidFoodTrial({ before: world.records[0], after: null, recordId: 'r2' })
+    assert.strictEqual(world.trials[0].trialCount, 0)
+  })
+
+  await test('a failed undo aborts the sync instead of logging the replacement food', async () => {
+    const world = makeWorld()
+    world.undoDown = true
+    world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, lastLogRecordId: 'r1' })
+    const before = record({ solidFoodDishName: '胡萝卜泥' })
+    world.records.push(before)
+    await world.page.syncSolidFoodTrial({ before, after: record({ solidFoodDishName: '玉米糊', solidFoodFoods: ['玉米'] }), recordId: 'r1' })
+    assert.strictEqual(world.trials.length, 1)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:log').length, 0)
+    assert.ok(world.toasts.some(t => t.includes('试吃回退失败')))
   })
 
   await test('editing only the grams of a logged food neither reverts nor re-logs', async () => {

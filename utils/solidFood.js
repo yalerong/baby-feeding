@@ -89,18 +89,25 @@ function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
     // 记录按时间升序，同名菜以最近一次的食材为准（菜谱改过名字没改时不沿用旧食材）
     if (Array.isArray(record.solidFoodFoods) && record.solidFoodFoods.length > 0) counts[key].foods = record.solidFoodFoods.slice()
   })
+  const custom = []
+  ;(customDishes || []).forEach(dish => {
+    if (!dish || !dish.name || custom.some(item => item.name === dish.name)) return
+    custom.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods: dish.foods || [] })
+  })
+  // 本周自定义菜保证进列表：历史条目只占剩下的位置
+  const historyLimit = Math.max(0, max - Math.min(custom.length, max))
   const result = order
     .map(key => counts[key])
     .sort((left, right) => right.count - left.count)
-    .slice(0, max)
+    .slice(0, historyLimit)
     .map(item => {
       const dish = item.id ? menuData.getDishById(item.id) : null
       return { id: item.id, name: item.name, imageEmoji: dish ? dish.imageEmoji : '🍚', foods: item.foods }
     })
-  ;(customDishes || []).forEach(dish => {
+  custom.forEach(dish => {
     if (result.length >= max) return
     if (result.some(item => item.name === dish.name)) return
-    result.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods: dish.foods || [] })
+    result.push(dish)
   })
   if (result.length < max) {
     menuData.getDishCatalog({ ageMonth }).forEach(dish => {
