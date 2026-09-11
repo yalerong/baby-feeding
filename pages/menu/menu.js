@@ -2,6 +2,7 @@ const dateUtil = require('../../utils/date.js')
 const menuData = require('../../utils/menuData.js')
 const familyRecordSync = require('../../utils/familyRecordSync.js')
 const foodUnlock = require('../../utils/foodUnlock.js')
+const menuRefresh = require('../../utils/menuRefresh.js')
 
 Page({
   data: {
@@ -60,7 +61,12 @@ Page({
     guideVisible: false,
     guidePosition: 'top',
     foodTrialError: '',
-    customFoodInput: ''
+    customFoodInput: '',
+    trialMode: 'strict',
+    trialModes: foodUnlock.TRIAL_MODES,
+    libraryDishes: [],
+    hallLibraryDishes: [],
+    unlockNotice: null
   },
 
   onShow() {
@@ -82,9 +88,106 @@ Page({
       guideVisible: !wx.getStorageSync('menuGuideDismissed'),
       guidePosition: wx.getStorageSync('menuGuidePosition') === 'bottom' ? 'bottom' : 'top'
     })
+    this.loadLibraryDishes()
     this.loadFoodTrials().then(() => {
       this.loadWeek(weekStart)
       this.buildMonth(monthStart)
+    })
+  },
+
+  // 家庭菜谱库：家长自己写过的菜，跨周复用
+  loadLibraryDishes() {
+    const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    return wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
+      .then(res => {
+        const libraryDishes = res.result && res.result.success ? (res.result.data || []) : []
+        this.setData({ libraryDishes })
+        if (this.data.hallContext) this.setData({ hallLibraryDishes: this.buildHallLibraryDishes(this.data.hallContext.mealType) })
+      })
+      .catch(err => console.error(err))
+  },
+
+  // 菜谱库里的菜也要过一遍过敏排除：按规范食材和原始配料名都匹配，和菜库菜同一口径
+  libraryDishContainsExcluded(dish) {
+    const excluded = this.data.excludedIngredients || []
+    if (excluded.length === 0) return false
+    const foods = Array.isArray(dish.foods) && dish.foods.length
+      ? dish.foods
+      : (dish.ingredients || []).reduce((acc, ingredient) => acc.concat(menuData.canonicalizeIngredient(ingredient)), [])
+    return foods.some(food => excluded.includes(food)) || (dish.ingredients || []).some(name => excluded.includes(name))
+  },
+
+  buildHallLibraryDishes(mealType) {
+    return this.data.libraryDishes
+      .filter(dish => !dish.mealTypes || dish.mealTypes.length === 0 || dish.mealTypes.includes(mealType))
+      .filter(dish => !this.libraryDishContainsExcluded(dish))
+      .map(dish => ({
+        ...dish,
+        ingredientsLabel: (dish.ingredients || []).join('、') || '未填食材'
+      }))
+  },
+
+  chooseLibraryDish(e) {
+    const id = e.currentTarget.dataset.id
+    const source = this.data.libraryDishes.find(dish => dish._id === id)
+    const context = this.data.hallContext
+    const plan = this.data.currentPlan
+    if (!source || !context || !plan) return
+    const dish = {
+      id: `custom-${source._id}`,
+      libraryId: source._id,
+      name: source.name,
+      ageMinMonth: plan.ageMonth,
+      ageMaxMonth: plan.ageMonth,
+      mealTypes: source.mealTypes && source.mealTypes.length ? source.mealTypes : [context.mealType],
+      nutritionTags: source.nutritionTags || [],
+      foodGroups: [],
+      texture: source.texture || '按月龄处理',
+      imageEmoji: source.imageEmoji || '🍱',
+      color: source.color || '#F3F0EA',
+      ingredients: source.ingredients || [],
+      steps: source.steps || [],
+      cautions: source.cautions || [],
+      isCustom: true
+    }
+    const meals = plan.days[context.dayIndex].meals
+    if (!meals[context.mealType]) meals[context.mealType] = []
+    meals[context.mealType].splice(context.dishIndex, 1, dish)
+    plan.nutritionSummary = this.calculateNutrition(plan.days)
+    const draft = this.decoratePlan(plan)
+    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
+    this.setData({
+      currentPlan: draft,
+      dirty: true,
+      viewMode: 'week',
+      hallDishes: [],
+      hallLibraryDishes: [],
+      hallContext: null
+    }, () => {
+      this.syncSelectedDay(context.dayIndex)
+    })
+  },
+
+  removeLibraryDish(e) {
+    const id = e.currentTarget.dataset.id
+    const source = this.data.libraryDishes.find(dish => dish._id === id)
+    if (!source) return
+    wx.showModal({
+      title: '从菜谱库删除',
+      content: `删除“${source.name}”后已排进菜单的不受影响，确定吗？`,
+      confirmText: '删除',
+      confirmColor: '#D9534F',
+      success: result => {
+        if (!result.confirm) return
+        wx.cloud.callFunction({
+          name: 'customDish',
+          data: { action: 'remove', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', _id: id }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          return this.loadLibraryDishes()
+        }).then(() => wx.showToast({ title: '已删除', icon: 'success' }))
+          .catch(err => wx.showToast({ title: err.message || '删除失败', icon: 'none' }))
+      }
     })
   },
 
@@ -152,9 +255,11 @@ Page({
       .then(res => {
         if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
         const foodTrials = res.result.data || []
+        const trialMode = foodUnlock.normalizeMode(res.result.settings && res.result.settings.trialMode)
         this.setData({
           foodTrials,
-          activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today),
+          trialMode,
+          activeTrialFood: foodUnlock.getActiveFoodName(foodTrials, this.data.today, trialMode),
           excludedIngredients: foodUnlock.getExcludedIngredients(foodTrials),
           unlockedFoods: foodUnlock.getUnlockedFoodNames(foodTrials),
           foodTrialError: ''
@@ -179,7 +284,7 @@ Page({
       menuData.getDishFoods(dish).forEach(name => {
         if (used[name]) return
         used[name] = true
-        const food = foodUnlock.decorateFood(name, byName[name])
+        const food = foodUnlock.decorateFood(name, byName[name], this.data.trialMode)
         const allergen = foodUnlock.getAllergenInfo(name)
         trialFoods.push({
           ...food,
@@ -199,7 +304,7 @@ Page({
       if (used[name]) return
       used[name] = true
       const trial = byName[name]
-      const food = foodUnlock.decorateFood(name, trial)
+      const food = foodUnlock.decorateFood(name, trial, this.data.trialMode)
       const allergen = foodUnlock.getAllergenInfo(name)
       trialFoods.push({
         ...food,
@@ -246,7 +351,7 @@ Page({
       return
     }
 
-    this.setData({ loading: true })
+    this.setData({ loading: true, unlockNotice: null })
     const generated = menuData.generateWeeklyMenu({
       birthDate: this.data.birthDate,
       weekStart,
@@ -308,12 +413,49 @@ Page({
       ageMonth: plan.ageMonth,
       savedDocId: saved ? saved._id : '',
       dirty: !!draft,
-      loading: false
+      loading: false,
+      unlockNotice: this.buildUnlockNotice(plan, saved)
     }, () => {
       this.updatePlanningNotice(plan)
       this.syncSelectedDay(this.getDefaultDayIndex(plan))
       this.buildCatalog(plan.ageMonth)
     })
+  },
+
+  // 保存过的菜单，之后又解锁了新食材、且这周还有今天以后的常规餐位 → 提示刷新
+  buildUnlockNotice(plan, saved) {
+    if (!saved || !plan || plan.status !== 'ready') return null
+    const foods = menuRefresh.getNewlyUnlockedFoods(this.data.unlockedFoods, saved.unlockedFoods)
+    if (foods.length === 0) return null
+    const hasFuture = (plan.days || []).some(day => day.phase === 'regular' && dateUtil.compareDates(day.date, this.data.today) > 0)
+    return hasFuture ? { foods, foodsLabel: foods.join('、') } : null
+  },
+
+  refreshFutureDays() {
+    const plan = this.data.currentPlan
+    if (!plan || plan.status !== 'ready') return
+    const generated = menuData.generateWeeklyMenu({
+      birthDate: this.data.birthDate,
+      weekStart: this.data.weekStart,
+      excludedIngredients: this.data.excludedIngredients,
+      unlockedFoods: this.data.unlockedFoods
+    })
+    const result = menuRefresh.refreshFutureDays({ plan: JSON.parse(JSON.stringify(plan)), generated, today: this.data.today })
+    if (result.changedDates.length === 0) {
+      wx.showToast({ title: '这周没有可刷新的餐位', icon: 'none' })
+      this.setData({ unlockNotice: null })
+      return
+    }
+    const draft = this.decoratePlan(result.plan)
+    wx.setStorageSync(this.getDraftKey(this.data.weekStart), draft)
+    this.setData({ currentPlan: draft, dirty: true, unlockNotice: null }, () => {
+      this.syncSelectedDay(this.data.selectedDayIndex)
+      wx.showToast({ title: `已刷新 ${result.changedDates.length} 天，记得保存`, icon: 'none' })
+    })
+  },
+
+  dismissUnlockNotice() {
+    this.setData({ unlockNotice: null })
   },
 
   startMenuSync(familyCode, weekStart, generated) {
@@ -542,6 +684,7 @@ Page({
     this.setData({
       viewMode: 'hall',
       hallDishes,
+      hallLibraryDishes: this.buildHallLibraryDishes(mealType),
       hallContext: {
         dayIndex,
         mealType,
@@ -553,7 +696,7 @@ Page({
   },
 
   closeHall() {
-    this.setData({ viewMode: 'week', hallDishes: [], hallContext: null })
+    this.setData({ viewMode: 'week', hallDishes: [], hallLibraryDishes: [], hallContext: null })
   },
 
   chooseHallDish(e) {
@@ -627,7 +770,8 @@ Page({
       ageMonth: plan.ageMonth,
       stage: plan.stage,
       days: plan.days,
-      nutritionSummary: plan.nutritionSummary
+      nutritionSummary: plan.nutritionSummary,
+      unlockedFoods: this.data.unlockedFoods
     }
 
     wx.cloud.callFunction({
@@ -639,12 +783,45 @@ Page({
         throw new Error(res.result && res.result.error)
       }
       wx.removeStorageSync(this.getDraftKey(plan.weekStart))
-      this.setData({ savedDocId: res.result._id || this.data.savedDocId, dirty: false })
+      this.setData({ savedDocId: res.result._id || this.data.savedDocId, dirty: false, unlockNotice: null })
       wx.showToast({ title: '已保存', icon: 'success' })
     }).catch(err => {
       wx.hideLoading()
       console.error(err)
       wx.showToast({ title: '保存失败，请检查 weekly_menus 集合', icon: 'none' })
+    })
+  },
+
+  // 严格/宽松模式切换，存在云端 families 文档上，全家共用
+  toggleTrialMode() {
+    const next = this.data.trialMode === 'relaxed' ? 'strict' : 'relaxed'
+    const info = foodUnlock.TRIAL_MODES[next]
+    wx.showModal({
+      title: `切换到${info.label}`,
+      content: `${info.desc}${next === 'strict' ? ' 已有的累计天数保留，之后的打卡按连续要求计算。' : ''}`,
+      confirmText: '切换',
+      success: result => {
+        if (!result.confirm) return
+        wx.showLoading({ title: '切换中', mask: true })
+        wx.cloud.callFunction({
+          name: 'foodTrial',
+          data: { action: 'setTrialMode', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', mode: next, date: this.data.today }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          return this.loadFoodTrials()
+        }).then(() => {
+          wx.hideLoading()
+          wx.showToast({ title: `已切换到${info.label}`, icon: 'success' })
+        }).catch(err => {
+          wx.hideLoading()
+          const message = err.message || '切换失败'
+          if (message.length > 20) {
+            wx.showModal({ title: '暂时不能切换', content: message, showCancel: false, confirmText: '知道了' })
+          } else {
+            wx.showToast({ title: message, icon: 'none' })
+          }
+        })
+      }
     })
   },
 
@@ -782,15 +959,18 @@ Page({
 
   markFoodAllergic(e) {
     const foodName = e.currentTarget.dataset.name
+    // editable 弹窗可以顺手记症状（基础库 2.17.1+）；confirmText 不能超过 4 个字
     wx.showModal({
-      title: '标记疑似过敏',
-      content: `后续新生成的菜单将排除含“${foodName}”的菜品，确定吗？`,
+      title: `标记 ${foodName} 疑似过敏`,
+      editable: true,
+      placeholderText: '症状和时间，如：饭后1小时嘴边起疹',
+      confirmText: '确定标记',
       confirmColor: '#D9534F',
       success: result => {
         if (!result.confirm) return
         wx.cloud.callFunction({
           name: 'foodTrial',
-          data: { action: 'setStatus', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, status: 'allergic' }
+          data: { action: 'setStatus', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, status: 'allergic', note: result.content || '', date: this.data.today }
         }).then(res => {
           if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
           return this.loadFoodTrials()

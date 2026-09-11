@@ -1,10 +1,10 @@
 const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
-const { normalizeSolidFood } = require('./validation.js')
+const { normalizeSolidFood, normalizeImages } = require('./validation.js')
 
 exports.main = async (event) => {
-  const { _id, familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams, solidFoodFoods } = event
+  const { _id, familyCode, date, time, breastMilk, formula, total, stool, stoolDesc, solidFood, solidFoodDishId, solidFoodDishName, solidFoodGrams, solidFoodFoods, images } = event
   const { OPENID } = cloud.getWXContext()
 
   if (!_id || !familyCode) {
@@ -32,6 +32,11 @@ exports.main = async (event) => {
         stool: Boolean(stool),
         stoolDesc: stoolDesc || '',
         ...normalizedSolidFood,
+        // 旧版客户端不带这两个字段：没传（undefined）就保留原值，传了空数组才是真的清空
+        solidFoodFoods: solidFoodFoods === undefined && normalizedSolidFood.solidFood
+          ? (Array.isArray(existing.data.solidFoodFoods) ? existing.data.solidFoodFoods : [])
+          : normalizedSolidFood.solidFoodFoods,
+        images: images === undefined ? (Array.isArray(existing.data.images) ? existing.data.images : []) : normalizeImages(images),
         updateBy: OPENID || '',
         updateTime: db.serverDate()
       }

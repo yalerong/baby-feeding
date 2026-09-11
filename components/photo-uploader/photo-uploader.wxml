@@ -1,6 +1,6 @@
 <view class="photo-card">
   <view class="title-row">
-    <text class="title">宝宝图片</text>
+    <text class="title">📷 照片</text>
     <text class="counter">{{imageList.length}}/{{maxCount}}</text>
   </view>
 
@@ -24,7 +24,7 @@
       bindtap="chooseAndUpload"
     >
       <text class="plus">+</text>
-      <text class="hint">{{uploading ? '上传中...' : '添加图片'}}</text>
+      <text class="hint">{{uploading ? '上传中...' : '拍辅食/大便'}}</text>
     </view>
   </view>
 </view>

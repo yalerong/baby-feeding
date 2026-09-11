@@ -18,6 +18,8 @@ test('shows the remaining consecutive days before a food is unlocked', () => {
     trialCount: 2,
     remainingCount: 1,
     status: 'tracking',
+    allergyNote: '',
+    allergyDate: '',
     statusText: '再连续吃 1 天解锁'
   })
 })
@@ -28,6 +30,8 @@ test('marks a food as unlocked after three consecutive days', () => {
     trialCount: 3,
     remainingCount: 0,
     status: 'unlocked',
+    allergyNote: '',
+    allergyDate: '',
     statusText: '已解锁'
   })
 })
@@ -200,4 +204,22 @@ test('a middle day of a streak is never undone, but its source can still be hand
   const trials = [{ foodName: '胡萝卜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-11', logSources: { '2026-09-10': 'r1', '2026-09-11': 'r2' } }]
   assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: [], trials, date: '2026-09-10', recordId: 'r1' }), [])
   assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: [], trials, date: '2026-09-10', recordId: 'r1', lastDayOnly: false }), ['胡萝卜'])
+})
+
+test('carries the allergy note and date onto the decorated food', () => {
+  const food = foodUnlock.decorateFood('鸡蛋', { status: 'allergic', trialCount: 1, allergyNote: '饭后1小时嘴边起疹', allergyDate: '2026-09-12' })
+  assert.strictEqual(food.status, 'allergic')
+  assert.strictEqual(food.allergyNote, '饭后1小时嘴边起疹')
+  assert.strictEqual(food.allergyDate, '2026-09-12')
+})
+
+test('relaxed mode logs every eligible food, ignores the one-at-a-time lock and wording changes', () => {
+  const trials = [{ foodName: '南瓜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', logSources: {} }]
+  assert.strictEqual(foodUnlock.getActiveFoodName(trials, '2026-09-11', 'relaxed'), '')
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜', '土豆'], trials, '2026-09-11', 'relaxed'), { targets: ['胡萝卜', '土豆'], ambiguous: false })
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜', '土豆'], trials, '2026-09-11', 'strict'), { targets: [], ambiguous: false })
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜', '土豆'], [], '2026-09-11', 'strict'), { targets: [], ambiguous: true })
+  assert.deepStrictEqual(foodUnlock.getAutoTrialTargets(['胡萝卜'], [], '2026-09-11', 'strict'), { targets: ['胡萝卜'], ambiguous: false })
+  assert.strictEqual(foodUnlock.decorateFood('南瓜', trials[0], 'relaxed').statusText, '再吃 2 天解锁')
+  assert.strictEqual(foodUnlock.normalizeMode('anything'), 'strict')
 })

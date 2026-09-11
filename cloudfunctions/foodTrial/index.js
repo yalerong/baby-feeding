@@ -1,8 +1,66 @@
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const { normalizeFoodName, getTrialDocumentId } = require('./trialId.js')
-const { getUndoTrialState, withLogSource } = require('./trialState.js')
+const { getUndoTrialState, withLogSource, nextLogDates } = require('./trialState.js')
+
+const TRIAL_MODES = ['strict', 'relaxed']
+
+// 集合还没建（全新部署）不算错误，按没设置处理；其它数据库错误照常抛出
+function isCollectionMissing(err) {
+  const code = err && (err.errCode || err.code)
+  const text = String((err && (err.errMsg || err.message)) || '')
+  return code === -502005 || code === 'DATABASE_COLLECTION_NOT_EXIST' || /collection.*not exist/i.test(text)
+}
+
+// 试吃模式存在 families 文档上，两台手机共用；查到没设置或集合不存在才算严格模式，其它查询失败直接抛错
+async function getTrialMode(familyCode) {
+  let res
+  try {
+    res = await db.collection('families').where({ familyCode }).limit(1).get()
+  } catch (err) {
+    if (isCollectionMissing(err)) return 'strict'
+    throw err
+  }
+  const doc = res.data && res.data[0]
+  return doc && TRIAL_MODES.includes(doc.trialMode) ? doc.trialMode : 'strict'
+}
+
+// 切回严格模式前：宽松模式下可能有好几种食材同时进行中，严格模式只允许一种，多于一种就拒绝切换
+function findCompetingTrials(trials, today) {
+  const yesterday = previousDay(today)
+  return (trials || []).filter(item =>
+    item.status === 'tracking' && item.trialCount > 0 && item.trialCount < 3 &&
+    (item.lastTriedDate === today || item.lastTriedDate === yesterday)
+  )
+}
+
+async function setTrialMode(familyCode, mode, today) {
+  if (mode === 'strict') {
+    const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
+    const competing = findCompetingTrials(activeRes.data, today)
+    if (competing.length > 1) {
+      return { success: false, error: `有 ${competing.map(item => item.foodName).join('、')} 同时在试吃中，严格模式只能保留一种；先在列表里撤销或等它们解锁后再切换` }
+    }
+  }
+  const res = await db.collection('families').where({ familyCode }).limit(1).get()
+  const doc = res.data && res.data[0]
+  if (doc) {
+    await db.collection('families').doc(doc._id).update({ data: { trialMode: mode, updateTime: db.serverDate() } })
+    return { success: true, settings: { trialMode: mode } }
+  }
+  // 没有家庭文档时用固定 _id 创建：两位家长同时切换只会有一个建成，另一个撞主键后改走更新
+  const documentId = `family_${crypto.createHash('sha256').update(String(familyCode)).digest('hex')}`
+  try {
+    await db.collection('families').add({ data: { _id: documentId, familyCode, members: [], trialMode: mode, createTime: db.serverDate() } })
+  } catch (err) {
+    const raced = await db.collection('families').where({ _id: documentId, familyCode }).limit(1).get()
+    if (!raced.data || !raced.data[0]) throw err
+    await db.collection('families').doc(documentId).update({ data: { trialMode: mode, updateTime: db.serverDate() } })
+  }
+  return { success: true, settings: { trialMode: mode } }
+}
 
 function nextDay(date) {
   const value = new Date(`${date}T00:00:00Z`)
@@ -48,9 +106,10 @@ async function transferLogSource(existing, date, recordId) {
   return { success: true }
 }
 
-// 连续则在原 streak 上加一天并沿用各天来源；断了就重开 streak，旧来源作废
-function buildLogPayload(existing, familyCode, foodName, date, recordId) {
-  const consecutive = existing && existing.lastTriedDate && nextDay(existing.lastTriedDate) === date
+// 严格模式：连续则在原 streak 上加一天并沿用各天来源，断了就重开；宽松模式：不要求连续，累计计数
+function buildLogPayload(existing, familyCode, foodName, date, recordId, mode) {
+  const relaxed = mode === 'relaxed'
+  const consecutive = !!(existing && existing.lastTriedDate && (relaxed || nextDay(existing.lastTriedDate) === date))
   const trialCount = consecutive ? Number(existing.trialCount || 0) + 1 : 1
   const logSources = withLogSource(consecutive ? existing.logSources : {}, date, recordId)
   return {
@@ -60,6 +119,7 @@ function buildLogPayload(existing, familyCode, foodName, date, recordId) {
     status: trialCount >= 3 ? 'unlocked' : 'tracking',
     lastTriedDate: date,
     logSources,
+    logDates: nextLogDates(existing, date, consecutive),
     lastLogRecordId: String(recordId || ''),
     updateTime: db.serverDate()
   }
@@ -67,13 +127,23 @@ function buildLogPayload(existing, familyCode, foodName, date, recordId) {
 
 exports.main = async event => {
   const { action, familyCode, date, status, recordId } = event
+  const note = String(event.note || '').trim().slice(0, 100)
   const foodName = normalizeFoodName(event.foodName)
   if (!familyCode) return { success: false, error: 'familyCode required' }
 
   try {
     if (action === 'list') {
-      const res = await db.collection('food_trials').where({ familyCode }).limit(1000).get()
-      return { success: true, data: res.data || [] }
+      const [res, trialMode] = await Promise.all([
+        db.collection('food_trials').where({ familyCode }).limit(1000).get(),
+        getTrialMode(familyCode)
+      ])
+      return { success: true, data: res.data || [], settings: { trialMode } }
+    }
+
+    if (action === 'setTrialMode') {
+      if (!TRIAL_MODES.includes(event.mode)) return { success: false, error: 'invalid mode' }
+      if (!date) return { success: false, error: 'date required' }
+      return setTrialMode(familyCode, event.mode, date)
     }
 
     if (!foodName) return { success: false, error: 'foodName required' }
@@ -93,27 +163,30 @@ exports.main = async event => {
       if (!date) return { success: false, error: 'date required' }
       const guard = validateLogTarget(existing, date)
       if (guard) return { success: false, error: guard }
-      const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
-      const previousDate = previousDay(date)
-      const ongoing = (activeRes.data || []).filter(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3)
-      const active = ongoing.find(item => item.lastTriedDate === date || item.lastTriedDate === previousDate)
-      if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
-      // 补录：别的食材在这天之后还有进行中的试吃，也不能往这天塞第二种
-      const later = ongoing.find(item => item.lastTriedDate && item.lastTriedDate > date)
-      if (later) return { success: false, error: `${later.foodName} 的连续试吃晚于这一天，不能补录` }
+      const mode = await getTrialMode(familyCode)
+      if (mode !== 'relaxed') {
+        const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
+        const previousDate = previousDay(date)
+        const ongoing = (activeRes.data || []).filter(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3)
+        const active = ongoing.find(item => item.lastTriedDate === date || item.lastTriedDate === previousDate)
+        if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
+        // 补录：别的食材在这天之后还有进行中的试吃，也不能往这天塞第二种
+        const later = ongoing.find(item => item.lastTriedDate && item.lastTriedDate > date)
+        if (later) return { success: false, error: `${later.foodName} 的连续试吃晚于这一天，不能补录` }
+      }
       if (existing) {
-        const payload = buildLogPayload(existing, familyCode, foodName, date, recordId)
+        const payload = buildLogPayload(existing, familyCode, foodName, date, recordId, mode)
         await db.collection('food_trials').doc(existing._id).update({ data: payload })
         return { success: true, data: { ...existing, ...payload } }
       }
-      const payload = buildLogPayload(null, familyCode, foodName, date, recordId)
+      const payload = buildLogPayload(null, familyCode, foodName, date, recordId, mode)
       const result = await createOrGet(documentId, { ...payload, createTime: db.serverDate() })
       if (result.created) return { success: true, data: result.data }
       // 并发下别人刚建了档（比如同时点了"添加"）：在它之上按正常规则更新
       const raced = result.data
       const racedGuard = validateLogTarget(raced, date)
       if (racedGuard) return { success: false, error: racedGuard }
-      const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId)
+      const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId, mode)
       await db.collection('food_trials').doc(raced._id).update({ data: nextPayload })
       return { success: true, data: { ...raced, ...nextPayload } }
     }
@@ -144,13 +217,15 @@ exports.main = async event => {
       if (!['allergic', 'tracking'].includes(status)) return { success: false, error: 'invalid status' }
       if (!existing && status === 'allergic') {
         await db.collection('food_trials').doc(documentId).set({
-          data: { familyCode, foodName, trialCount: 0, status: 'allergic', updateTime: db.serverDate(), createTime: db.serverDate() }
+          data: { familyCode, foodName, trialCount: 0, status: 'allergic', allergyNote: note, allergyDate: date || '', updateTime: db.serverDate(), createTime: db.serverDate() }
         })
         return { success: true }
       }
       if (!existing) return { success: false, error: 'food trial required' }
       const nextStatus = status === 'tracking' && Number(existing.trialCount) >= 3 ? 'unlocked' : status
-      await db.collection('food_trials').doc(existing._id).update({ data: { status: nextStatus, updateTime: db.serverDate() } })
+      // 标记过敏时记下症状备注和日期；恢复推荐时保留备注供以后参考
+      const extra = status === 'allergic' ? { allergyNote: note, allergyDate: date || '' } : {}
+      await db.collection('food_trials').doc(existing._id).update({ data: { status: nextStatus, ...extra, updateTime: db.serverDate() } })
       return { success: true }
     }
 

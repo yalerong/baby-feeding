@@ -176,10 +176,27 @@
       <view class="dish-art" style="background: #F3F0EA;">✏️</view>
       <view class="dish-main">
         <view class="dish-name">自己写一道</view>
-        <view class="dish-note">填菜名和食材，保存后本周菜单和首页录入都能直接选</view>
+        <view class="dish-note">填菜名和食材，保存后进家庭菜谱库，以后每周和首页录入都能选</view>
       </view>
       <view class="select-arrow">›</view>
     </view>
+
+    <block wx:if="{{hallLibraryDishes.length > 0}}">
+      <view class="hall-section-title">我的菜谱</view>
+      <view class="card dish-option library-dish-option" wx:for="{{hallLibraryDishes}}" wx:key="_id" bindtap="chooseLibraryDish" data-id="{{item._id}}">
+        <view class="dish-art" style="background: {{item.color}};">{{item.imageEmoji}}</view>
+        <view class="dish-main">
+          <view class="dish-name-row">
+            <text class="dish-name">{{item.name}}</text>
+            <text class="current-tag" wx:if="{{hallContext.currentDishId === 'custom-' + item._id}}">当前</text>
+          </view>
+          <view class="dish-meta">{{item.texture}}</view>
+          <view class="dish-note">{{item.ingredientsLabel}}</view>
+        </view>
+        <view class="library-remove" catchtap="removeLibraryDish" data-id="{{item._id}}">删</view>
+      </view>
+      <view class="hall-section-title">菜库</view>
+    </block>
 
     <view class="card dish-option"
           wx:for="{{hallDishes}}"
@@ -205,15 +222,19 @@
   <block wx:elif="{{currentPlan && viewMode === 'trial'}}">
     <view class="card trial-hero">
       <view class="trial-hero-top">
-        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">一次只尝试一种新食物；连续吃 3 天且未记录异常后解锁。在首页记录辅食餐会自动打卡当天试吃。</view></view>
+        <view><view class="trial-title">🔓 食物试吃解锁</view><view class="trial-desc">{{trialModes[trialMode].desc}} 在首页记录辅食餐会自动打卡当天试吃。</view></view>
         <view class="trial-score"><text class="trial-score-number">{{unlockedFoodCount}}</text><text> / {{trialFoods.length}}</text><view>已解锁</view></view>
       </view>
+      <view class="trial-mode-row">
+        <text class="trial-mode-label">当前：{{trialModes[trialMode].label}}</text>
+        <view class="trial-mode-btn" bindtap="toggleTrialMode">切换到{{trialMode === 'relaxed' ? '严格' : '宽松'}}模式</view>
+      </view>
       <view class="trial-active" wx:if="{{activeTrialFood}}">当前连续试吃：{{activeTrialFood}}</view>
-      <view class="trial-desc" wx:else>点击“今天已吃”开始一种新食物的连续试吃。</view>
+      <view class="trial-desc" wx:elif="{{trialMode === 'strict'}}">点击“今天已吃”开始一种新食物的连续试吃。</view>
     </view>
 
     <view class="card trial-note">
-      “已解锁”仅表示已连续记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
+      “已解锁”仅表示已{{trialMode === 'relaxed' ? '累计' : '连续'}}记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
     </view>
 
     <view class="trial-service-error" wx:if="{{foodTrialError}}">{{foodTrialError}}</view>
@@ -224,7 +245,7 @@
         <input class="custom-food-input" value="{{customFoodInput}}" bindinput="bindCustomFoodInput" bindconfirm="addCustomFood" confirm-type="done" placeholder="如：胡萝卜、玉米、鳕鱼" maxlength="20" />
         <view class="custom-food-btn" bindtap="addCustomFood">添加</view>
       </view>
-      <view class="custom-food-hint">菜库里没有的食材写在这里，同样连续吃 3 天解锁；写"胡萝卜泥"会自动识别成"胡萝卜"。</view>
+      <view class="custom-food-hint">菜库里没有的食材写在这里，同样{{trialMode === 'relaxed' ? '累计' : '连续'}}吃 3 天解锁；写"胡萝卜泥"会自动识别成"胡萝卜"。</view>
     </view>
 
     <view class="card trial-food {{item.status === 'allergic' ? 'trial-food-allergic' : ''}}" wx:for="{{trialFoods}}" wx:key="name">
@@ -234,6 +255,7 @@
           <view class="trial-food-name">{{item.name}} <text class="trial-category">{{item.category}}</text> <text class="allergen-tag {{item.allergenLevel}}">{{item.allergenLabel}}</text></view>
           <view class="trial-food-status {{item.status}}">{{item.statusText}}</view>
           <view class="allergen-hint">{{item.allergenHint}}</view>
+          <view class="allergy-note" wx:if="{{item.status === 'allergic' && (item.allergyNote || item.allergyDate)}}">{{item.allergyDate ? item.allergyDate + ' ' : ''}}{{item.allergyNote || '未填写症状'}}</view>
         </view>
       </view>
       <view class="trial-progress" wx:if="{{item.status !== 'allergic'}}">
@@ -277,6 +299,14 @@
       </view>
       <view class="tag-wrap">
         <text class="nutrition-tag" wx:for="{{currentPlan.nutritionList}}" wx:key="name">{{item.name}} {{item.count}}</text>
+      </view>
+    </view>
+
+    <view class="card unlock-notice-card" wx:if="{{unlockNotice}}">
+      <view class="unlock-notice-text">保存这份菜单之后又解锁了：{{unlockNotice.foodsLabel}}。要把今天之后的餐位按新解锁重新排吗？</view>
+      <view class="unlock-notice-actions">
+        <view class="unlock-notice-btn" bindtap="refreshFutureDays">刷新今天之后</view>
+        <view class="unlock-notice-dismiss" bindtap="dismissUnlockNotice">先不用</view>
       </view>
     </view>
 

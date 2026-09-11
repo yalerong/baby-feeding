@@ -52,6 +52,7 @@ Page({
       .catch(err => { console.error(err); return null })
 
     Promise.all([trialsReq, savedReq]).then(([trials, saved]) => {
+      this._unlockedFoods = trials ? foodUnlock.getUnlockedFoodNames(trials) : null
       const generated = menuData.generateWeeklyMenu({
         birthDate,
         weekStart,
@@ -188,20 +189,54 @@ Page({
       ageMonth: plan.ageMonth,
       stage: plan.stage,
       days: plan.days,
-      nutritionSummary: plan.nutritionSummary
+      nutritionSummary: plan.nutritionSummary,
+      unlockedFoods: this._unlockedFoods || null
     }
 
-    wx.cloud.callFunction({
+    // 自定义菜先进家庭菜谱库（拿到 libraryId 挂在菜上），库存失败不影响周菜单保存
+    const foods = []
+    dish.ingredients.forEach(ingredient => {
+      menuData.canonicalizeIngredient(ingredient).forEach(food => { if (!foods.includes(food)) foods.push(food) })
+    })
+    const libraryDish = {
+      name: dish.name,
+      ingredients: dish.ingredients,
+      foods,
+      steps: dish.steps,
+      cautions: dish.cautions,
+      texture: dish.texture,
+      mealTypes: dish.mealTypes && dish.mealTypes.length ? dish.mealTypes : [this.data.mealType],
+      nutritionTags: dish.nutritionTags || [],
+      imageEmoji: dish.imageEmoji,
+      color: dish.color
+    }
+    const libraryReq = wx.cloud.callFunction({
+      name: 'customDish',
+      data: { action: 'save', familyCode, _id: dish.libraryId || '', dish: libraryDish }
+    }).then(res => {
+      if (res.result && res.result.success && res.result._id) {
+        dish.libraryId = res.result._id
+      } else if (res.result && res.result.error) {
+        this._libraryError = res.result.error
+      }
+    }).catch(err => console.error(err))
+
+    libraryReq.then(() => wx.cloud.callFunction({
       name: 'weeklyMenu',
       data: { action: 'save', familyCode, weekStart: plan.weekStart, data }
-    }).then(res => {
+    })).then(res => {
       wx.hideLoading()
       if (!res.result || !res.result.success) {
         throw new Error(res.result && res.result.error)
       }
       wx.removeStorageSync(this.getDraftKey())
       wx.removeStorageSync(`menuPlanCache:${this.data.weekStart}`)
-      wx.showToast({ title: '已保存', icon: 'success' })
+      if (this._libraryError) {
+        wx.showToast({ title: `菜单已保存，但没进菜谱库：${this._libraryError}`, icon: 'none', duration: 3000 })
+        this._libraryError = ''
+      } else {
+        wx.showToast({ title: '已保存', icon: 'success' })
+      }
       setTimeout(() => wx.navigateBack(), 700)
     }).catch(err => {
       wx.hideLoading()

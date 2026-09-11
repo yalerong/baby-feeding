@@ -34,7 +34,8 @@ Page({
     solidFoodFoods: [],
     solidFoodFrequentDishes: [],
     solidFoodReused: false,
-    solidFoodGramPresets: [5, 10, 20, 30, 50]
+    solidFoodGramPresets: [5, 10, 20, 30, 50],
+    images: []
   },
 
   onLoad(options) {
@@ -110,7 +111,8 @@ Page({
           solidFoodName: r.solidFoodDishName || '',
           solidFoodCustomName: r.solidFoodDishId ? '' : (r.solidFoodDishName || ''),
           solidFoodGrams: r.solidFoodGrams > 0 ? String(r.solidFoodGrams) : '',
-          solidFoodFoods: Array.isArray(r.solidFoodFoods) ? r.solidFoodFoods : []
+          solidFoodFoods: Array.isArray(r.solidFoodFoods) ? r.solidFoodFoods : [],
+          images: Array.isArray(r.images) ? r.images : []
         })
       }
     }).catch(err => {
@@ -125,11 +127,12 @@ Page({
     return solidFood.rankFrequentDishes({
       records: this._recentSolidFoodRecords || [],
       ageMonth,
-      customDishes: this._customDishes || []
+      customDishes: this._customDishes || [],
+      libraryDishes: this._libraryDishes || []
     })
   },
 
-  // 常吃列表 = 最近 30 天辅食记录 + 本周菜单里家长自己写的菜（含未保存草稿）
+  // 常吃列表 = 最近 30 天辅食记录 + 本周菜单里家长自己写的菜（含未保存草稿）+ 家庭菜谱库
   loadFrequentSolidFoods() {
     const familyCode = wx.getStorageSync('familyCode')
     if (!familyCode) return
@@ -152,9 +155,13 @@ Page({
           return merged
         })
     }
-    Promise.all([recordsReq, menuReq]).then(([records, customDishes]) => {
+    const libraryReq = wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
+      .then(res => solidFood.libraryDishesFromDocs(res.result && res.result.success ? res.result.data : []))
+      .catch(() => [])
+    Promise.all([recordsReq, menuReq, libraryReq]).then(([records, customDishes, libraryDishes]) => {
       this._recentSolidFoodRecords = records
       this._customDishes = customDishes
+      this._libraryDishes = libraryDishes
       this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(this.data.date) })
     })
   },
@@ -192,6 +199,17 @@ Page({
 
   bindStoolChange(e) {
     this.setData({ stool: e.detail.value })
+  },
+
+  onImagesChange(e) {
+    this.setData({ images: (e.detail && e.detail.images) || [] })
+  },
+
+  // 编辑时去掉的、或整条删除的照片，顺手清掉云存储（另一位家长传的可能没权限删，失败忽略）
+  cleanupImages(fileList) {
+    const list = (fileList || []).filter(Boolean)
+    if (!list.length || !wx.cloud || !wx.cloud.deleteFile) return
+    wx.cloud.deleteFile({ fileList: list }).catch(err => console.error(err))
   },
 
   bindSolidFoodChange(e) {
@@ -309,8 +327,8 @@ Page({
       return
     }
 
-    if (breast === 0 && formula === 0 && !this.data.stool && !solidFoodPayload.solidFood) {
-      wx.showToast({ title: '请至少填写奶量、大便或辅食', icon: 'none' })
+    if (breast === 0 && formula === 0 && !this.data.stool && !solidFoodPayload.solidFood && this.data.images.length === 0) {
+      wx.showToast({ title: '请至少填写奶量、大便、辅食或照片', icon: 'none' })
       return
     }
 
@@ -324,7 +342,8 @@ Page({
       stool: this.data.stool,
       stoolDesc: this.data.stool ? this.buildStoolDesc() : '',
       ...solidFoodPayload,
-      solidFoodFoods: solidFoodPayload.solidFood ? solidFood.normalizeFoods(this.data.solidFoodFoods) : []
+      solidFoodFoods: solidFoodPayload.solidFood ? solidFood.normalizeFoods(this.data.solidFoodFoods) : [],
+      images: this.data.images.slice(0, 3)
     }
 
     const nearest = feedingAudit.nearestFeeding(this._dayFeedings, payload)
@@ -368,6 +387,9 @@ Page({
           after: payload,
           recordId: isEdit ? this.data._id : (res.result._id || '')
         })
+        if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
+          this.cleanupImages(this._originalRecord.images.filter(url => !payload.images.includes(url)))
+        }
         wx.showToast({ title: isEdit ? '修改成功' : '保存成功', icon: 'success' })
         setTimeout(() => wx.navigateBack(), 800)
         return
@@ -393,6 +415,7 @@ Page({
     return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }).then(res => {
       if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
       const trials = res.result.data || []
+      const trialMode = foodUnlock.normalizeMode(res.result.settings && res.result.settings.trialMode)
       const extraFoods = menuData.filterExtraFoods(trials.map(trial => trial.foodName))
       const afterFoods = afterSolid
         ? solidFood.getCanonicalFoods({ dishId: after.solidFoodDishId, name: after.solidFoodDishName, foods: after.solidFoodFoods, extraFoods })
@@ -440,7 +463,7 @@ Page({
           if (nameChanged) wx.showToast({ title: '没认出食材，未自动记试吃；可在菜单-食物解锁里手动记', icon: 'none', duration: 2500 })
           return
         }
-        return this.autoLogSolidFoodTrial(after, afterFoods, freshTrials, recordId)
+        return this.autoLogSolidFoodTrial(after, afterFoods, freshTrials, recordId, trialMode)
       })
     }).catch(err => console.error(err))
   },
@@ -460,29 +483,36 @@ Page({
     })
   },
 
-  // 沿用「一次只试一种」纪律，规则见 foodUnlock.getAutoTrialTarget
-  autoLogSolidFoodTrial(payload, foods, trials, recordId) {
+  // 严格模式沿用「一次只试一种」纪律；宽松模式给这道菜里所有还能打卡的食材各记一天
+  autoLogSolidFoodTrial(payload, foods, trials, recordId, mode) {
     const familyCode = wx.getStorageSync('familyCode')
-    const target = foodUnlock.getAutoTrialTarget(foods, trials, payload.date)
-    if (target === null) return
-    if (target === '') {
+    const { targets, ambiguous } = foodUnlock.getAutoTrialTargets(foods, trials, payload.date, mode)
+    if (ambiguous) {
       wx.showToast({ title: '这道菜含多种未试食材，未自动记试吃', icon: 'none' })
       return
     }
+    if (targets.length === 0) return
     const dateLabel = payload.date === todayStr() ? '' : `${payload.date.substring(5)} `
-    return wx.cloud.callFunction({
+    const logged = []
+    const unlocked = []
+    let failure = ''
+    return targets.reduce((prev, target) => prev.then(() => wx.cloud.callFunction({
       name: 'foodTrial',
       data: { action: 'log', familyCode, foodName: target, date: payload.date, recordId: recordId || '' }
     }).then(logRes => {
       if (logRes.result && logRes.result.success) {
         const count = Number(logRes.result.data.trialCount) || 0
-        wx.showToast({
-          title: count >= foodUnlock.UNLOCK_DAYS ? `${target} 已解锁 🎉` : `已自动记 ${dateLabel}${target} 试吃 ${count}/${foodUnlock.UNLOCK_DAYS}`,
-          icon: 'none'
-        })
-      } else if (logRes.result && logRes.result.error) {
-        wx.showToast({ title: `未记试吃：${logRes.result.error}`, icon: 'none', duration: 2500 })
+        if (count >= foodUnlock.UNLOCK_DAYS) unlocked.push(target)
+        else logged.push(`${target} ${count}/${foodUnlock.UNLOCK_DAYS}`)
+      } else if (!failure) {
+        failure = `${target}：${(logRes.result && logRes.result.error) || '记录失败'}`
       }
+    })), Promise.resolve()).then(() => {
+      const parts = []
+      if (unlocked.length) parts.push(`${unlocked.join('、')} 已解锁 🎉`)
+      if (logged.length) parts.push(`已自动记试吃 ${dateLabel}${logged.join('，')}`)
+      if (failure) parts.push(`未记试吃：${failure}`)
+      if (parts.length) wx.showToast({ title: parts.join('；'), icon: 'none', duration: 2500 })
     })
   },
 
@@ -511,6 +541,7 @@ Page({
             }
             feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
             this.syncSolidFoodTrial({ before: this._originalRecord, after: null, recordId: this.data._id })
+            this.cleanupImages(this._originalRecord.images)
             wx.showToast({ title: '已删除', icon: 'success' })
             setTimeout(() => wx.navigateBack(), 800)
           }).catch(err => {

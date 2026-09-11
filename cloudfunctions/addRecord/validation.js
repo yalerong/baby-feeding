@@ -25,4 +25,13 @@ function normalizeSolidFood({ solidFood, solidFoodDishId, solidFoodDishName, sol
   }
 }
 
-module.exports = { normalizeSolidFood }
+// 记录照片：云存储 fileID 列表，最多 3 张
+function normalizeImages(images) {
+  if (!Array.isArray(images)) return []
+  return images
+    .map(item => String(item || '').trim())
+    .filter(item => item.startsWith('cloud://'))
+    .slice(0, 3)
+}
+
+module.exports = { normalizeSolidFood, normalizeImages }

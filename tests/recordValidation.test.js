@@ -38,3 +38,8 @@ test('keeps custom-dish foods trimmed and unique, drops them when solid food is 
   }).solidFoodFoods, ['胡萝卜', '土豆'])
   assert.deepStrictEqual(validation.normalizeSolidFood({ solidFood: false, solidFoodFoods: ['胡萝卜'] }).solidFoodFoods, [])
 })
+
+test('keeps only cloud file ids for record photos, at most three', () => {
+  assert.deepStrictEqual(validation.normalizeImages(['cloud://a', ' cloud://b ', 'http://evil', '', 'cloud://c', 'cloud://d']), ['cloud://a', 'cloud://b', 'cloud://c'])
+  assert.deepStrictEqual(validation.normalizeImages(undefined), [])
+})

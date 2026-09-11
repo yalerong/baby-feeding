@@ -1,0 +1,9 @@
+{
+  "name": "customDish",
+  "version": "1.0.0",
+  "description": "Family recipe library for complementary food",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

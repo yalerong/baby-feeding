@@ -29,7 +29,7 @@ addRecord          updateRecord        deleteRecord
 getRecords         getStats            batchFeeding
 growthRecord       batchVaccine        weeklyMenu
 foodTrial          dailyReview         supplement
-homeSummary
+homeSummary        customDish
 ```
 
 `homeSummary` 是首页启动聚合接口，一次返回当天记录、昨日回顾、补剂状态和间隔建议。未部署时首页会自动回退为多次请求，功能不受影响但启动更慢。
@@ -48,9 +48,13 @@ homeSummary
 | `food_trials` | 新食材连续试吃、解锁与疑似过敏状态 |
 | `daily_reviews` | 家庭共享的昨日记录审查确认状态 |
 | `weekly_menus` | 家庭周菜单 |
+| `custom_dishes` | 家庭菜谱库（家长自己写的菜，跨周复用） |
+| `families` | 家庭级设置（`trialMode` 试吃模式）；未建时 foodTrial 按严格模式运行，切换模式时会自动创建文档 |
 | `growth_records` | 身高、体重记录 |
 | `vaccine_records` | 疫苗计划与接种记录 |
 | `supplement_records` | 营养补充剂记录（如启用） |
+
+`feeding_records` 可带 `images`（云存储 fileID，最多 3 张，录入页 `components/photo-uploader` 上传，首页列表显示缩略图、点开预览；删除记录或编辑时去掉的照片会尽力清理云存储）。
 
 `feeding_records` 的辅食字段为：`solidFood`、`solidFoodDishId`、`solidFoodDishName`、`solidFoodGrams`、`solidFoodFoods`（自定义菜带的规范食材名数组，菜库菜为空）。云函数会拒绝“已勾选辅食但名称为空或克数不大于 0”的记录。
 
@@ -58,8 +62,11 @@ homeSummary
 
 - 手填辅食名会按菜库食材词典识别（“胡萝卜泥”→胡萝卜，“苹果燕麦糊”→苹果+燕麦），识别出的食材再走“一次只试一种、连续 3 天解锁”的自动打卡；识别不到就提示手动记，不会把菜名当食材存进 `food_trials`。
 - 修改或删除辅食记录会回退它自动打的那次卡（`food_trials.logSources` 按日期记录每天是哪条记录打的卡，`lastLogRecordId` 为最后一天的快照；解锁页手动打的卡、同一天还有别的记录吃到该食材、或同日记录拉取失败时都不回退）；补录昨天及更早的辅食也会打卡，但早于该食材最近一次试吃日期的补录不打。已知限制：①删掉连续试吃中间某一天的记录不会重算天数，需要到解锁页手动撤销；②回退前的"同日其它记录"检查与回退本身不是一个原子操作，两位家长在同一秒内一个删、一个加同一食材的记录时可能少一天打卡，个人家庭使用场景不处理。
+- 标记「疑似过敏」时可以顺手填症状备注（`food_trials.allergyNote` / `allergyDate`），卡片上显示，恢复推荐后备注保留。
+- 试吃有两种模式，存在 `families.trialMode` 全家共用，「食物解锁」页顶部切换：严格模式=一次只试一种、连续 3 天；宽松模式=可同时试几种、不要求连续、累计 3 天。`food_trials.logDates` 记录本轮打卡日期，撤销时回到列表里的上一天。
 - 「食物解锁」页可以自己添加菜库没有的食材（`foodTrial` 的 `add` 动作，建档 0 天不占用“当前连续试吃”）；菜库外的条目可整条移除（`remove`）。撤销首日记录改为回到 0 天而不删档。
-- 菜单大厅里可以“自己写一道”自定义菜，保存进 `weekly_menus` 后录入页的常吃列表会列出来，选中时把它的食材带进记录。
+- 周菜单保存时记录当时的已解锁食材快照（`weekly_menus.unlockedFoods`）。之后再解锁新食材，打开本周会提示"刷新今天之后"，只重排今天以后的常规餐位，过去和今天的安排不动，刷新后仍需手动保存。
+- 菜单大厅里可以“自己写一道”自定义菜：保存时先进家庭菜谱库 `custom_dishes`（云函数 `customDish`，按 `_id`/菜名去重），再写进本周 `weekly_menus`；大厅顶部「我的菜谱」可复用或删除库里的菜；录入页常吃列表按 历史 → 本周自定义菜 → 菜谱库 → 菜库 的顺序填满，选中时把菜的规范食材带进记录。
 
 ## 数据与隐私
 

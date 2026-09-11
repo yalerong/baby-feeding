@@ -2,6 +2,16 @@ const dateUtil = require('./date.js')
 
 const UNLOCK_DAYS = 3
 
+// strict：一次只试一种、连续 3 天；relaxed：不要求连续、可同时试多种，累计 3 天
+const TRIAL_MODES = {
+  strict: { label: '严格模式', desc: '一次只尝试一种新食物；连续吃 3 天且未记录异常后解锁。' },
+  relaxed: { label: '宽松模式', desc: '可以同时尝试几种食物，不要求连续；累计吃 3 天且未记录异常后解锁。' }
+}
+
+function normalizeMode(mode) {
+  return mode === 'relaxed' ? 'relaxed' : 'strict'
+}
+
 function getAllergenInfo(name) {
   if (/(鸡蛋|虾|蟹|贝|鱼|奶|乳|面粉|小麦|麸质|豆腐|黄豆|大豆|豌豆|扁豆|红豆|绿豆|鹰嘴豆|芝麻|花生|坚果)/.test(name)) {
     return { level: 'common-allergen', label: '常见过敏原', hint: '单独尝试，留意反应' }
@@ -30,8 +40,9 @@ function getNextTrialState(trial, date) {
   }
 }
 
-function decorateFood(name, trial) {
+function decorateFood(name, trial, mode) {
   const current = trial || {}
+  const relaxed = normalizeMode(mode) === 'relaxed'
   const trialCount = Number(current.trialCount) || 0
   const allergic = current.status === 'allergic'
   const unlocked = !allergic && trialCount >= UNLOCK_DAYS
@@ -42,7 +53,9 @@ function decorateFood(name, trial) {
     trialCount,
     remainingCount,
     status,
-    statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : `再连续吃 ${remainingCount} 天解锁`)
+    allergyNote: String(current.allergyNote || ''),
+    allergyDate: String(current.allergyDate || ''),
+    statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : (relaxed ? `再吃 ${remainingCount} 天解锁` : `再连续吃 ${remainingCount} 天解锁`))
   }
 }
 
@@ -50,7 +63,8 @@ function isOngoingTrial(trial) {
   return trial && trial.status === 'tracking' && Number(trial.trialCount) > 0 && Number(trial.trialCount) < UNLOCK_DAYS
 }
 
-function getActiveFoodName(trials, today) {
+function getActiveFoodName(trials, today, mode) {
+  if (normalizeMode(mode) === 'relaxed') return ''
   const yesterday = today ? dateUtil.addDays(today, -1) : ''
   const active = (trials || []).find(trial =>
     isOngoingTrial(trial) && (trial.lastTriedDate === today || trial.lastTriedDate === yesterday)
@@ -65,25 +79,39 @@ function hasLaterOngoingTrial(trials, date, foodName) {
   )
 }
 
-// 录辅食自动打卡的目标食材。返回 null=无需记录；''=多种新食材无法自动定位；其余=要打卡的食材名。
-// 规则：优先推进进行中的试吃；没有进行中的且恰好只有一种新食材时才自动开新试吃。
-function getAutoTrialTarget(foods, trials, date) {
+// 这些食材里今天还能打卡的：没试过 / 试吃中且今天没记过；过敏、已解锁、补录早于最近一次的都不算
+function getEligibleTrialFoods(foods, trials, date) {
   const byName = {}
   ;(trials || []).forEach(trial => { byName[trial.foodName] = trial })
-  const eligible = (foods || []).filter(name => {
+  return (foods || []).filter(name => {
     const trial = byName[name]
     if (!trial) return true
     if (trial.status === 'allergic') return false
     if (trial.lastTriedDate === date) return false
-    // 补录早于最近一次试吃的日期会把连续天数算乱，不自动打卡
+    // 补录早于最近一次试吃的日期会把天数算乱，不自动打卡
     if (trial.lastTriedDate && trial.lastTriedDate > date) return false
     return Number(trial.trialCount) < UNLOCK_DAYS
   })
+}
+
+// 录辅食自动打卡的目标食材（严格模式）。返回 null=无需记录；''=多种新食材无法自动定位；其余=要打卡的食材名。
+// 规则：优先推进进行中的试吃；没有进行中的且恰好只有一种新食材时才自动开新试吃。
+function getAutoTrialTarget(foods, trials, date) {
+  const eligible = getEligibleTrialFoods(foods, trials, date)
   if (eligible.length === 0) return null
   const active = getActiveFoodName(trials, date)
   if (active) return eligible.includes(active) ? active : null
   if (eligible.length === 1) return hasLaterOngoingTrial(trials, date, eligible[0]) ? null : eligible[0]
   return ''
+}
+
+// 两种模式统一出口：返回要打卡的食材数组；ambiguous=true 表示严格模式下多种新食材没法定位
+function getAutoTrialTargets(foods, trials, date, mode) {
+  if (normalizeMode(mode) === 'relaxed') return { targets: getEligibleTrialFoods(foods, trials, date), ambiguous: false }
+  const target = getAutoTrialTarget(foods, trials, date)
+  if (target === null) return { targets: [], ambiguous: false }
+  if (target === '') return { targets: [], ambiguous: true }
+  return { targets: [target], ambiguous: false }
 }
 
 function getUnlockedFoodNames(trials) {
@@ -143,6 +171,10 @@ function orderTrialFoods(foods) {
 
 module.exports = {
   UNLOCK_DAYS,
+  TRIAL_MODES,
+  normalizeMode,
+  getEligibleTrialFoods,
+  getAutoTrialTargets,
   getNextTrialState,
   decorateFood,
   buildTrialSteps,

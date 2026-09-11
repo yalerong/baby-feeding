@@ -137,6 +137,9 @@
           <view class="record-interval" wx:if="{{item.intervalText}}">距上次 {{item.intervalText}}</view>
           <view class="record-desc" wx:if="{{item.stool}}">💩 {{item.stoolDesc || '大便'}}</view>
           <view class="record-desc solid-food-desc" wx:if="{{item.solidFood}}">🍚 {{item.solidFoodDishName || '辅食'}} {{item.solidFoodGrams}}g</view>
+          <view class="record-photos" wx:if="{{item.images.length > 0}}">
+            <image wx:for="{{item.images}}" wx:for-item="url" wx:key="*this" class="record-thumb" src="{{url}}" mode="aspectFill" data-url="{{url}}" data-urls="{{item.images}}" catchtap="previewRecordImage" />
+          </view>
         </view>
         <view class="record-right">
           <view class="record-right-inner">

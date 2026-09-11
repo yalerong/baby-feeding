@@ -30,6 +30,8 @@ exports.main = async (event) => {
         stage: data.stage,
         days: data.days,
         nutritionSummary: data.nutritionSummary || {},
+        // 保存时的已解锁食材快照，用来判断之后有没有新解锁、要不要提示刷新
+        unlockedFoods: Array.isArray(data.unlockedFoods) ? data.unlockedFoods.slice(0, 200) : null,
         updateBy: OPENID || '',
         updateTime: db.serverDate()
       }
