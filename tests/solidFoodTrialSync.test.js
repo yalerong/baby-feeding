@@ -166,14 +166,16 @@ async function run() {
     assert.strictEqual(world.calls.filter(c => c === 'foodTrial:undoLog').length, 0)
   })
 
-  await test('skips the rollback when same-day sibling records cannot be loaded', async () => {
+  await test('aborts the whole sync (no rollback, no replacement log) when same-day sibling records cannot be loaded', async () => {
     const world = makeWorld()
     world.recordsDown = true
     world.trials.push({ foodName: '胡萝卜', trialCount: 1, status: 'tracking', lastTriedDate: today, logSources: { [today]: 'r1' } })
     const rec = record({ solidFoodDishName: '胡萝卜泥' })
-    await world.page.syncSolidFoodTrial({ before: rec, after: null, recordId: 'r1' })
+    await world.page.syncSolidFoodTrial({ before: rec, after: record({ solidFoodDishName: '玉米糊', solidFoodFoods: ['玉米'] }), recordId: 'r1' })
+    assert.strictEqual(world.trials.length, 1)
     assert.strictEqual(world.trials[0].trialCount, 1)
-    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:undoLog').length, 0)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:undoLog' || c === 'foodTrial:log').length, 0)
+    assert.ok(world.toasts.some(t => t.includes('未同步试吃')))
   })
 
   await test('deleting the later day keeps the earlier day\'s provenance so it can be reverted too', async () => {

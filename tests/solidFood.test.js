@@ -163,3 +163,15 @@ test('normalises the foods array the same way the cloud function stores it', () 
   assert.strictEqual(solidFood.normalizeFoods(many).length, 10)
   assert.deepStrictEqual(solidFood.normalizeFoods([' 胡萝卜 ', '胡萝卜', '']), ['胡萝卜'])
 })
+
+test('a weekly dish whose same-named history ranks below the cut still gets a slot', () => {
+  const records = []
+  for (let i = 0; i < 7; i++) for (let j = 0; j <= i; j++) records.push({ solidFood: true, solidFoodDishId: '', solidFoodDishName: `历史菜${i}` })
+  // 历史菜0 只出现 1 次，排第 7；本周菜单里有同名自定义菜
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6, customDishes: [{ name: '历史菜0', foods: ['胡萝卜'] }] })
+  assert.strictEqual(ranked.length, 6)
+  const hit = ranked.find(item => item.name === '历史菜0')
+  assert.ok(hit)
+  assert.deepStrictEqual(hit.foods, ['胡萝卜'])
+  assert.ok(!ranked.some(item => item.name === '历史菜1'), 'the lowest-ranked genuine history entry gives way')
+})

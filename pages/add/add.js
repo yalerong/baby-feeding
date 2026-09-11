@@ -406,7 +406,7 @@ Page({
           const covered = otherFoods.concat(sameDayAfter ? afterFoods : [])
           const revert = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: covered, trials, date: before.date, recordId })
           // 本记录打的卡、但同一天别的记录还吃着：把来源移交过去（改成同一天同食材时来源仍是本记录，不用动）
-          const transfer = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: sameDayAfter ? afterFoods : [], trials, date: before.date, recordId })
+          const transfer = foodUnlock.getTrialRevertFoods({ foods: beforeFoods, otherFoods: sameDayAfter ? afterFoods : [], trials, date: before.date, recordId, lastDayOnly: false })
             .filter(food => otherSources[food])
           const calls = revert.map(food => ({ action: 'undoLog', familyCode, foodName: food, date: before.date }))
             .concat(transfer.map(food => ({ action: 'transferLogSource', familyCode, foodName: food, date: before.date, recordId: otherSources[food] })))
@@ -427,9 +427,10 @@ Page({
               return null
             })
         }).catch(err => {
-          // 同日其它记录拉不到时宁可不回退，也不能把别的记录撑着的试吃减掉
+          // 同日其它记录拉不到：既不能回退（可能有别的记录撑着），也不能给新食材打卡（旧的没回退），整体中止
           console.error(err)
-          return trials
+          wx.showToast({ title: '同日记录读取失败，本次未同步试吃', icon: 'none', duration: 2500 })
+          return null
         })
       }
       return chain.then(freshTrials => {

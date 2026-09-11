@@ -210,10 +210,12 @@ Page({
         emoji: this.getFoodEmoji(name),
         category: trial && trial.isCustom ? '自定义' : this.getFoodCategory({}, name),
         isActive: this.data.activeTrialFood === name,
-        isOffCatalog: true,
         canUndoToday: trial && trial.lastTriedDate === this.data.today
       })
     })
+    // "移除"只给完整菜库里没有的食材（自定义/误存的菜名）；只是超出当前月龄的菜库食材不算
+    const knownFoods = menuData.getKnownFoodNames()
+    trialFoods.forEach(food => { food.isOffCatalog = !knownFoods.includes(food.name) })
     const orderedTrialFoods = foodUnlock.orderTrialFoods(trialFoods)
     this.setData({
       trialFoods: orderedTrialFoods,

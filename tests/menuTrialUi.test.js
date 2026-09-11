@@ -14,3 +14,8 @@ const handlers = new Set()
 ;(wxml.match(/(?:bind|catch)(?:tap|input|change|confirm)="([A-Za-z_]+)"/g) || []).forEach(m => handlers.add(m.split('"')[1]))
 handlers.forEach(name => assert.match(js, new RegExp(`^  ,?${name}\\(`, 'm'), `menu.js is missing handler ${name}`))
 console.log(`ok - all ${handlers.size} menu.wxml handlers exist in menu.js`)
+
+// 解锁页"移除"只给完整菜库里没有的食材
+const menuJs = fs.readFileSync(path.join(__dirname, '../pages/menu/menu.js'), 'utf8')
+assert.match(menuJs, /food\.isOffCatalog = !knownFoods\.includes\(food\.name\)/)
+console.log('ok - remove button is scoped to foods outside the full catalog')

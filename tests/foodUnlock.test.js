@@ -195,3 +195,9 @@ test('does not back-fill a second food behind another food\'s later ongoing tria
   // 南瓜已解锁就不挡
   assert.strictEqual(foodUnlock.getAutoTrialTarget(['胡萝卜'], [{ foodName: '南瓜', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-11' }], '2026-09-10'), '胡萝卜')
 })
+
+test('a middle day of a streak is never undone, but its source can still be handed over', () => {
+  const trials = [{ foodName: '胡萝卜', status: 'tracking', trialCount: 2, lastTriedDate: '2026-09-11', logSources: { '2026-09-10': 'r1', '2026-09-11': 'r2' } }]
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: [], trials, date: '2026-09-10', recordId: 'r1' }), [])
+  assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['胡萝卜'], otherFoods: [], trials, date: '2026-09-10', recordId: 'r1', lastDayOnly: false }), ['胡萝卜'])
+})

@@ -120,13 +120,16 @@ function getLogSource(trial, date) {
 
 // 删除/修改辅食记录后要回退的试吃食材：那天的卡是这条记录自动打的、且这天没有别的记录再吃它。
 // 手动在解锁页打的卡（没有来源）不回退。只有 streak 最后一天能真正撤销，中间某天由云函数拒绝。
-function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId }) {
+// lastDayOnly=true（默认，用于撤销）只认 streak 最后一天；来源移交传 false，任何一天都可以
+function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId, lastDayOnly }) {
   const byName = {}
   ;(trials || []).forEach(trial => { byName[trial.foodName] = trial })
   const covered = otherFoods || []
+  const onlyLast = lastDayOnly !== false
   return (foods || []).filter(name => {
     const trial = byName[name]
     if (!trial || trial.status === 'allergic' || Number(trial.trialCount) <= 0) return false
+    if (onlyLast && trial.lastTriedDate !== date) return false
     if (!recordId || getLogSource(trial, date) !== recordId) return false
     return !covered.includes(name)
   })
