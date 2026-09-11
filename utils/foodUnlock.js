@@ -46,15 +46,23 @@ function decorateFood(name, trial) {
   }
 }
 
+function isOngoingTrial(trial) {
+  return trial && trial.status === 'tracking' && Number(trial.trialCount) > 0 && Number(trial.trialCount) < UNLOCK_DAYS
+}
+
 function getActiveFoodName(trials, today) {
   const yesterday = today ? dateUtil.addDays(today, -1) : ''
   const active = (trials || []).find(trial =>
-    trial.status === 'tracking' &&
-    Number(trial.trialCount) > 0 &&
-    Number(trial.trialCount) < UNLOCK_DAYS &&
-    (trial.lastTriedDate === today || trial.lastTriedDate === yesterday)
+    isOngoingTrial(trial) && (trial.lastTriedDate === today || trial.lastTriedDate === yesterday)
   )
   return active ? active.foodName : ''
+}
+
+// 补录某天时，别的食材在这天之后（或当天）还有进行中的连续试吃，就不能再往这天塞第二种
+function hasLaterOngoingTrial(trials, date, foodName) {
+  return (trials || []).some(trial =>
+    trial.foodName !== foodName && isOngoingTrial(trial) && trial.lastTriedDate && trial.lastTriedDate >= date
+  )
 }
 
 // 录辅食自动打卡的目标食材。返回 null=无需记录；''=多种新食材无法自动定位；其余=要打卡的食材名。
@@ -74,7 +82,7 @@ function getAutoTrialTarget(foods, trials, date) {
   if (eligible.length === 0) return null
   const active = getActiveFoodName(trials, date)
   if (active) return eligible.includes(active) ? active : null
-  if (eligible.length === 1) return eligible[0]
+  if (eligible.length === 1) return hasLaterOngoingTrial(trials, date, eligible[0]) ? null : eligible[0]
   return ''
 }
 
@@ -137,6 +145,7 @@ module.exports = {
   buildTrialSteps,
   getAllergenInfo,
   getActiveFoodName,
+  hasLaterOngoingTrial,
   getAutoTrialTarget,
   getUnlockedFoodNames,
   getExcludedIngredients,

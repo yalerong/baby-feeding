@@ -150,3 +150,16 @@ test('a current-week custom dish overrides same-named history ingredients', () =
   assert.strictEqual(ranked.filter(item => item.name === '宝宝爱心餐').length, 1)
   assert.deepStrictEqual(ranked[0].foods, ['胡萝卜', '土豆'])
 })
+
+test('a same-named weekly dish does not steal a slot from genuine history', () => {
+  const records = []
+  for (let i = 0; i < 6; i++) records.push({ solidFood: true, solidFoodDishId: '', solidFoodDishName: `历史菜${i}` })
+  const ranked = solidFood.rankFrequentDishes({ records, ageMonth: 6, customDishes: [{ name: '历史菜0', foods: ['胡萝卜'] }] })
+  assert.deepStrictEqual(ranked.map(item => item.name).sort(), ['历史菜0', '历史菜1', '历史菜2', '历史菜3', '历史菜4', '历史菜5'])
+})
+
+test('normalises the foods array the same way the cloud function stores it', () => {
+  const many = Array.from({ length: 12 }, (_, i) => `食材${i}`)
+  assert.strictEqual(solidFood.normalizeFoods(many).length, 10)
+  assert.deepStrictEqual(solidFood.normalizeFoods([' 胡萝卜 ', '胡萝卜', '']), ['胡萝卜'])
+})

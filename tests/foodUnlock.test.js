@@ -187,3 +187,11 @@ test('per-day log sources survive undoing the later day', () => {
   assert.strictEqual(foodUnlock.getLogSource(trial, '2026-09-11'), 'r2')
   assert.strictEqual(foodUnlock.getLogSource(trial, '2026-09-09'), '')
 })
+
+test('does not back-fill a second food behind another food\'s later ongoing trial', () => {
+  const trials = [{ foodName: '南瓜', status: 'tracking', trialCount: 1, lastTriedDate: '2026-09-11', logSources: {} }]
+  assert.strictEqual(foodUnlock.hasLaterOngoingTrial(trials, '2026-09-10', '胡萝卜'), true)
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['胡萝卜'], trials, '2026-09-10'), null)
+  // 南瓜已解锁就不挡
+  assert.strictEqual(foodUnlock.getAutoTrialTarget(['胡萝卜'], [{ foodName: '南瓜', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-09-11' }], '2026-09-10'), '胡萝卜')
+})

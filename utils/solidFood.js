@@ -42,6 +42,17 @@ function getFrequentDishes(ageMonth) {
   return menuData.getDishCatalog({ ageMonth }).slice(0, 6)
 }
 
+// 与云函数 validation.normalizeFoods 同口径：去空、去重、最多 10 个
+function normalizeFoods(foods) {
+  if (!Array.isArray(foods)) return []
+  const result = []
+  foods.forEach(item => {
+    const name = String(item || '').trim()
+    if (name && !result.includes(name) && result.length < 10) result.push(name)
+  })
+  return result
+}
+
 // 一条辅食记录对应的规范试吃食材：菜库菜→配料表；自定义菜→保存时带的食材；手填名→按名字识别
 function getCanonicalFoods({ dishId, name, foods, extraFoods }) {
   if (dishId) {
@@ -94,8 +105,10 @@ function rankFrequentDishes({ records, ageMonth, limit, customDishes }) {
     if (!dish || !dish.name || custom.some(item => item.name === dish.name)) return
     custom.push({ id: '', name: dish.name, imageEmoji: dish.imageEmoji || '🍱', foods: dish.foods || [] })
   })
-  // 本周自定义菜保证进列表：历史条目只占剩下的位置
-  const historyLimit = Math.max(0, max - Math.min(custom.length, max))
+  // 本周自定义菜保证进列表：历史里没有同名的才需要留位
+  const historyNames = order.map(key => counts[key].name)
+  const newCustomCount = custom.filter(dish => !historyNames.includes(dish.name)).length
+  const historyLimit = Math.max(0, max - Math.min(newCustomCount, max))
   const result = order
     .map(key => counts[key])
     .sort((left, right) => right.count - left.count)
@@ -131,5 +144,6 @@ module.exports = {
   getFrequentDishes,
   rankFrequentDishes,
   getCanonicalFoods,
-  customDishesFromPlan
+  customDishesFromPlan,
+  normalizeFoods
 }

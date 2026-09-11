@@ -47,7 +47,7 @@
         <view class="month-detail">
           <text class="month-count">喂养 {{item.count}} 次</text>
           <text class="month-stool" wx:if="{{item.stool > 0}}">大便 {{item.stool}} 次</text>
-          <text class="month-stool" wx:if="{{item.solid > 0}}">辅食 {{item.solid}} 次</text>
+          <text class="month-stool" wx:if="{{item.solid > 0}}">辅食 {{item.solid}} 次 · {{item.solidGrams}}g</text>
           <text class="month-milk">奶量 {{item.total}}ml</text>
           <text class="month-ratio">母乳 {{item.ratio}}</text>
         </view>

@@ -95,8 +95,12 @@ exports.main = async event => {
       if (guard) return { success: false, error: guard }
       const activeRes = await db.collection('food_trials').where({ familyCode, status: 'tracking' }).limit(1000).get()
       const previousDate = previousDay(date)
-      const active = (activeRes.data || []).find(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3 && (item.lastTriedDate === date || item.lastTriedDate === previousDate))
+      const ongoing = (activeRes.data || []).filter(item => item.foodName !== foodName && item.trialCount > 0 && item.trialCount < 3)
+      const active = ongoing.find(item => item.lastTriedDate === date || item.lastTriedDate === previousDate)
       if (active) return { success: false, error: `请先完成 ${active.foodName} 的连续试吃` }
+      // 补录：别的食材在这天之后还有进行中的试吃，也不能往这天塞第二种
+      const later = ongoing.find(item => item.lastTriedDate && item.lastTriedDate > date)
+      if (later) return { success: false, error: `${later.foodName} 的连续试吃晚于这一天，不能补录` }
       if (existing) {
         const payload = buildLogPayload(existing, familyCode, foodName, date, recordId)
         await db.collection('food_trials').doc(existing._id).update({ data: payload })

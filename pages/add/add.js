@@ -324,7 +324,7 @@ Page({
       stool: this.data.stool,
       stoolDesc: this.data.stool ? this.buildStoolDesc() : '',
       ...solidFoodPayload,
-      solidFoodFoods: solidFoodPayload.solidFood ? (this.data.solidFoodFoods || []) : []
+      solidFoodFoods: solidFoodPayload.solidFood ? solidFood.normalizeFoods(this.data.solidFoodFoods) : []
     }
 
     const nearest = feedingAudit.nearestFeeding(this._dayFeedings, payload)
