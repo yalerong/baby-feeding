@@ -107,9 +107,20 @@ Page({
       .catch(err => console.error(err))
   },
 
+  // 菜谱库里的菜也要过一遍过敏排除：按规范食材和原始配料名都匹配，和菜库菜同一口径
+  libraryDishContainsExcluded(dish) {
+    const excluded = this.data.excludedIngredients || []
+    if (excluded.length === 0) return false
+    const foods = Array.isArray(dish.foods) && dish.foods.length
+      ? dish.foods
+      : (dish.ingredients || []).reduce((acc, ingredient) => acc.concat(menuData.canonicalizeIngredient(ingredient)), [])
+    return foods.some(food => excluded.includes(food)) || (dish.ingredients || []).some(name => excluded.includes(name))
+  },
+
   buildHallLibraryDishes(mealType) {
     return this.data.libraryDishes
       .filter(dish => !dish.mealTypes || dish.mealTypes.length === 0 || dish.mealTypes.includes(mealType))
+      .filter(dish => !this.libraryDishContainsExcluded(dish))
       .map(dish => ({
         ...dish,
         ingredientsLabel: (dish.ingredients || []).join('、') || '未填食材'

@@ -214,7 +214,11 @@ Page({
       name: 'customDish',
       data: { action: 'save', familyCode, _id: dish.libraryId || '', dish: libraryDish }
     }).then(res => {
-      if (res.result && res.result.success && res.result._id) dish.libraryId = res.result._id
+      if (res.result && res.result.success && res.result._id) {
+        dish.libraryId = res.result._id
+      } else if (res.result && res.result.error) {
+        this._libraryError = res.result.error
+      }
     }).catch(err => console.error(err))
 
     libraryReq.then(() => wx.cloud.callFunction({
@@ -227,7 +231,12 @@ Page({
       }
       wx.removeStorageSync(this.getDraftKey())
       wx.removeStorageSync(`menuPlanCache:${this.data.weekStart}`)
-      wx.showToast({ title: '已保存', icon: 'success' })
+      if (this._libraryError) {
+        wx.showToast({ title: `菜单已保存，但没进菜谱库：${this._libraryError}`, icon: 'none', duration: 3000 })
+        this._libraryError = ''
+      } else {
+        wx.showToast({ title: '已保存', icon: 'success' })
+      }
       setTimeout(() => wx.navigateBack(), 700)
     }).catch(err => {
       wx.hideLoading()

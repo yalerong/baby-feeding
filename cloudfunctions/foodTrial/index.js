@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const { normalizeFoodName, getTrialDocumentId } = require('./trialId.js')
@@ -47,8 +48,16 @@ async function setTrialMode(familyCode, mode, today) {
   const doc = res.data && res.data[0]
   if (doc) {
     await db.collection('families').doc(doc._id).update({ data: { trialMode: mode, updateTime: db.serverDate() } })
-  } else {
-    await db.collection('families').add({ data: { familyCode, members: [], trialMode: mode, createTime: db.serverDate() } })
+    return { success: true, settings: { trialMode: mode } }
+  }
+  // 没有家庭文档时用固定 _id 创建：两位家长同时切换只会有一个建成，另一个撞主键后改走更新
+  const documentId = `family_${crypto.createHash('sha256').update(String(familyCode)).digest('hex')}`
+  try {
+    await db.collection('families').add({ data: { _id: documentId, familyCode, members: [], trialMode: mode, createTime: db.serverDate() } })
+  } catch (err) {
+    const raced = await db.collection('families').where({ _id: documentId, familyCode }).limit(1).get()
+    if (!raced.data || !raced.data[0]) throw err
+    await db.collection('families').doc(documentId).update({ data: { trialMode: mode, updateTime: db.serverDate() } })
   }
   return { success: true, settings: { trialMode: mode } }
 }

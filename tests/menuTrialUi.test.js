@@ -19,3 +19,7 @@ console.log(`ok - all ${handlers.size} menu.wxml handlers exist in menu.js`)
 const menuJs = fs.readFileSync(path.join(__dirname, '../pages/menu/menu.js'), 'utf8')
 assert.match(menuJs, /food\.isOffCatalog = !knownFoods\.includes\(food\.name\)/)
 console.log('ok - remove button is scoped to foods outside the full catalog')
+
+// 大厅"我的菜谱"必须过过敏排除
+assert.match(menuJs, /\.filter\(dish => !this\.libraryDishContainsExcluded\(dish\)\)/)
+console.log('ok - library dishes in the hall are filtered by excluded ingredients')

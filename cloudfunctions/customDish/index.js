@@ -58,6 +58,13 @@ exports.main = async event => {
         const res = await db.collection('custom_dishes').doc(_id).get().catch(() => null)
         existing = res && res.data && res.data.familyCode === familyCode ? res.data : null
       }
+      if (existing && existing.name !== dish.name) {
+        // 按 _id 改名：目标名字已经是另一道菜就拒绝，保持"同一家庭菜名唯一"
+        const clash = await db.collection('custom_dishes').where({ familyCode, name: dish.name }).limit(1).get()
+        if (clash.data && clash.data[0] && clash.data[0]._id !== existing._id) {
+          return { success: false, error: `菜谱库里已经有一道“${dish.name}”，换个名字` }
+        }
+      }
       if (!existing) {
         const res = await db.collection('custom_dishes').where({ familyCode, name: dish.name }).limit(1).get()
         existing = res.data && res.data[0]
