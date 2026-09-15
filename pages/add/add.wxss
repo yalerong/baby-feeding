@@ -61,6 +61,32 @@ input {
   border-bottom: 1rpx solid #f0f0f0;
 }
 
+.solid-food-quick {
+  padding: 24rpx 0 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.solid-food-quick-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.solid-food-quick-tag {
+  padding: 8rpx 18rpx;
+  border: 1rpx solid #D8E8DE;
+  border-radius: 24rpx;
+  background: #F4FAF6;
+  color: #47715A;
+  font-size: 24rpx;
+}
+
+.solid-food-quick-tag.active {
+  border-color: #5BC58F;
+  background: #5BC58F;
+  color: #fff;
+}
+
 .solid-food-choices-title {
   color: #8A7864;
   font-size: 26rpx;

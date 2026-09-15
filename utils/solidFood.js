@@ -53,6 +53,32 @@ function normalizeFoods(foods) {
   return result
 }
 
+// 与“食物试吃解锁”页同源：当前月龄菜库食材 + 家长手动添加/试吃过的食材。
+// 疑似过敏项不放到快捷录入里，避免误选。
+function getQuickFoodNames({ ageMonth, trials }) {
+  const allergic = {}
+  ;(trials || []).forEach(trial => {
+    if (trial && trial.foodName && trial.status === 'allergic') allergic[trial.foodName] = true
+  })
+  const result = []
+  const append = name => {
+    const value = String(name || '').trim()
+    if (value && !allergic[value] && !result.includes(value)) result.push(value)
+  }
+  menuData.getDishCatalog({ ageMonth: Number(ageMonth) || 6 }).forEach(dish => {
+    menuData.getDishFoods(dish).forEach(append)
+  })
+  ;(trials || []).forEach(trial => append(trial && trial.foodName))
+  return result
+}
+
+// 米粉是组合里的基底，名称固定放在最后并显示成更自然的“米糊”。
+function buildQuickFoodName(foods) {
+  const names = normalizeFoods(foods)
+  const hasRiceCereal = names.includes('米粉')
+  return names.filter(name => name !== '米粉').join('') + (hasRiceCereal ? '米糊' : '')
+}
+
 // 一条辅食记录对应的规范试吃食材：菜库菜→配料表；自定义菜→保存时带的食材；手填名→按名字识别
 function getCanonicalFoods({ dishId, name, foods, extraFoods }) {
   if (dishId) {
@@ -165,5 +191,7 @@ module.exports = {
   getCanonicalFoods,
   customDishesFromPlan,
   libraryDishesFromDocs,
-  normalizeFoods
+  normalizeFoods,
+  getQuickFoodNames,
+  buildQuickFoodName
 }

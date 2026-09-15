@@ -63,6 +63,13 @@
     </view>
 
     <block wx:if="{{solidFood}}">
+      <view class="solid-food-quick" wx:if="{{solidFoodQuickTags.length}}">
+        <view class="solid-food-choices-title">快速搭配食材（可多选）</view>
+        <view class="solid-food-quick-list">
+          <view wx:for="{{solidFoodQuickTags}}" wx:key="name" class="solid-food-quick-tag {{item.selected ? 'active' : ''}}" data-name="{{item.name}}" bindtap="selectSolidFoodQuickTag">{{item.name}}</view>
+        </view>
+        <view class="solid-food-choice-hint">来自“菜单－食物解锁”列表；在那里新增食材后，这里会自动出现新标签</view>
+      </view>
       <view class="solid-food-choices">
         <view class="solid-food-choices-title">当前月龄常吃</view>
         <view class="solid-food-choice-list">

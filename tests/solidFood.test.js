@@ -164,6 +164,28 @@ test('normalises the foods array the same way the cloud function stores it', () 
   assert.deepStrictEqual(solidFood.normalizeFoods([' 胡萝卜 ', '胡萝卜', '']), ['胡萝卜'])
 })
 
+test('builds quick-entry tags from the unlock list and excludes allergic foods', () => {
+  const names = solidFood.getQuickFoodNames({
+    ageMonth: 6,
+    trials: [
+      { foodName: '胡萝卜', status: 'unlocked', trialCount: 3 },
+      { foodName: '鸡肝', status: 'tracking', trialCount: 0, isCustom: true },
+      { foodName: '鸡肉', status: 'allergic', trialCount: 1 }
+    ]
+  })
+  assert.ok(names.includes('米粉'))
+  assert.ok(names.includes('南瓜'))
+  assert.ok(names.includes('胡萝卜'))
+  assert.ok(names.includes('鸡肝'))
+  assert.ok(!names.includes('鸡肉'))
+})
+
+test('turns selected food tags into a stable quick-entry dish name', () => {
+  assert.strictEqual(solidFood.buildQuickFoodName(['米粉', '南瓜']), '南瓜米糊')
+  assert.strictEqual(solidFood.buildQuickFoodName(['鸡肝', '米粉']), '鸡肝米糊')
+  assert.strictEqual(solidFood.buildQuickFoodName(['南瓜', '南瓜', '米粉']), '南瓜米糊')
+})
+
 test('a weekly dish whose same-named history ranks below the cut still gets a slot', () => {
   const records = []
   for (let i = 0; i < 7; i++) for (let j = 0; j <= i; j++) records.push({ solidFood: true, solidFoodDishId: '', solidFoodDishName: `历史菜${i}` })

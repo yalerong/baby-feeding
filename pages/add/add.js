@@ -32,6 +32,7 @@ Page({
     solidFoodCustomName: '',
     solidFoodGrams: '',
     solidFoodFoods: [],
+    solidFoodQuickTags: [],
     solidFoodFrequentDishes: [],
     solidFoodReused: false,
     solidFoodGramPresets: [5, 10, 20, 30, 50],
@@ -54,6 +55,10 @@ Page({
       })
       this.loadLatestFeeding(todayStr())
     }
+  },
+
+  onShow() {
+    this.loadSolidFoodQuickTags()
   },
 
   loadLatestFeeding(date) {
@@ -112,6 +117,7 @@ Page({
           solidFoodCustomName: r.solidFoodDishId ? '' : (r.solidFoodDishName || ''),
           solidFoodGrams: r.solidFoodGrams > 0 ? String(r.solidFoodGrams) : '',
           solidFoodFoods: Array.isArray(r.solidFoodFoods) ? r.solidFoodFoods : [],
+          solidFoodQuickTags: this.getSolidFoodQuickTags(r.date, r.solidFoodFoods),
           images: Array.isArray(r.images) ? r.images : []
         })
       }
@@ -130,6 +136,36 @@ Page({
       customDishes: this._customDishes || [],
       libraryDishes: this._libraryDishes || []
     })
+  },
+
+  getSolidFoodQuickTags(date, selectedFoods) {
+    const birthDate = wx.getStorageSync('babyBirthDate') || ''
+    const ageMonth = Math.max(6, dateUtil.monthsBetween(birthDate, date || todayStr()))
+    const selected = solidFood.normalizeFoods(selectedFoods)
+    return solidFood.getQuickFoodNames({ ageMonth, trials: this._foodTrials || [] }).map(name => ({
+      name,
+      selected: selected.includes(name)
+    }))
+  },
+
+  loadSolidFoodQuickTags() {
+    const familyCode = wx.getStorageSync('familyCode')
+    if (!familyCode) {
+      this._foodTrials = []
+      this.setData({ solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods) })
+      return Promise.resolve()
+    }
+    return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
+      .then(res => {
+        if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+        this._foodTrials = res.result.data || []
+        this.setData({ solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods) })
+      })
+      .catch(err => {
+        console.error(err)
+        this._foodTrials = []
+        this.setData({ solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods) })
+      })
   },
 
   // 常吃列表 = 最近 30 天辅食记录 + 本周菜单里家长自己写的菜（含未保存草稿）+ 家庭菜谱库
@@ -172,7 +208,8 @@ Page({
     this.setData({
       date,
       latestFeeding: null,
-      solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(date)
+      solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(date),
+      solidFoodQuickTags: this.getSolidFoodQuickTags(date, this.data.solidFoodFoods)
     })
     if (!this.data.isEdit) this.loadLatestFeeding(date)
   },
@@ -222,6 +259,7 @@ Page({
         solidFoodCustomName: '',
         solidFoodGrams: '',
         solidFoodFoods: [],
+        solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, []),
         solidFoodReused: false
       })
       return
@@ -236,6 +274,7 @@ Page({
         solidFoodCustomName: lastSelection.solidFoodDishId ? '' : lastSelection.solidFoodDishName,
         solidFoodGrams: String(lastSelection.solidFoodGrams),
         solidFoodFoods: lastSelection.solidFoodFoods || [],
+        solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, lastSelection.solidFoodFoods),
         solidFoodReused: true
       })
       return
@@ -252,6 +291,7 @@ Page({
         solidFoodName: dish.name,
         solidFoodCustomName: '',
         solidFoodFoods: [],
+        solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, []),
         solidFoodReused: false
       })
       return
@@ -262,6 +302,25 @@ Page({
       solidFoodName: name,
       solidFoodCustomName: name,
       solidFoodFoods: Array.isArray(foods) ? foods : [],
+      solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, foods),
+      solidFoodReused: false
+    })
+  },
+
+  selectSolidFoodQuickTag(e) {
+    const foodName = e.currentTarget.dataset.name
+    if (!foodName) return
+    const selected = this.data.solidFoodQuickTags.filter(item => item.selected).map(item => item.name)
+    const index = selected.indexOf(foodName)
+    if (index >= 0) selected.splice(index, 1)
+    else selected.push(foodName)
+    const name = solidFood.buildQuickFoodName(selected)
+    this.setData({
+      solidFoodDishId: '',
+      solidFoodName: name,
+      solidFoodCustomName: name,
+      solidFoodFoods: selected,
+      solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, selected),
       solidFoodReused: false
     })
   },
@@ -273,6 +332,7 @@ Page({
       solidFoodName: name,
       solidFoodCustomName: name,
       solidFoodFoods: [],
+      solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, []),
       solidFoodReused: false
     })
   },
