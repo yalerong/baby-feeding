@@ -46,7 +46,7 @@ test('current feeding intervals use the current Beijing instant', () => {
   assert.strictEqual(dateUtil.nowBeijingTimestamp(instant), instant.getTime())
 })
 
-test('supplement reminder alternates VD and VAD from birth date', () => {
+test('supplement reminder keeps the legacy alternating schedule before September 24', () => {
   assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-02-24'), {
     day: 1,
     name: 'VD',
@@ -61,6 +61,29 @@ test('supplement reminder alternates VD and VAD from birth date', () => {
     day: 3,
     name: 'VD',
     nextName: 'VAD'
+  })
+})
+
+test('supplement reminder follows VD, VD, VAD from September 24 Beijing time', () => {
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-09-24'), {
+    day: 213,
+    name: 'VD',
+    nextName: 'VD'
+  })
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-09-25'), {
+    day: 214,
+    name: 'VD',
+    nextName: 'VAD'
+  })
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-09-26'), {
+    day: 215,
+    name: 'VAD',
+    nextName: 'VD'
+  })
+  assert.deepStrictEqual(dateUtil.supplementReminder('2026-02-24', '2026-09-27'), {
+    day: 216,
+    name: 'VD',
+    nextName: 'VD'
   })
 })
 

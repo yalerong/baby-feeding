@@ -4,6 +4,8 @@ function pad(n) {
 
 const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
+const SUPPLEMENT_CYCLE_START_DATE = '2026-09-24'
+const SUPPLEMENT_CYCLE = ['VD', 'VD', 'VAD']
 
 function partsToDateStr(parts) {
   return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`
@@ -152,12 +154,22 @@ function toBeijingTimestamp(dateStr, timeStr) {
 }
 
 function supplementReminder(birthStr, refStr) {
-  const day = daysBetween(birthStr, refStr)
+  const reference = refStr || new Date()
+  const day = daysBetween(birthStr, reference)
   if (day < 1) {
     return {
       day: 0,
       name: '',
       nextName: ''
+    }
+  }
+
+  if (compareDates(reference, SUPPLEMENT_CYCLE_START_DATE) >= 0) {
+    const cycleDay = Math.round(compareDates(reference, SUPPLEMENT_CYCLE_START_DATE) / DAY_MS)
+    return {
+      day,
+      name: SUPPLEMENT_CYCLE[cycleDay % SUPPLEMENT_CYCLE.length],
+      nextName: SUPPLEMENT_CYCLE[(cycleDay + 1) % SUPPLEMENT_CYCLE.length]
     }
   }
 
