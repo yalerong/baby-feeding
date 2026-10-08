@@ -948,7 +948,7 @@ Page({
     if (this.data.trialActionBusy) return
     this.setData({ trialActionBusy: true })
     wx.showModal({
-      title: '补登记已解锁',
+      title: '手动解锁',
       content: `仅用于“${foodName}”之前已经试吃通过、只是漏登记的情况；不会补造历史试吃日期。确认标记为已解锁吗？`,
       confirmText: '确认解锁',
       success: result => {
