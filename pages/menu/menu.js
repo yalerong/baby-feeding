@@ -319,7 +319,7 @@ Page({
         canUndoToday: trial && !trial.manuallyUnlocked && trial.lastTriedDate === this.data.today
       })
     })
-    // "移除"只给完整菜库里没有的食材（自定义/误存的菜名）；只是超出当前月龄的菜库食材不算
+    // 标记菜库外食材；未解锁时只有这些条目提供移除，已解锁项统一提供移除。
     const knownFoods = menuData.getKnownFoodNames()
     trialFoods.forEach(food => { food.isOffCatalog = !knownFoods.includes(food.name) })
     const orderedTrialFoods = foodUnlock.orderTrialFoods(trialFoods)
@@ -868,12 +868,15 @@ Page({
     })
   },
 
-  // 菜库外的食材条目可以整条移除（自定义加错的、早期误存的菜名）
+  // 清除食材的试吃档案；菜库内食材保留在菜库，菜库外条目从列表移除。
   removeFood(e) {
     const foodName = e.currentTarget.dataset.name
+    const catalogNote = menuData.getKnownFoodNames().includes(foodName)
+      ? '食材仍保留在菜库，之后按未解锁处理。'
+      : '该食材将从食物解锁列表中移除。'
     wx.showModal({
-      title: '移除这项食材',
-      content: `会删除“${foodName}”的全部试吃记录，确定吗？`,
+      title: '移除试吃档案',
+      content: `会删除“${foodName}”的试吃记录、解锁状态和异常备注，首页辅食记录保留。${catalogNote}确定移除吗？`,
       confirmColor: '#D9534F',
       success: result => {
         if (!result.confirm) return

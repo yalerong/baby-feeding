@@ -22,10 +22,17 @@ const handlers = new Set()
 handlers.forEach(name => assert.match(js, new RegExp(`^  ,?${name}\\(`, 'm'), `menu.js is missing handler ${name}`))
 console.log(`ok - all ${handlers.size} menu.wxml handlers exist in menu.js`)
 
-// 解锁页"移除"只给完整菜库里没有的食材
+// 所有已解锁食材都可移除档案；未解锁/疑似过敏食材仍仅允许移除菜库外条目。
+const removeButton = wxml.match(/<button[^>]*class="trial-remove-btn"[^>]*>/)[0]
+const removeCondition = removeButton.match(/wx:if="\{\{(.*?)\}\}"/)[1]
+const canRemove = new Function('item', `return Boolean(${removeCondition})`)
+;['unlocked', 'tracking', 'allergic'].forEach(status => {
+  assert.strictEqual(canRemove({ status, isOffCatalog: false }), status === 'unlocked', `${status} catalog removal visibility`)
+  assert.strictEqual(canRemove({ status, isOffCatalog: true }), true, `${status} custom removal visibility`)
+})
 const menuJs = fs.readFileSync(path.join(__dirname, '../pages/menu/menu.js'), 'utf8')
 assert.match(menuJs, /food\.isOffCatalog = !knownFoods\.includes\(food\.name\)/)
-console.log('ok - remove button is scoped to foods outside the full catalog')
+console.log('ok - all unlocked foods share the remove action, while unfinished catalog foods keep the existing restriction')
 
 // 大厅"我的菜谱"必须过过敏排除
 assert.match(menuJs, /\.filter\(dish => !this\.libraryDishContainsExcluded\(dish\)\)/)
