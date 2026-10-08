@@ -423,6 +423,7 @@ Page({
   },
 
   saveRecord(payload) {
+    if (this.data.saving) return
     this.setData({ saving: true })
     wx.showLoading({ title: '保存中...', mask: true })
     const isEdit = this.data.isEdit
@@ -431,7 +432,6 @@ Page({
       name: isEdit ? 'updateRecord' : 'addRecord',
       data: payload
     }).then(res => {
-      wx.hideLoading()
       if (res.result && res.result.success) {
         feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
         if (payload.solidFood) {
@@ -442,18 +442,56 @@ Page({
             solidFoodFoods: payload.solidFoodFoods
           })
         }
-        this.syncSolidFoodTrial({
+        const saved = isEdit ? '修改成功' : '保存成功'
+        const recordId = isEdit ? this.data._id : (res.result._id || '')
+        const syncTrial = () => this.syncSolidFoodTrial({
           before: isEdit ? this._originalRecord : null,
           after: payload,
-          recordId: isEdit ? this.data._id : (res.result._id || '')
+          recordId,
+          silent: true
         })
-        if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
-          this.cleanupImages(this._originalRecord.images.filter(url => !payload.images.includes(url)))
+        const finish = syncResult => {
+          if (syncResult && syncResult.status === 'failed' && syncResult.message) {
+            wx.showModal({
+              title: saved,
+              content: `记录已保存，试吃未同步：${syncResult.message}`,
+              confirmText: '重试同步',
+              cancelText: '稍后',
+              success: modalRes => {
+                if (modalRes.confirm) {
+                  wx.showLoading({ title: '同步中...', mask: true })
+                  syncTrial().then(retryResult => {
+                    wx.hideLoading()
+                    finish(retryResult)
+                  })
+                  return
+                }
+                wx.navigateBack()
+              }
+            })
+            return
+          }
+          if (syncResult && syncResult.status === 'skipped' && syncResult.message) {
+            wx.showModal({
+              title: saved,
+              content: syncResult.message,
+              showCancel: false,
+              success: () => wx.navigateBack()
+            })
+            return
+          }
+          wx.showToast({ title: syncResult && syncResult.message ? `${saved}，${syncResult.message}`.slice(0, 40) : saved, icon: 'success', duration: syncResult && syncResult.message ? 2500 : 1500 })
+          setTimeout(() => wx.navigateBack(), 800)
         }
-        wx.showToast({ title: isEdit ? '修改成功' : '保存成功', icon: 'success' })
-        setTimeout(() => wx.navigateBack(), 800)
-        return
+        return syncTrial().then(syncResult => {
+          wx.hideLoading()
+          if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
+            this.cleanupImages(this._originalRecord.images.filter(url => !payload.images.includes(url)))
+          }
+          finish(syncResult)
+        })
       }
+      wx.hideLoading()
       this.setData({ saving: false })
       wx.showToast({ title: isEdit ? '修改失败' : '保存失败', icon: 'none' })
     }).catch(err => {
@@ -466,12 +504,12 @@ Page({
 
   // 保存/修改/删除辅食记录后同步试吃打卡：先回退旧记录当天的自动打卡，再给新记录打卡。
   // 只处理不晚于今天的记录；早于最近一次试吃日期的补录由 getAutoTrialTarget 拒绝。
-  syncSolidFoodTrial({ before, after, recordId }) {
+  syncSolidFoodTrial({ before, after, recordId, silent }) {
     const familyCode = wx.getStorageSync('familyCode')
     const today = todayStr()
     const beforeSolid = !!(before && before.solidFood && before.date && before.date <= today)
     const afterSolid = !!(after && after.solidFood && after.date && after.date <= today)
-    if (!familyCode || (!beforeSolid && !afterSolid)) return Promise.resolve()
+    if (!familyCode || (!beforeSolid && !afterSolid)) return Promise.resolve({ status: 'noop', message: '' })
     return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }).then(res => {
       if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
       const trials = res.result.data || []
@@ -481,6 +519,7 @@ Page({
         ? solidFood.getCanonicalFoods({ dishId: after.solidFoodDishId, name: after.solidFoodDishName, foods: after.solidFoodFoods, extraFoods })
         : []
       let chain = Promise.resolve(trials)
+      let syncFailure = ''
       if (beforeSolid) {
         const beforeFoods = solidFood.getCanonicalFoods({ dishId: before.solidFoodDishId, name: before.solidFoodDishName, foods: before.solidFoodFoods, extraFoods })
         chain = this.loadOtherSolidFoods(before.date, recordId, extraFoods).then(otherSources => {
@@ -500,32 +539,41 @@ Page({
             .then(() => wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }))
             .then(listRes => {
               if (!listRes.result || !listRes.result.success) throw new Error('foodTrial list failed')
-              if (revert.length) wx.showToast({ title: `已回退 ${revert.join('、')} 当天试吃`, icon: 'none' })
+              if (revert.length && !silent) wx.showToast({ title: `已回退 ${revert.join('、')} 当天试吃`, icon: 'none' })
               return listRes.result.data || []
             })
             .catch(err => {
               // 回退/移交没成功就不再给新记录打卡，避免试吃状态和记录对不上
               console.error(err)
-              wx.showToast({ title: `试吃回退失败：${err.message || ''}`.slice(0, 40), icon: 'none', duration: 2500 })
+              syncFailure = `试吃回退失败${err.message ? `：${err.message}` : ''}`
+              if (!silent) wx.showToast({ title: syncFailure.slice(0, 40), icon: 'none', duration: 2500 })
               return null
             })
         }).catch(err => {
           // 同日其它记录拉不到：既不能回退（可能有别的记录撑着），也不能给新食材打卡（旧的没回退），整体中止
           console.error(err)
-          wx.showToast({ title: '同日记录读取失败，本次未同步试吃', icon: 'none', duration: 2500 })
+          syncFailure = '同日记录读取失败，本次未同步试吃'
+          if (!silent) wx.showToast({ title: syncFailure, icon: 'none', duration: 2500 })
           return null
         })
       }
       return chain.then(freshTrials => {
-        if (!freshTrials || !afterSolid) return
+        if (!freshTrials) return { status: 'failed', message: syncFailure || '试吃未同步' }
+        if (!afterSolid) return { status: 'noop', message: '' }
         const nameChanged = !before || before.solidFoodDishName !== after.solidFoodDishName
         if (afterFoods.length === 0) {
-          if (nameChanged) wx.showToast({ title: '没认出食材，未自动记试吃；可在菜单-食物解锁里手动记', icon: 'none', duration: 2500 })
-          return
+          const message = nameChanged ? '没认出食材，未自动记试吃；可在菜单-食物解锁里手动记' : ''
+          if (message && !silent) wx.showToast({ title: message, icon: 'none', duration: 2500 })
+          return { status: message ? 'skipped' : 'noop', message }
         }
-        return this.autoLogSolidFoodTrial(after, afterFoods, freshTrials, recordId, trialMode)
+        return this.autoLogSolidFoodTrial(after, afterFoods, freshTrials, recordId, trialMode, silent)
       })
-    }).catch(err => console.error(err))
+    }).catch(err => {
+      console.error(err)
+      const message = err.message || '试吃同步失败'
+      if (!silent) wx.showToast({ title: `试吃未同步：${message}`.slice(0, 40), icon: 'none', duration: 2500 })
+      return { status: 'failed', message }
+    })
   },
 
   // 同一天其它记录吃到的食材 → 其中一条记录的 _id，用来判断回退时是否还有别的记录撑着、以及来源移交给谁
@@ -544,14 +592,18 @@ Page({
   },
 
   // 严格模式沿用「一次只试一种」纪律；宽松模式给这道菜里所有还能打卡的食材各记一天
-  autoLogSolidFoodTrial(payload, foods, trials, recordId, mode) {
+  autoLogSolidFoodTrial(payload, foods, trials, recordId, mode, silent) {
     const familyCode = wx.getStorageSync('familyCode')
-    const { targets, ambiguous } = foodUnlock.getAutoTrialTargets(foods, trials, payload.date, mode)
+    const { targets, ambiguous, reason } = foodUnlock.getAutoTrialResult(foods, trials, payload.date, mode)
     if (ambiguous) {
-      wx.showToast({ title: '这道菜含多种未试食材，未自动记试吃', icon: 'none' })
-      return
+      const message = reason || '这道菜含多种未试食材，未自动记试吃'
+      if (!silent) wx.showToast({ title: message, icon: 'none' })
+      return Promise.resolve({ status: 'skipped', message })
     }
-    if (targets.length === 0) return
+    if (targets.length === 0) {
+      if (reason && !silent) wx.showToast({ title: reason, icon: 'none', duration: 2500 })
+      return Promise.resolve({ status: reason ? 'skipped' : 'noop', message: reason || '' })
+    }
     const dateLabel = payload.date === todayStr() ? '' : `${payload.date.substring(5)} `
     const logged = []
     const unlocked = []
@@ -572,7 +624,11 @@ Page({
       if (unlocked.length) parts.push(`${unlocked.join('、')} 已解锁 🎉`)
       if (logged.length) parts.push(`已自动记试吃 ${dateLabel}${logged.join('，')}`)
       if (failure) parts.push(`未记试吃：${failure}`)
-      if (parts.length) wx.showToast({ title: parts.join('；'), icon: 'none', duration: 2500 })
+      if (reason) parts.push(reason)
+      const message = parts.join('；')
+      if (message && !silent) wx.showToast({ title: message, icon: 'none', duration: 2500 })
+      if (failure) return { status: 'failed', message: failure }
+      return { status: reason ? 'skipped' : (parts.length ? 'synced' : 'noop'), message: parts.length ? `试吃已同步：${message}` : '' }
     })
   },
 

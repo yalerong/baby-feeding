@@ -74,6 +74,12 @@ function previousDay(date) {
   return value.toISOString().slice(0, 10)
 }
 
+function isValidDate(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false
+  const value = new Date(`${date}T00:00:00Z`)
+  return !Number.isNaN(value.getTime()) && value.toISOString().slice(0, 10) === date
+}
+
 // 用固定 _id 做原子创建：并发时第二个请求会因主键冲突失败，然后读回已有文档，不会互相覆盖
 async function createOrGet(documentId, data) {
   try {
@@ -104,6 +110,13 @@ async function transferLogSource(existing, date, recordId) {
     data: { logSources: sources, lastLogRecordId: sources[existing.lastTriedDate] || '', updateTime: db.serverDate() }
   })
   return { success: true }
+}
+
+async function updateStatusIfUnchanged(trial, familyCode, data) {
+  const res = await db.collection('food_trials')
+    .where({ _id: trial._id, familyCode, status: trial.status })
+    .update({ data })
+  return !!(res && res.stats && res.stats.updated)
 }
 
 // 严格模式：连续则在原 streak 上加一天并沿用各天来源，断了就重开；宽松模式：不要求连续，累计计数
@@ -214,7 +227,42 @@ exports.main = async event => {
     }
 
     if (action === 'setStatus') {
-      if (!['allergic', 'tracking'].includes(status)) return { success: false, error: 'invalid status' }
+      if (!['allergic', 'tracking', 'unlocked'].includes(status)) return { success: false, error: 'invalid status' }
+      if (status === 'unlocked') {
+        if (!isValidDate(date)) return { success: false, error: 'date required' }
+        if (existing && existing.status === 'allergic') return { success: false, error: '疑似过敏食材请先恢复推荐，再补登记已解锁' }
+        if (existing && existing.status === 'unlocked') return { success: true }
+        const manualPayload = {
+          familyCode,
+          foodName,
+          trialCount: Math.max(3, Number(existing && existing.trialCount) || 0),
+          status: 'unlocked',
+          manuallyUnlocked: true,
+          unlockedDate: date,
+          updateTime: db.serverDate()
+        }
+        if (existing) {
+          const updated = await updateStatusIfUnchanged(existing, familyCode, manualPayload)
+          if (!updated) return { success: false, error: '食材状态已变化，请刷新后重试' }
+          return { success: true }
+        }
+        const result = await createOrGet(documentId, {
+          ...manualPayload,
+          lastTriedDate: '',
+          logDates: [],
+          logSources: {},
+          lastLogRecordId: '',
+          createTime: db.serverDate()
+        })
+        if (!result.created) {
+          const raced = result.data
+          if (raced.status === 'allergic') return { success: false, error: '疑似过敏食材请先恢复推荐，再补登记已解锁' }
+          if (raced.status === 'unlocked') return { success: true }
+          const updated = await updateStatusIfUnchanged(raced, familyCode, manualPayload)
+          if (!updated) return { success: false, error: '食材状态已变化，请刷新后重试' }
+        }
+        return { success: true }
+      }
       if (!existing && status === 'allergic') {
         await db.collection('food_trials').doc(documentId).set({
           data: { familyCode, foodName, trialCount: 0, status: 'allergic', allergyNote: note, allergyDate: date || '', updateTime: db.serverDate(), createTime: db.serverDate() }

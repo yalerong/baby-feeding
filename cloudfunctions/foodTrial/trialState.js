@@ -17,6 +17,7 @@ function withLogSource(logSources, date, recordId) {
 function seedLogDates(trial) {
   if (!trial) return []
   if (Array.isArray(trial.logDates)) return trial.logDates.slice()
+  if (trial.manuallyUnlocked) return []
   const count = Number(trial.trialCount) || 0
   if (!trial.lastTriedDate || count <= 0) return []
   const dates = []
@@ -36,6 +37,7 @@ function nextLogDates(existing, date, consecutive) {
 
 function getUndoTrialState(trial, date) {
   if (!trial || trial.lastTriedDate !== date) return null
+  if (trial.manuallyUnlocked) return null
   const trialCount = Number(trial.trialCount) || 0
   const logSources = withLogSource(trial.logSources, date, '')
   // 第一天撤销回到 0 天而不是删档：自定义食材要留在解锁页里

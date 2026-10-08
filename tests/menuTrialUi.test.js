@@ -8,6 +8,13 @@ assert.match(wxml, /<view[^>]*class="trial-log-btn trial-action"[^>]*catchtap="r
 assert.match(wxml, /<view[^>]*class="trial-undo-btn trial-action"[^>]*catchtap="undoFoodTrial"/)
 console.log('ok - trial actions use direct catchtap bindings')
 
+assert.match(wxml, /class="trial-progress" wx:if="\{\{item\.status !== 'allergic' && item\.status !== 'unlocked'\}\}"/)
+assert.match(wxml, /wx:if="\{\{item\.status !== 'unlocked'\}\}" class="allergen-tag/)
+assert.match(wxml, /class="allergen-hint" wx:if="\{\{item\.status !== 'unlocked'\}\}"/)
+assert.match(wxml, /wx:if="\{\{item\.status === 'unlocked'\}\}" class="trial-alert-subtle-btn" bindtap="markFoodAllergic"[^>]*>记录异常<\/button>/)
+assert.match(wxml, /wx:if="\{\{item\.status === 'tracking'\}\}" class="trial-alert-btn" bindtap="markFoodAllergic"[^>]*>疑似过敏<\/button>/)
+console.log('ok - unlocked trial cards stay compact and keep a low-emphasis abnormal-record action')
+
 // wxml 里绑定的每个处理函数都必须在 menu.js 里定义（防止改代码时切掉整段）
 const js = fs.readFileSync(path.join(__dirname, '../pages/menu/menu.js'), 'utf8')
 const handlers = new Set()

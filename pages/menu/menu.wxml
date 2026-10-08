@@ -234,7 +234,7 @@
     </view>
 
     <view class="card trial-note">
-      “已解锁”仅表示已{{trialMode === 'relaxed' ? '累计' : '连续'}}记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
+      “已解锁”表示已{{trialMode === 'relaxed' ? '累计' : '连续'}}记录 3 天且未记录异常，或由家长补登记此前试吃通过，不代表永久不会过敏。后来出现异常仍可记录，新菜单会排除该食材。
     </view>
 
     <view class="trial-service-error" wx:if="{{foodTrialError}}">{{foodTrialError}}</view>
@@ -252,19 +252,21 @@
       <view class="trial-food-main">
         <view class="trial-food-icon">{{item.emoji}}</view>
         <view>
-          <view class="trial-food-name">{{item.name}} <text class="trial-category">{{item.category}}</text> <text class="allergen-tag {{item.allergenLevel}}">{{item.allergenLabel}}</text></view>
+          <view class="trial-food-name">{{item.name}} <text class="trial-category">{{item.category}}</text> <text wx:if="{{item.status !== 'unlocked'}}" class="allergen-tag {{item.allergenLevel}}">{{item.allergenLabel}}</text></view>
           <view class="trial-food-status {{item.status}}">{{item.statusText}}</view>
-          <view class="allergen-hint">{{item.allergenHint}}</view>
+          <view class="allergen-hint" wx:if="{{item.status !== 'unlocked'}}">{{item.allergenHint}}</view>
           <view class="allergy-note" wx:if="{{item.status === 'allergic' && (item.allergyNote || item.allergyDate)}}">{{item.allergyDate ? item.allergyDate + ' ' : ''}}{{item.allergyNote || '未填写症状'}}</view>
         </view>
       </view>
-      <view class="trial-progress" wx:if="{{item.status !== 'allergic'}}">
+      <view class="trial-progress" wx:if="{{item.status !== 'allergic' && item.status !== 'unlocked'}}">
         <view wx:for="{{item.progressSteps}}" wx:for-item="step" wx:key="number" class="trial-step {{step.done ? 'done' : ''}} {{step.current ? 'current' : ''}}">{{step.done ? '✓' : step.number}}</view>
       </view>
       <view class="trial-food-actions">
         <view wx:if="{{item.status === 'tracking' && !item.canUndoToday}}" class="trial-log-btn trial-action" catchtap="recordFoodTrial" data-name="{{item.name}}">记录今天已吃</view>
+        <view wx:if="{{item.status === 'tracking'}}" class="trial-manual-unlock-btn trial-action" catchtap="manualUnlockFood" data-name="{{item.name}}">补登记已解锁</view>
         <view wx:if="{{item.status !== 'allergic' && item.canUndoToday}}" class="trial-undo-btn trial-action" catchtap="undoFoodTrial" data-name="{{item.name}}">撤销今天记录</view>
-        <button wx:if="{{item.status !== 'allergic'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
+        <button wx:if="{{item.status === 'tracking'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
+        <button wx:if="{{item.status === 'unlocked'}}" class="trial-alert-subtle-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">记录异常</button>
         <button wx:if="{{item.status === 'allergic'}}" class="trial-restore-btn" bindtap="restoreFood" data-name="{{item.name}}">恢复推荐</button>
         <button wx:if="{{item.isOffCatalog}}" class="trial-remove-btn" bindtap="removeFood" data-name="{{item.name}}">移除</button>
       </view>

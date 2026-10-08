@@ -40,22 +40,28 @@ function getNextTrialState(trial, date) {
   }
 }
 
-function decorateFood(name, trial, mode) {
+function decorateFood(name, trial, mode, today) {
   const current = trial || {}
   const relaxed = normalizeMode(mode) === 'relaxed'
   const trialCount = Number(current.trialCount) || 0
   const allergic = current.status === 'allergic'
   const unlocked = !allergic && trialCount >= UNLOCK_DAYS
   const status = allergic ? 'allergic' : (unlocked ? 'unlocked' : 'tracking')
-  const remainingCount = Math.max(0, UNLOCK_DAYS - trialCount)
+  const streakExpired = Boolean(
+    !relaxed && status === 'tracking' && trialCount > 0 &&
+    today && current.lastTriedDate && current.lastTriedDate < dateUtil.addDays(today, -1)
+  )
+  const displayCount = streakExpired ? 0 : trialCount
+  const remainingCount = Math.max(0, UNLOCK_DAYS - displayCount)
   return {
     name,
     trialCount,
     remainingCount,
     status,
+    streakExpired,
     allergyNote: String(current.allergyNote || ''),
     allergyDate: String(current.allergyDate || ''),
-    statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : (relaxed ? `再吃 ${remainingCount} 天解锁` : `再连续吃 ${remainingCount} 天解锁`))
+    statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : (streakExpired ? '连续试吃已中断，需重新记录 3 天' : (relaxed ? `再吃 ${remainingCount} 天解锁` : `再连续吃 ${remainingCount} 天解锁`)))
   }
 }
 
@@ -107,11 +113,58 @@ function getAutoTrialTarget(foods, trials, date) {
 
 // 两种模式统一出口：返回要打卡的食材数组；ambiguous=true 表示严格模式下多种新食材没法定位
 function getAutoTrialTargets(foods, trials, date, mode) {
-  if (normalizeMode(mode) === 'relaxed') return { targets: getEligibleTrialFoods(foods, trials, date), ambiguous: false }
+  const result = getAutoTrialResult(foods, trials, date, mode)
+  return { targets: result.targets, ambiguous: result.ambiguous }
+}
+
+function getAutoTrialResult(foods, trials, date, mode) {
+  const foodList = foods || []
+  const backfillBlock = (trials || []).find(trial =>
+    foodList.includes(trial.foodName) &&
+    trial.status !== 'allergic' &&
+    Number(trial.trialCount) > 0 &&
+    Number(trial.trialCount) < UNLOCK_DAYS &&
+    trial.lastTriedDate &&
+    trial.lastTriedDate > date
+  )
+  if (normalizeMode(mode) === 'relaxed') {
+    const targets = getEligibleTrialFoods(foods, trials, date)
+    return {
+      targets,
+      ambiguous: false,
+      reason: backfillBlock ? `已有更晚的${backfillBlock.foodName}试吃记录，${backfillBlock.foodName}未计入试吃` : ''
+    }
+  }
   const target = getAutoTrialTarget(foods, trials, date)
-  if (target === null) return { targets: [], ambiguous: false }
-  if (target === '') return { targets: [], ambiguous: true }
-  return { targets: [target], ambiguous: false }
+  if (target === '') return { targets: [], ambiguous: true, reason: '这道菜含多种未试食材，未自动记试吃' }
+
+  const eligible = getEligibleTrialFoods(foods, trials, date)
+  if (target !== null) {
+    const skipped = eligible.filter(name => name !== target)
+    return {
+      targets: [target],
+      ambiguous: false,
+      reason: skipped.length ? `${target}正在试吃中，${skipped.join('、')}未计入试吃` : ''
+    }
+  }
+  if (eligible.length === 0) {
+    return {
+      targets: [],
+      ambiguous: false,
+      reason: backfillBlock ? `已有更晚的${backfillBlock.foodName}试吃记录，${backfillBlock.foodName}未计入试吃` : ''
+    }
+  }
+  const active = getActiveFoodName(trials, date)
+  if (active && !eligible.includes(active)) {
+    return { targets: [], ambiguous: false, reason: `${active}正在试吃中，${eligible.join('、')}未计入试吃` }
+  }
+  const later = (trials || []).find(trial =>
+    !eligible.includes(trial.foodName) && isOngoingTrial(trial) && trial.lastTriedDate && trial.lastTriedDate >= date
+  )
+  if (later) {
+    return { targets: [], ambiguous: false, reason: `已有更晚的${later.foodName}试吃记录，${eligible.join('、')}未计入试吃` }
+  }
+  return { targets: [], ambiguous: false, reason: '' }
 }
 
 function getUnlockedFoodNames(trials) {
@@ -157,6 +210,7 @@ function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId, lastDa
   return (foods || []).filter(name => {
     const trial = byName[name]
     if (!trial || trial.status === 'allergic' || Number(trial.trialCount) <= 0) return false
+    if (trial.manuallyUnlocked) return false
     if (onlyLast && trial.lastTriedDate !== date) return false
     if (!recordId || getLogSource(trial, date) !== recordId) return false
     return !covered.includes(name)
@@ -164,9 +218,15 @@ function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId, lastDa
 }
 
 function orderTrialFoods(foods) {
-  return (foods || []).slice().sort((left, right) => {
-    return Number(left.status === 'allergic') - Number(right.status === 'allergic')
-  })
+  return (foods || []).slice().sort((left, right) => getTrialFoodOrder(left) - getTrialFoodOrder(right))
+}
+
+function getTrialFoodOrder(food) {
+  if (food.isActive) return 0
+  if (food.status === 'allergic') return 4
+  if (food.status === 'unlocked') return 3
+  if (food.status === 'tracking' && Number(food.trialCount) > 0 && !food.streakExpired) return 1
+  return 2
 }
 
 module.exports = {
@@ -175,6 +235,7 @@ module.exports = {
   normalizeMode,
   getEligibleTrialFoods,
   getAutoTrialTargets,
+  getAutoTrialResult,
   getNextTrialState,
   decorateFood,
   buildTrialSteps,
