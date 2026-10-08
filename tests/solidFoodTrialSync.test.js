@@ -13,7 +13,7 @@ const today = dateUtil.todayStr()
 const yesterday = dateUtil.addDays(today, -1)
 
 function makeWorld() {
-  const world = { trials: [], records: [], toasts: [], modals: [], calls: [], loading: 0, hidden: 0, navigated: 0 }
+  const world = { trials: [], records: [], toasts: [], modals: [], modalAnswers: [], calls: [], logRecordIds: [], loading: 0, hidden: 0, navigated: 0 }
   const storage = { familyCode: 'FAM', babyBirthDate: '2026-03-05' }
   let pageConfig = null
   let recordId = 1
@@ -25,8 +25,9 @@ function makeWorld() {
     removeStorageSync: () => {},
     showToast: opts => world.toasts.push(opts.title),
     showModal: opts => {
-      world.modals.push({ title: opts.title, content: opts.content })
-      if (opts.success) opts.success({ confirm: true })
+      world.modals.push({ title: opts.title, content: opts.content, confirmText: opts.confirmText, cancelText: opts.cancelText, showCancel: opts.showCancel })
+      const answer = world.modalAnswers.length ? world.modalAnswers.shift() : { confirm: opts.showCancel === false, cancel: opts.showCancel !== false }
+      if (opts.success) opts.success(answer)
     },
     showLoading: () => { world.loading += 1 },
     hideLoading: () => { world.hidden += 1 },
@@ -58,6 +59,7 @@ function makeWorld() {
         if (data.action === 'log') {
           if (world.logReject) return Promise.reject(new Error('network down'))
           if (world.logDown) return Promise.resolve({ result: { success: false, error: 'db error' } })
+          world.logRecordIds.push(data.recordId || '')
           const existing = find()
           const consecutive = existing && existing.lastTriedDate && (world.mode === 'relaxed' || dateUtil.addDays(existing.lastTriedDate, 1) === data.date)
           const trialCount = consecutive ? existing.trialCount + 1 : 1
@@ -65,6 +67,7 @@ function makeWorld() {
           if (data.recordId) logSources[data.date] = data.recordId
           const next = { foodName: data.foodName, trialCount, status: trialCount >= 3 ? 'unlocked' : 'tracking', lastTriedDate: data.date, logSources, lastLogRecordId: data.recordId || '' }
           if (existing) Object.assign(existing, next); else world.trials.push(next)
+          if (world.logRejectAfterWrite) return Promise.reject(new Error('network after write'))
           return Promise.resolve({ result: { success: true, data: { ...next } } })
         }
         if (data.action === 'transferLogSource') {
@@ -310,6 +313,50 @@ async function run() {
     await flushTimers()
     assert.strictEqual(business.page.data.saving, true)
     assert.ok(business.modals[0].content.includes('记录已保存，试吃未同步'))
+  })
+
+  await test('retrying failed trial sync reuses the saved record without saving again', async () => {
+    const world = makeWorld()
+    world.listDown = true
+    world.modalAnswers.push({ confirm: true })
+    const payload = record({ solidFoodDishName: '胡萝卜泥' })
+    world.page.saveRecord(payload)
+    await Promise.resolve()
+    world.listDown = false
+    await flushTimers()
+    assert.strictEqual(world.calls.filter(c => c.startsWith('addRecord:')).length, 1)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:log').length, 1)
+    assert.deepStrictEqual(world.logRecordIds, ['new1'])
+    assert.deepStrictEqual(world.trials.map(t => [t.foodName, t.trialCount]), [['胡萝卜', 1]])
+    assert.strictEqual(world.modals[0].confirmText, '重试同步')
+    assert.strictEqual(world.modals[0].cancelText, '稍后')
+    assert.strictEqual(world.navigated, 1)
+  })
+
+  await test('canceling trial-sync retry leaves the saved record and navigates back', async () => {
+    const world = makeWorld()
+    world.listDown = true
+    world.modalAnswers.push({ cancel: true })
+    world.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥' }))
+    await flushTimers()
+    assert.strictEqual(world.calls.filter(c => c.startsWith('addRecord:')).length, 1)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:log').length, 0)
+    assert.strictEqual(world.navigated, 1)
+  })
+
+  await test('retry after a lost log response does not double-count an already written trial', async () => {
+    const world = makeWorld()
+    world.logRejectAfterWrite = true
+    world.modalAnswers.push({ confirm: true })
+    world.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥' }))
+    await Promise.resolve()
+    world.logRejectAfterWrite = false
+    await flushTimers()
+    assert.strictEqual(world.calls.filter(c => c.startsWith('addRecord:')).length, 1)
+    assert.strictEqual(world.calls.filter(c => c === 'foodTrial:log').length, 1)
+    assert.deepStrictEqual(world.logRecordIds, ['new1'])
+    assert.deepStrictEqual(world.trials.map(t => [t.foodName, t.trialCount]), [['胡萝卜', 1]])
+    assert.strictEqual(world.navigated, 1)
   })
 
   await test('failed feeding save does not trigger trial sync and allows retry', async () => {

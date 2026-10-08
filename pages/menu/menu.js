@@ -285,14 +285,14 @@ Page({
       menuData.getDishFoods(dish).forEach(name => {
         if (used[name]) return
         used[name] = true
-        const food = foodUnlock.decorateFood(name, byName[name], this.data.trialMode)
+        const food = foodUnlock.decorateFood(name, byName[name], this.data.trialMode, this.data.today)
         const allergen = foodUnlock.getAllergenInfo(name)
         trialFoods.push({
           ...food,
           allergenLevel: allergen.level,
           allergenLabel: allergen.label,
           allergenHint: allergen.hint,
-          progressSteps: foodUnlock.buildTrialSteps(food.trialCount, food.status),
+          progressSteps: foodUnlock.buildTrialSteps(food.streakExpired ? 0 : food.trialCount, food.status),
           emoji: this.getFoodEmoji(name),
           category: this.getFoodCategory(dish, name),
           isActive: this.data.activeTrialFood === name,
@@ -305,14 +305,14 @@ Page({
       if (used[name]) return
       used[name] = true
       const trial = byName[name]
-      const food = foodUnlock.decorateFood(name, trial, this.data.trialMode)
+      const food = foodUnlock.decorateFood(name, trial, this.data.trialMode, this.data.today)
       const allergen = foodUnlock.getAllergenInfo(name)
       trialFoods.push({
         ...food,
         allergenLevel: allergen.level,
         allergenLabel: allergen.label,
         allergenHint: allergen.hint,
-        progressSteps: foodUnlock.buildTrialSteps(food.trialCount, food.status),
+        progressSteps: foodUnlock.buildTrialSteps(food.streakExpired ? 0 : food.trialCount, food.status),
         emoji: this.getFoodEmoji(name),
         category: trial && trial.isCustom ? '自定义' : this.getFoodCategory({}, name),
         isActive: this.data.activeTrialFood === name,

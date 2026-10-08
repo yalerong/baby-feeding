@@ -442,21 +442,39 @@ Page({
             solidFoodFoods: payload.solidFoodFoods
           })
         }
-        return this.syncSolidFoodTrial({
+        const saved = isEdit ? '修改成功' : '保存成功'
+        const recordId = isEdit ? this.data._id : (res.result._id || '')
+        const syncTrial = () => this.syncSolidFoodTrial({
           before: isEdit ? this._originalRecord : null,
           after: payload,
-          recordId: isEdit ? this.data._id : (res.result._id || ''),
+          recordId,
           silent: true
-        }).then(syncResult => {
-          wx.hideLoading()
-          if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
-            this.cleanupImages(this._originalRecord.images.filter(url => !payload.images.includes(url)))
-          }
-          const saved = isEdit ? '修改成功' : '保存成功'
-          if (syncResult && (syncResult.status === 'failed' || syncResult.status === 'skipped') && syncResult.message) {
+        })
+        const finish = syncResult => {
+          if (syncResult && syncResult.status === 'failed' && syncResult.message) {
             wx.showModal({
               title: saved,
-              content: syncResult.status === 'failed' ? `记录已保存，试吃未同步：${syncResult.message}` : syncResult.message,
+              content: `记录已保存，试吃未同步：${syncResult.message}`,
+              confirmText: '重试同步',
+              cancelText: '稍后',
+              success: modalRes => {
+                if (modalRes.confirm) {
+                  wx.showLoading({ title: '同步中...', mask: true })
+                  syncTrial().then(retryResult => {
+                    wx.hideLoading()
+                    finish(retryResult)
+                  })
+                  return
+                }
+                wx.navigateBack()
+              }
+            })
+            return
+          }
+          if (syncResult && syncResult.status === 'skipped' && syncResult.message) {
+            wx.showModal({
+              title: saved,
+              content: syncResult.message,
               showCancel: false,
               success: () => wx.navigateBack()
             })
@@ -464,6 +482,13 @@ Page({
           }
           wx.showToast({ title: syncResult && syncResult.message ? `${saved}，${syncResult.message}`.slice(0, 40) : saved, icon: 'success', duration: syncResult && syncResult.message ? 2500 : 1500 })
           setTimeout(() => wx.navigateBack(), 800)
+        }
+        return syncTrial().then(syncResult => {
+          wx.hideLoading()
+          if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
+            this.cleanupImages(this._originalRecord.images.filter(url => !payload.images.includes(url)))
+          }
+          finish(syncResult)
         })
       }
       wx.hideLoading()

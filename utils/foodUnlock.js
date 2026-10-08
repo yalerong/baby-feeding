@@ -40,22 +40,28 @@ function getNextTrialState(trial, date) {
   }
 }
 
-function decorateFood(name, trial, mode) {
+function decorateFood(name, trial, mode, today) {
   const current = trial || {}
   const relaxed = normalizeMode(mode) === 'relaxed'
   const trialCount = Number(current.trialCount) || 0
   const allergic = current.status === 'allergic'
   const unlocked = !allergic && trialCount >= UNLOCK_DAYS
   const status = allergic ? 'allergic' : (unlocked ? 'unlocked' : 'tracking')
-  const remainingCount = Math.max(0, UNLOCK_DAYS - trialCount)
+  const streakExpired = Boolean(
+    !relaxed && status === 'tracking' && trialCount > 0 &&
+    today && current.lastTriedDate && current.lastTriedDate < dateUtil.addDays(today, -1)
+  )
+  const displayCount = streakExpired ? 0 : trialCount
+  const remainingCount = Math.max(0, UNLOCK_DAYS - displayCount)
   return {
     name,
     trialCount,
     remainingCount,
     status,
+    streakExpired,
     allergyNote: String(current.allergyNote || ''),
     allergyDate: String(current.allergyDate || ''),
-    statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : (relaxed ? `再吃 ${remainingCount} 天解锁` : `再连续吃 ${remainingCount} 天解锁`))
+    statusText: allergic ? '疑似过敏，已排除' : (unlocked ? '已解锁' : (streakExpired ? '连续试吃已中断，需重新记录 3 天' : (relaxed ? `再吃 ${remainingCount} 天解锁` : `再连续吃 ${remainingCount} 天解锁`)))
   }
 }
 
@@ -212,9 +218,15 @@ function getTrialRevertFoods({ foods, otherFoods, trials, date, recordId, lastDa
 }
 
 function orderTrialFoods(foods) {
-  return (foods || []).slice().sort((left, right) => {
-    return Number(left.status === 'allergic') - Number(right.status === 'allergic')
-  })
+  return (foods || []).slice().sort((left, right) => getTrialFoodOrder(left) - getTrialFoodOrder(right))
+}
+
+function getTrialFoodOrder(food) {
+  if (food.isActive) return 0
+  if (food.status === 'allergic') return 4
+  if (food.status === 'unlocked') return 3
+  if (food.status === 'tracking' && Number(food.trialCount) > 0 && !food.streakExpired) return 1
+  return 2
 }
 
 module.exports = {

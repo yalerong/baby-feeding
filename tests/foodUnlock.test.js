@@ -18,6 +18,7 @@ test('shows the remaining consecutive days before a food is unlocked', () => {
     trialCount: 2,
     remainingCount: 1,
     status: 'tracking',
+    streakExpired: false,
     allergyNote: '',
     allergyDate: '',
     statusText: '再连续吃 1 天解锁'
@@ -30,10 +31,35 @@ test('marks a food as unlocked after three consecutive days', () => {
     trialCount: 3,
     remainingCount: 0,
     status: 'unlocked',
+    streakExpired: false,
     allergyNote: '',
     allergyDate: '',
     statusText: '已解锁'
   })
+})
+
+test('strict display resets an expired visible streak without changing the stored count', () => {
+  assert.deepStrictEqual(foodUnlock.decorateFood('南瓜', { foodName: '南瓜', trialCount: 2, status: 'tracking', lastTriedDate: '2026-10-05' }, 'strict', '2026-10-08'), {
+    name: '南瓜',
+    trialCount: 2,
+    remainingCount: 3,
+    status: 'tracking',
+    streakExpired: true,
+    allergyNote: '',
+    allergyDate: '',
+    statusText: '连续试吃已中断，需重新记录 3 天'
+  })
+  assert.deepStrictEqual(foodUnlock.buildTrialSteps(0, 'tracking'), [
+    { number: 1, done: false, current: false },
+    { number: 2, done: false, current: false },
+    { number: 3, done: false, current: false }
+  ])
+})
+
+test('strict display keeps yesterday streaks active and relaxed gaps active', () => {
+  assert.strictEqual(foodUnlock.decorateFood('南瓜', { trialCount: 2, status: 'tracking', lastTriedDate: '2026-10-07' }, 'strict', '2026-10-08').streakExpired, false)
+  assert.strictEqual(foodUnlock.decorateFood('南瓜', { trialCount: 2, status: 'tracking', lastTriedDate: '2026-10-05' }, 'relaxed', '2026-10-08').streakExpired, false)
+  assert.strictEqual(foodUnlock.decorateFood('南瓜', { trialCount: 3, status: 'unlocked', lastTriedDate: '2026-10-05' }, 'strict', '2026-10-08').streakExpired, false)
 })
 
 test('continues only on the next calendar day and resets after a gap', () => {
@@ -106,6 +132,21 @@ test('keeps suspected allergens visible and places them after active foods', () 
     ], { 南瓜: true }),
     ['虾']
   )
+})
+
+test('orders active, ongoing, pending, unlocked and allergic foods without mutating input', () => {
+  const foods = [
+    { name: '待开始', status: 'tracking', trialCount: 0 },
+    { name: '已解锁', status: 'unlocked', trialCount: 3 },
+    { name: '已断档', status: 'tracking', trialCount: 2, streakExpired: true },
+    { name: '进行中1', status: 'tracking', trialCount: 1 },
+    { name: '当前', status: 'tracking', trialCount: 1, isActive: true },
+    { name: '过敏', status: 'allergic', trialCount: 1 },
+    { name: '进行中2', status: 'tracking', trialCount: 2 }
+  ]
+  const before = JSON.parse(JSON.stringify(foods))
+  assert.deepStrictEqual(foodUnlock.orderTrialFoods(foods).map(food => food.name), ['当前', '进行中1', '进行中2', '待开始', '已断档', '已解锁', '过敏'])
+  assert.deepStrictEqual(foods, before)
 })
 
 test('does not allow a second trial log on the same day', () => {
@@ -297,6 +338,37 @@ test('manually unlocked foods are never reverted by feeding-record edits', () =>
   const trials = [{ foodName: '苹果', status: 'unlocked', trialCount: 3, lastTriedDate: '2026-10-01', manuallyUnlocked: true, logSources: { '2026-10-01': 'r1' } }]
   assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['苹果'], otherFoods: [], trials, date: '2026-10-01', recordId: 'r1' }), [])
   assert.deepStrictEqual(foodUnlock.getTrialRevertFoods({ foods: ['苹果'], otherFoods: [], trials, date: '2026-10-01', recordId: 'r1', lastDayOnly: false }), [])
+})
+
+test('menu trial page shows expired strict streak progress as zero while preserving trial count', () => {
+  let pageConfig = null
+  const originalPage = global.Page
+  const originalWx = global.wx
+  global.Page = config => { pageConfig = config }
+  global.wx = {
+    getStorageSync() { return '' },
+    cloud: { callFunction() { return Promise.resolve({ result: { success: true, data: [] } }) } }
+  }
+  delete require.cache[require.resolve('../pages/menu/menu.js')]
+  require('../pages/menu/menu.js')
+  global.Page = originalPage
+  global.wx = originalWx
+
+  const page = Object.assign({}, pageConfig, {
+    data: JSON.parse(JSON.stringify(pageConfig.data)),
+    setData(patch) { Object.assign(this.data, patch) }
+  })
+  page.data.today = '2026-10-08'
+  page.data.currentAgeMonth = 8
+  page.data.trialMode = 'strict'
+  page.data.foodTrials = [{ foodName: '红薯', status: 'tracking', trialCount: 2, lastTriedDate: '2026-10-05' }]
+  page.buildTrialFoods()
+
+  const food = page.data.trialFoods.find(item => item.name === '红薯')
+  assert.ok(food)
+  assert.strictEqual(food.trialCount, 2)
+  assert.strictEqual(food.streakExpired, true)
+  assert.deepStrictEqual(food.progressSteps, foodUnlock.buildTrialSteps(0, 'tracking'))
 })
 
 test('strict mixed-dish backfill explains a later trial even when that food is in the dish', () => {

@@ -234,7 +234,7 @@
     </view>
 
     <view class="card trial-note">
-      “已解锁”仅表示已{{trialMode === 'relaxed' ? '累计' : '连续'}}记录 3 天、家长未记录异常，不等同医学排除过敏。常见过敏原更应单独尝试；出现皮疹、呕吐、喘鸣或面唇肿胀等情况应停止食用并及时就医。标记“疑似过敏”后，后续新生成菜单会排除该食材。
+      “已解锁”表示已{{trialMode === 'relaxed' ? '累计' : '连续'}}记录 3 天且未记录异常，或由家长补登记此前试吃通过，不代表永久不会过敏。后来出现异常仍可记录，新菜单会排除该食材。
     </view>
 
     <view class="trial-service-error" wx:if="{{foodTrialError}}">{{foodTrialError}}</view>
