@@ -263,7 +263,7 @@
       </view>
       <view class="trial-food-actions">
         <view wx:if="{{item.status === 'tracking' && !item.canUndoToday}}" class="trial-log-btn trial-action" catchtap="recordFoodTrial" data-name="{{item.name}}">记录今天已吃</view>
-        <view wx:if="{{item.status === 'tracking'}}" class="trial-manual-unlock-btn trial-action" catchtap="manualUnlockFood" data-name="{{item.name}}">补登记已解锁</view>
+        <view wx:if="{{item.status === 'tracking'}}" class="trial-manual-unlock-btn trial-action" catchtap="manualUnlockFood" data-name="{{item.name}}">手动解锁</view>
         <view wx:if="{{item.status !== 'allergic' && item.canUndoToday}}" class="trial-undo-btn trial-action" catchtap="undoFoodTrial" data-name="{{item.name}}">撤销今天记录</view>
         <button wx:if="{{item.status === 'tracking'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
         <button wx:if="{{item.status === 'unlocked'}}" class="trial-alert-subtle-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">记录异常</button>
