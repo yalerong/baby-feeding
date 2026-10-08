@@ -268,7 +268,7 @@
         <button wx:if="{{item.status === 'tracking'}}" class="trial-alert-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">疑似过敏</button>
         <button wx:if="{{item.status === 'unlocked'}}" class="trial-alert-subtle-btn" bindtap="markFoodAllergic" data-name="{{item.name}}">记录异常</button>
         <button wx:if="{{item.status === 'allergic'}}" class="trial-restore-btn" bindtap="restoreFood" data-name="{{item.name}}">恢复推荐</button>
-        <button wx:if="{{item.isOffCatalog}}" class="trial-remove-btn" bindtap="removeFood" data-name="{{item.name}}">移除</button>
+        <button wx:if="{{item.status === 'unlocked' || item.isOffCatalog}}" class="trial-remove-btn" bindtap="removeFood" data-name="{{item.name}}">移除</button>
       </view>
     </view>
   </block>
