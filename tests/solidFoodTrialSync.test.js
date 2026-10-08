@@ -13,21 +13,36 @@ const today = dateUtil.todayStr()
 const yesterday = dateUtil.addDays(today, -1)
 
 function makeWorld() {
-  const world = { trials: [], records: [], toasts: [], calls: [] }
+  const world = { trials: [], records: [], toasts: [], modals: [], calls: [], loading: 0, hidden: 0, navigated: 0 }
   const storage = { familyCode: 'FAM', babyBirthDate: '2026-03-05' }
   let pageConfig = null
+  let recordId = 1
+  const delay = value => world.delaySync ? new Promise(resolve => setTimeout(() => resolve(value), 20)) : Promise.resolve(value)
   global.Page = config => { pageConfig = config }
   global.wx = {
     getStorageSync: key => storage[key] || '',
     setStorageSync: (key, value) => { storage[key] = value },
     removeStorageSync: () => {},
     showToast: opts => world.toasts.push(opts.title),
-    showLoading: () => {},
-    hideLoading: () => {},
+    showModal: opts => {
+      world.modals.push({ title: opts.title, content: opts.content })
+      if (opts.success) opts.success({ confirm: true })
+    },
+    showLoading: () => { world.loading += 1 },
+    hideLoading: () => { world.hidden += 1 },
+    navigateBack: () => { world.navigated += 1 },
     setNavigationBarTitle: () => {},
     cloud: {
       callFunction: ({ name, data }) => {
         world.calls.push(`${name}:${data.action || data.date || ''}`)
+        if (name === 'addRecord') {
+          if (world.saveDown) return Promise.resolve({ result: { success: false, error: 'save failed' } })
+          return Promise.resolve({ result: { success: true, _id: `new${recordId++}` } })
+        }
+        if (name === 'updateRecord') {
+          if (world.saveDown) return Promise.resolve({ result: { success: false, error: 'save failed' } })
+          return Promise.resolve({ result: { success: true } })
+        }
         if (name === 'getRecords') {
           if (world.recordsDown) return Promise.reject(new Error('records down'))
           return Promise.resolve({ result: { success: true, data: world.records.filter(r => !data.date || r.date === data.date) } })
@@ -36,10 +51,13 @@ function makeWorld() {
         if (name !== 'foodTrial') return Promise.resolve({ result: { success: true } })
         const find = () => world.trials.find(t => t.foodName === data.foodName)
         if (data.action === 'list') {
+          if (world.listReject) return Promise.reject(new Error('network down'))
           if (world.listDown) return Promise.resolve({ result: { success: false, error: 'db error' } })
-          return Promise.resolve({ result: { success: true, data: world.trials.map(t => ({ ...t, logSources: { ...(t.logSources || {}) } })), settings: { trialMode: world.mode || 'strict' } } })
+          return delay({ result: { success: true, data: world.trials.map(t => ({ ...t, logSources: { ...(t.logSources || {}) } })), settings: { trialMode: world.mode || 'strict' } } })
         }
         if (data.action === 'log') {
+          if (world.logReject) return Promise.reject(new Error('network down'))
+          if (world.logDown) return Promise.resolve({ result: { success: false, error: 'db error' } })
           const existing = find()
           const consecutive = existing && existing.lastTriedDate && (world.mode === 'relaxed' || dateUtil.addDays(existing.lastTriedDate, 1) === data.date)
           const trialCount = consecutive ? existing.trialCount + 1 : 1
@@ -76,6 +94,10 @@ function makeWorld() {
   const page = Object.assign({}, pageConfig, { data: JSON.parse(JSON.stringify(pageConfig.data)), setData(patch) { Object.assign(this.data, patch) } })
   world.page = page
   return world
+}
+
+function flushTimers() {
+  return new Promise(resolve => setTimeout(resolve, 900))
 }
 
 function record(fields) {
@@ -201,6 +223,103 @@ async function run() {
     assert.strictEqual(world.trials.length, 1)
     assert.strictEqual(world.trials[0].trialCount, 1)
     assert.strictEqual(world.calls.filter(c => c === 'foodTrial:log' || c === 'foodTrial:undoLog').length, 0)
+  })
+
+  await test('strict mode tells the user when another active food blocks this record', async () => {
+    const world = makeWorld()
+    world.trials.push({ foodName: '苹果', trialCount: 1, status: 'tracking', lastTriedDate: today, logSources: { [today]: 'old' } })
+    await world.page.syncSolidFoodTrial({ before: null, after: record({ solidFoodDishName: '红薯泥', solidFoodFoods: ['红薯'] }), recordId: 'r1' })
+    assert.strictEqual(world.trials.length, 1)
+    assert.ok(world.toasts.some(t => t.includes('苹果正在试吃中') && t.includes('红薯未计入试吃')))
+  })
+
+  await test('strict mode tells the user when an ongoing food blocks the next day', async () => {
+    const world = makeWorld()
+    world.trials.push({ foodName: '红薯', trialCount: 1, status: 'tracking', lastTriedDate: yesterday, logSources: { [yesterday]: 'old' } })
+    await world.page.syncSolidFoodTrial({ before: null, after: record({ solidFoodDishName: '菠菜泥', solidFoodFoods: ['菠菜'] }), recordId: 'r1' })
+    assert.strictEqual(world.trials.length, 1)
+    assert.ok(world.toasts.some(t => t.includes('红薯正在试吃中') && t.includes('菠菜未计入试吃')))
+  })
+
+  await test('strict mixed dishes log the active food and tell which new food was skipped', async () => {
+    const world = makeWorld()
+    world.trials.push({ foodName: '苹果', trialCount: 1, status: 'tracking', lastTriedDate: yesterday, logSources: { [yesterday]: 'old' } })
+    const result = await world.page.syncSolidFoodTrial({ before: null, after: record({ solidFoodDishName: '混合泥', solidFoodFoods: ['苹果', '红薯'] }), recordId: 'r1' })
+    assert.strictEqual(world.trials.length, 1)
+    assert.strictEqual(world.trials[0].foodName, '苹果')
+    assert.strictEqual(world.trials[0].trialCount, 2)
+    assert.strictEqual(result.status, 'skipped')
+    assert.ok(result.message.includes('苹果 2/3'))
+    assert.ok(result.message.includes('红薯未计入试吃'))
+    assert.ok(world.toasts.some(t => t.includes('苹果 2/3') && t.includes('红薯未计入试吃')))
+  })
+
+  await test('save waits for delayed trial sync before final toast and navigation', async () => {
+    const world = makeWorld()
+    world.delaySync = true
+    world.page.data.date = today
+    world.page.data.time = '12:00'
+    world.page.data.solidFood = true
+    world.page.data.solidFoodCustomName = '胡萝卜泥'
+    world.page.data.solidFoodGrams = '20'
+    world.page.data.solidFoodFoods = ['胡萝卜']
+    world.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥', solidFoodFoods: ['胡萝卜'] }))
+    assert.strictEqual(world.hidden, 0)
+    assert.strictEqual(world.navigated, 0)
+    await flushTimers()
+    assert.deepStrictEqual(world.trials.map(t => [t.foodName, t.trialCount]), [['胡萝卜', 1]])
+    assert.strictEqual(world.hidden, 1)
+    assert.ok(world.toasts[world.toasts.length - 1].includes('试吃已同步'))
+    assert.strictEqual(world.modals.length, 0)
+    assert.strictEqual(world.navigated, 1)
+  })
+
+  await test('a pending save ignores repeated saveRecord calls', async () => {
+    const world = makeWorld()
+    world.delaySync = true
+    const payload = record({ solidFoodDishName: '胡萝卜泥', solidFoodFoods: ['胡萝卜'] })
+    world.page.saveRecord(payload)
+    world.page.saveRecord(payload)
+    await flushTimers()
+    assert.strictEqual(world.calls.filter(c => c.startsWith('addRecord:')).length, 1)
+    assert.strictEqual(world.trials.length, 1)
+  })
+
+  await test('save reports trial list failures without allowing a duplicate resave', async () => {
+    const world = makeWorld()
+    world.listDown = true
+    world.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥' }))
+    await flushTimers()
+    assert.strictEqual(world.hidden, 1)
+    assert.strictEqual(world.page.data.saving, true)
+    assert.ok(world.modals[0].content.includes('记录已保存，试吃未同步'))
+    assert.strictEqual(world.navigated, 1)
+  })
+
+  await test('save reports trial network and business log failures as sync-only failures', async () => {
+    const network = makeWorld()
+    network.logReject = true
+    network.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥' }))
+    await flushTimers()
+    assert.strictEqual(network.page.data.saving, true)
+    assert.ok(network.modals[0].content.includes('记录已保存，试吃未同步'))
+
+    const business = makeWorld()
+    business.logDown = true
+    business.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥' }))
+    await flushTimers()
+    assert.strictEqual(business.page.data.saving, true)
+    assert.ok(business.modals[0].content.includes('记录已保存，试吃未同步'))
+  })
+
+  await test('failed feeding save does not trigger trial sync and allows retry', async () => {
+    const world = makeWorld()
+    world.saveDown = true
+    world.page.saveRecord(record({ solidFoodDishName: '胡萝卜泥' }))
+    await Promise.resolve()
+    assert.strictEqual(world.calls.filter(c => c.startsWith('foodTrial:')).length, 0)
+    assert.strictEqual(world.page.data.saving, false)
+    assert.ok(world.toasts[world.toasts.length - 1].includes('保存失败'))
   })
 
   await test('relaxed mode logs both new foods of a mixed dish in one go', async () => {

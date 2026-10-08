@@ -398,7 +398,9 @@
 }
 
 .trial-log-btn,
+.trial-manual-unlock-btn,
 .trial-alert-btn,
+.trial-alert-subtle-btn,
 .trial-undo-btn,
 .trial-restore-btn,
 .trial-remove-btn {
@@ -417,12 +419,16 @@
 }
 
 .trial-log-btn { background: #5BC58F; color: #fff; }
+.trial-manual-unlock-btn { background: #EAF6EF; color: #3D8F64; }
 .trial-alert-btn { background: #FFF1E9; color: #C45D43; }
+.trial-alert-subtle-btn { background: #F3F0EA; color: #8C8578; }
 .trial-undo-btn { background: #FFF1EF; color: #C94F49; }
 .trial-restore-btn { background: #EAF3FF; color: #3B74AE; }
 
 .trial-log-btn::after,
+.trial-manual-unlock-btn::after,
 .trial-alert-btn::after,
+.trial-alert-subtle-btn::after,
 .trial-undo-btn::after,
 .trial-restore-btn::after { border: none; }
 

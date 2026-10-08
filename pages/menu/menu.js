@@ -66,7 +66,8 @@ Page({
     trialModes: foodUnlock.TRIAL_MODES,
     libraryDishes: [],
     hallLibraryDishes: [],
-    unlockNotice: null
+    unlockNotice: null,
+    trialActionBusy: false
   },
 
   onShow() {
@@ -295,7 +296,7 @@ Page({
           emoji: this.getFoodEmoji(name),
           category: this.getFoodCategory(dish, name),
           isActive: this.data.activeTrialFood === name,
-          canUndoToday: byName[name] && byName[name].lastTriedDate === this.data.today
+          canUndoToday: byName[name] && !byName[name].manuallyUnlocked && byName[name].lastTriedDate === this.data.today
         })
       })
     })
@@ -315,7 +316,7 @@ Page({
         emoji: this.getFoodEmoji(name),
         category: trial && trial.isCustom ? '自定义' : this.getFoodCategory({}, name),
         isActive: this.data.activeTrialFood === name,
-        canUndoToday: trial && trial.lastTriedDate === this.data.today
+        canUndoToday: trial && !trial.manuallyUnlocked && trial.lastTriedDate === this.data.today
       })
     })
     // "移除"只给完整菜库里没有的食材（自定义/误存的菜名）；只是超出当前月龄的菜库食材不算
@@ -928,6 +929,56 @@ Page({
         }).catch(err => {
           wx.hideLoading()
           wx.showToast({ title: err.message || '记录失败', icon: 'none' })
+        })
+      }
+    })
+  },
+
+  manualUnlockFood(e) {
+    const foodName = e.currentTarget.dataset.name
+    if (this.data.foodTrialError) {
+      wx.showModal({
+        title: '试吃功能暂不可用',
+        content: this.data.foodTrialError,
+        showCancel: false,
+        confirmText: '知道了'
+      })
+      return
+    }
+    if (this.data.trialActionBusy) return
+    this.setData({ trialActionBusy: true })
+    wx.showModal({
+      title: '补登记已解锁',
+      content: `仅用于“${foodName}”之前已经试吃通过、只是漏登记的情况；不会补造历史试吃日期。确认标记为已解锁吗？`,
+      confirmText: '确认解锁',
+      success: result => {
+        if (!result.confirm) {
+          this.setData({ trialActionBusy: false })
+          return
+        }
+        wx.showLoading({ title: '正在登记', mask: true })
+        wx.cloud.callFunction({
+          name: 'foodTrial',
+          data: { action: 'setStatus', familyCode: wx.getStorageSync('familyCode') || 'FAMILY', foodName, status: 'unlocked', date: this.data.today }
+        }).then(res => {
+          if (!res.result || !res.result.success) throw new Error(res.result && res.result.error)
+          return this.loadFoodTrials()
+        }).then(() => {
+          if (this.data.foodTrialError) throw new Error(`已登记，刷新失败：${this.data.foodTrialError}`)
+          wx.hideLoading()
+          this.setData({ trialActionBusy: false })
+          this.loadWeek(this.data.weekStart)
+          this.buildMonth(this.data.monthStart)
+          wx.showToast({ title: '已补登记解锁', icon: 'success' })
+        }).catch(err => {
+          wx.hideLoading()
+          this.setData({ trialActionBusy: false })
+          const message = err.message || '登记失败'
+          if (message.length > 20) {
+            wx.showModal({ title: message.indexOf('已登记，刷新失败') === 0 ? '刷新失败' : '登记失败', content: message, showCancel: false, confirmText: '知道了' })
+          } else {
+            wx.showToast({ title: message, icon: 'none' })
+          }
         })
       }
     })

@@ -39,6 +39,12 @@ test('does not undo a record from a different day', () => {
   assert.strictEqual(getUndoTrialState({ trialCount: 2, lastTriedDate: '2026-08-01' }, '2026-08-02'), null)
 })
 
+test('does not undo or seed fake dates for manually unlocked foods', () => {
+  const trial = { trialCount: 3, status: 'unlocked', manuallyUnlocked: true, lastTriedDate: '2026-08-02' }
+  assert.strictEqual(getUndoTrialState(trial, '2026-08-02'), null)
+  assert.deepStrictEqual(seedLogDates(trial), [])
+})
+
 test('records and clears per-day log sources without touching other days', () => {
   assert.deepStrictEqual(withLogSource({ '2026-08-01': 'r1' }, '2026-08-02', 'r2'), { '2026-08-01': 'r1', '2026-08-02': 'r2' })
   assert.deepStrictEqual(withLogSource({ '2026-08-01': 'r1' }, '2026-08-02', ''), { '2026-08-01': 'r1' })
