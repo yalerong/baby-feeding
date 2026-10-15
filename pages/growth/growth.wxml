@@ -2,7 +2,7 @@
   <view class="card milestone-entry" bindtap="goMilestones">
     <view>
       <view class="milestone-entry-title">🌱 发育里程碑</view>
-      <view class="milestone-entry-desc">6 / 9个月清单 · 记录宝宝的新本领</view>
+      <view class="milestone-entry-desc">6 / 9 / 12个月清单 · 记录宝宝的新本领</view>
     </view>
     <text class="milestone-entry-arrow">›</text>
   </view>
@@ -44,11 +44,14 @@
 
   <!-- 记录列表 -->
   <view class="card">
-    <view class="list-header">
+    <view class="list-header history-header" bindtap="toggleHistory">
       <text class="list-title">历史记录</text>
-      <text class="list-count">{{records.length}} 条</text>
+      <view class="history-controls">
+        <text class="list-count">{{records.length}} 条</text>
+        <text class="history-toggle">{{historyExpanded ? '收起 ▴' : '展开 ▾'}}</text>
+      </view>
     </view>
-    <block wx:if="{{records.length > 0}}">
+    <block wx:if="{{historyExpanded && records.length > 0}}">
       <view class="record-item" wx:for="{{records}}" wx:key="_id" bindtap="goEdit" data-id="{{item._id}}">
         <view class="record-left">
           <view class="record-date">{{item.date}}</view>
@@ -62,7 +65,7 @@
         </view>
       </view>
     </block>
-    <view wx:else class="empty-tip">
+    <view wx:elif="{{historyExpanded}}" class="empty-tip">
       <text class="empty-emoji">🌱</text>
       还没有记录哦
       <view class="empty-sub">点击下方按钮记一下吧</view>

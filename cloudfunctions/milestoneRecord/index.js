@@ -3,15 +3,16 @@ const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
-// 与 CDC 6/9 个月清单对应；只接收已收录的项目，数字 id 保持稳定。
+// 与 CDC 6/9/12 个月清单对应；只接收已收录的项目，数字 id 保持稳定。
 const ITEM_COUNTS = {
   6: { social: 3, language: 3, cognitive: 3, motor: 3 },
-  9: { social: 5, language: 2, cognitive: 2, motor: 4 }
+  9: { social: 5, language: 2, cognitive: 2, motor: 4 },
+  12: { social: 1, language: 3, cognitive: 2, motor: 4 }
 }
 
 function validMilestoneId(value) {
   if (typeof value !== 'string') return false
-  const match = value.match(/^(6|9)-(social|language|cognitive|motor)-([1-5])$/)
+  const match = value.match(/^(6|9|12)-(social|language|cognitive|motor)-([1-5])$/)
   return !!match && Number(match[3]) <= ITEM_COUNTS[match[1]][match[2]]
 }
 

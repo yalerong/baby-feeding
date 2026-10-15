@@ -44,6 +44,26 @@ const CHECKLISTS = {
       { id: '9-motor-3', title: '用手指耙拢食物', tip: '仅在适龄安全食物、坐姿有支撑和成人全程看护的进食中观察。' },
       { id: '9-motor-4', title: '无需支撑也能坐着', tip: '在地面近身保护，留意是否需要手或成人持续支撑。' }
     ] }
+  ],
+  12: [
+    { id: 'social', title: '社交与情绪', items: [
+      { id: '12-social-1', title: '会和你一起玩互动游戏', tip: '例如面对面拍拍手，留意宝宝是否参与互动。' }
+    ] },
+    { id: 'language', title: '语言与交流', items: [
+      { id: '12-language-1', title: '会挥手表示再见', tip: '在自然告别时观察宝宝是否挥手。' },
+      { id: '12-language-2', title: '用妈妈、爸爸或专属称呼叫家长', tip: '留意是否用固定的称呼指向家长，有别于无指向地重复音节。' },
+      { id: '12-language-3', title: '听到“不”时会短暂停下', tip: '在日常需要提醒的情境中，留意是否短暂停顿或停止当前动作。' }
+    ] },
+    { id: 'cognitive', title: '认知与探索', items: [
+      { id: '12-cognitive-1', title: '把东西放进容器里', tip: '例如把较大的适龄积木放进杯子或盒子，全程近身看护。' },
+      { id: '12-cognitive-2', title: '寻找看着你藏起来的东西', tip: '让宝宝看见你藏好玩具，再观察是否主动寻找。' }
+    ] },
+    { id: 'motor', title: '动作发展', items: [
+      { id: '12-motor-1', title: '扶着东西自己站起来', tip: '在成人近身保护、家具稳固的环境中，观察是否自己扶着站起。' },
+      { id: '12-motor-2', title: '扶着家具走动', tip: '在安全地面近身保护，留意宝宝是否扶着稳固家具移动。' },
+      { id: '12-motor-3', title: '成人拿着无盖杯时能从杯中喝水', tip: '日常进食时由成人拿稳杯子，用少量水，在安全坐姿下观察。' },
+      { id: '12-motor-4', title: '用拇指和食指捏起东西', tip: '在成人全程看护的进食中用适龄安全食物观察，避免小硬物。' }
+    ] }
   ]
 }
 
@@ -64,11 +84,23 @@ const ACTIVITIES = {
     { id: 'sounds', milestoneId: '9-language-1', title: '你说一句，我接一句', text: '模仿宝宝自然发出的连续声音，再说简单的话，留出等待和回应的时间。' },
     { id: 'peekaboo', milestoneId: '9-social-5', title: '面对面躲猫猫', text: '用自己的双手遮住自己的脸，再露出来和宝宝互动，观察宝宝的表情和声音。' },
     { id: 'passing', milestoneId: '9-motor-2', title: '轮流传玩具', text: '在安全地垫上和宝宝来回递轻便、无小零件的玩具，留意玩耍中是否出现换手。坐着玩时按需扶护。' }
+  ],
+  12: [
+    { id: 'clapping', milestoneId: '12-social-1', title: '拍拍手一起玩', text: '面对面做熟悉的拍手游戏，回应宝宝的动作、表情和声音，让宝宝按兴趣参与。' },
+    { id: 'words', milestoneId: '12-language-2', title: '接着宝宝的话说', text: '顺着宝宝尝试说的声音回应，在日常互动中说出家人的称呼，留意宝宝是否用固定称呼叫你。' },
+    { id: 'blocks', milestoneId: '12-cognitive-1', title: '积木进盒子', text: '准备较大、适龄且无小零件的积木和安全容器，示范放进去，再让宝宝探索；成人全程近身看护。' }
   ]
 }
 
 function getReferenceMonth(ageMonths) {
+  if (ageMonths >= 12) return 12
   return ageMonths >= 9 ? 9 : 6
+}
+
+function getSourceUrl(month, type) {
+  const agePath = month === 12 ? '1-year' : `${month}-months`
+  const section = type === 'activities' ? 'milestones' : 'digital-online-checklist'
+  return `https://www.cdc.gov/act-early/${section}/${agePath}.html`
 }
 
 function buildChecklist(month, records) {
@@ -91,7 +123,7 @@ function buildChecklist(month, records) {
 }
 
 function getActivities(ageMonths, month, records) {
-  if (ageMonths === null || ageMonths < 6 || ageMonths >= 12 || month !== getReferenceMonth(ageMonths)) return []
+  if (ageMonths === null || ageMonths < 6 || ageMonths >= 15 || month !== getReferenceMonth(ageMonths)) return []
   const items = buildChecklist(month, records).groups.reduce((all, group) => all.concat(group.items), [])
   const priority = { unsure: 0, notYet: 0, '': 1, yes: 2 }
   return ACTIVITIES[month].map((activity, index) => {
@@ -121,8 +153,8 @@ function buildObservationSummary(month, records, options) {
     lines.push('')
   })
   lines.push('本摘要用于儿保沟通，不能替代专业发育筛查。',
-    `来源：https://www.cdc.gov/act-early/digital-online-checklist/${month}-months.html`)
+    `来源：${getSourceUrl(month)}`)
   return lines.join('\n')
 }
 
-module.exports = { CHECKLISTS, STATUS_OPTIONS, getReferenceMonth, buildChecklist, getActivities, buildObservationSummary }
+module.exports = { CHECKLISTS, STATUS_OPTIONS, getReferenceMonth, getSourceUrl, buildChecklist, getActivities, buildObservationSummary }
