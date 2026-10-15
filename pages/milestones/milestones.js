@@ -1,12 +1,21 @@
 const dateUtil = require('../../utils/date.js')
 const milestones = require('../../utils/developmentMilestones.js')
+const groupIcons = { social: '♡', language: '♪', cognitive: '✦', motor: '↗' }
+const statusDescriptions = {
+  yes: '在日常互动中见过这个表现',
+  notYet: '有机会观察，暂时还没见到',
+  unsure: '还没机会观察，或暂时拿不准'
+}
 
 Page({
   data: {
     ageText: '', ageMonths: null, selectedMonth: 6,
     groups: [], total: 0, recordedCount: 0, stageHint: '', activities: [],
+    expandedGroups: { social: true },
     loading: true, loadError: false, saving: false,
-    editor: null, statusOptions: milestones.STATUS_OPTIONS, today: ''
+    editor: null,
+    statusOptions: milestones.STATUS_OPTIONS.map(option => ({ ...option, description: statusDescriptions[option.value] })),
+    today: ''
   },
 
   onShow() {
@@ -59,12 +68,17 @@ Page({
 
   renderChecklist() {
     const { selectedMonth, ageMonths } = this.data
-    let stageHint = `${selectedMonth}个月节点的日常观察参考。已记录项目数不代表能力评分。`
+    const checklist = milestones.buildChecklist(selectedMonth, this._records)
+    checklist.groups.forEach(group => {
+      group.recordedCount = group.items.filter(item => item.status).length
+      group.icon = groupIcons[group.id]
+    })
+    let stageHint = `按${selectedMonth}个月清单，留意日常互动中的小变化。`
     if (ageMonths === null) stageHint = '请先在首页设置宝宝生日；目前可手动查看6、9、12个月清单。'
-    else if (ageMonths < selectedMonth) stageHint = `下一阶段预览：宝宝目前无需提前完成${selectedMonth}个月清单。`
+    else if (ageMonths < selectedMonth) stageHint = `下一阶段预览：先了解就好，无需提前完成${selectedMonth}个月清单。`
     else if (ageMonths >= 15) stageHint = '这里收录的是6、9、12个月历史参考，请结合当前月龄继续进行儿保随访。'
     this.setData({
-      ...milestones.buildChecklist(selectedMonth, this._records), stageHint,
+      ...checklist, stageHint,
       activities: milestones.getActivities(ageMonths, selectedMonth, this._records)
     })
   },
@@ -72,8 +86,14 @@ Page({
   selectMonth(e) {
     const selectedMonth = Number(e.currentTarget.dataset.month)
     if (this.data.saving || !milestones.CHECKLISTS[selectedMonth]) return
-    this.setData({ selectedMonth, editor: null })
+    this.setData({ selectedMonth, editor: null, expandedGroups: { social: true } })
     this.renderChecklist()
+  },
+
+  toggleGroup(e) {
+    const id = e.currentTarget.dataset.id
+    if (!this.data.groups.some(group => group.id === id)) return
+    this.setData({ expandedGroups: { ...this.data.expandedGroups, [id]: !this.data.expandedGroups[id] } })
   },
 
   openObservation(e) {

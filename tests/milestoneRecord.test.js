@@ -114,7 +114,13 @@ async function run() {
   await page.onShow()
   assert.strictEqual(page.data.selectedMonth, 6)
   assert.strictEqual(page.data.recordedCount, 0)
+  assert.strictEqual(page.data.groups.find(group => group.id === 'cognitive').recordedCount, 0)
+  const recordsBeforeExpand = page._records
+  page.toggleGroup(tap('id', 'cognitive'))
+  assert.strictEqual(page.data.expandedGroups.cognitive, true)
+  assert.strictEqual(page._records, recordsBeforeExpand)
   page.selectMonth(tap('month', 9))
+  assert.deepStrictEqual(page.data.expandedGroups, { social: true })
   assert.match(page.data.stageHint, /下一阶段预览/)
   assert.deepStrictEqual(page.data.activities, [])
   assert.strictEqual(page.data.total, 13)
@@ -133,6 +139,7 @@ async function run() {
   await page.saveObservation()
   assert.strictEqual(page.data.editor, null)
   assert.strictEqual(page.data.recordedCount, 1)
+  assert.strictEqual(page.data.groups.find(group => group.id === 'cognitive').recordedCount, 1)
   assert.strictEqual(findItem(page, '6-cognitive-2').note, '会主动伸手抓摇铃')
   // 另一位家长重新进入页面，从云端读到相同结果。
   page = fresh.newPage()
@@ -145,6 +152,7 @@ async function run() {
   await page.saveObservation()
   assert.strictEqual(fresh.docs.size, 1)
   assert.strictEqual(findItem(page, '6-cognitive-2').statusLabel, '还没观察到')
+  assert.strictEqual(page.data.groups.find(group => group.id === 'cognitive').recordedCount, 1)
   console.log('ok - page previews the next stage, requires a choice and restores family observations after reopening')
 
   page.openObservation(tap('id', '6-cognitive-2'))

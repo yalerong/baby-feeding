@@ -1,80 +1,122 @@
 <view class="container">
   <view class="card intro-card">
-    <view class="page-title">🌱 一起发现宝宝的新本领</view>
-    <view class="age-text">{{ageText ? '宝宝现在 ' + ageText + ' · 按首页生日计算' : '还未设置宝宝生日'}}</view>
-    <view class="intro-text">在日常陪玩中观察，选择最符合实际的结果，可以随时更新。</view>
+    <view class="intro-topline">
+      <text class="intro-mark">🌱 陪宝宝慢慢长大</text>
+      <text class="age-pill" wx:if="{{ageText}}">{{ageText}}</text>
+    </view>
+    <view class="page-title">一起发现新本领</view>
+    <view class="intro-text">在日常陪玩时慢慢观察，有新发现随时记下来。</view>
   </view>
 
   <view class="month-tabs">
-    <button class="month-tab {{selectedMonth === 6 ? 'active' : ''}}" data-month="6" bindtap="selectMonth">6个月清单</button>
-    <button class="month-tab {{selectedMonth === 9 ? 'active' : ''}}" data-month="9" bindtap="selectMonth">9个月清单</button>
-    <button class="month-tab {{selectedMonth === 12 ? 'active' : ''}}" data-month="12" bindtap="selectMonth">12个月清单</button>
+    <button class="month-tab {{selectedMonth === 6 ? 'active' : ''}}" data-month="6" bindtap="selectMonth">
+      <view class="month-label">6个月</view>
+      <view class="month-caption">{{ageMonths !== null && ageMonths >= 6 && ageMonths < 9 ? '当前参考' : '观察清单'}}</view>
+    </button>
+    <button class="month-tab {{selectedMonth === 9 ? 'active' : ''}}" data-month="9" bindtap="selectMonth">
+      <view class="month-label">9个月</view>
+      <view class="month-caption">{{ageMonths !== null && ageMonths >= 9 && ageMonths < 12 ? '当前参考' : '观察清单'}}</view>
+    </button>
+    <button class="month-tab {{selectedMonth === 12 ? 'active' : ''}}" data-month="12" bindtap="selectMonth">
+      <view class="month-label">12个月</view>
+      <view class="month-caption">{{ageMonths !== null && ageMonths >= 12 && ageMonths < 15 ? '当前参考' : '观察清单'}}</view>
+    </button>
   </view>
   <view class="stage-hint">{{stageHint}}</view>
 
-  <view wx:if="{{loading}}" class="empty-tip">正在读取观察记录…</view>
-  <view wx:elif="{{loadError}}" class="card empty-tip">
-    <view>暂时无法读取记录，请稍后重试。</view>
-    <button class="btn-secondary" bindtap="loadRecords">重新加载</button>
+  <view wx:if="{{loading}}" class="card state-card">正在整理宝宝的观察记录…</view>
+  <view wx:elif="{{loadError}}" class="card state-card">
+    <view class="section-title">记录暂时没加载出来</view>
+    <view class="item-tip">可以稍后重试，或下拉刷新一下。</view>
+    <button class="btn-secondary retry-button" bindtap="loadRecords">再试一次</button>
   </view>
   <block wx:else>
-    <view class="record-summary">已记录 {{recordedCount}} / {{total}} 项 · 点击项目填写</view>
-    <button class="summary-button" bindtap="copySummary">复制儿保沟通摘要</button>
+    <view class="record-summary">
+      <view class="section-title">已记录 <text class="summary-number">{{recordedCount}}</text> / {{total}} 项</view>
+      <view class="summary-hint">不用一次填完，想到时再记。</view>
+    </view>
+
+    <view class="card group-card" wx:for="{{groups}}" wx:for-item="group" wx:key="id">
+      <button class="group-header" data-id="{{group.id}}" bindtap="toggleGroup">
+        <view class="group-icon {{group.id}}">{{group.icon}}</view>
+        <view class="group-heading-copy">
+          <view class="group-title">{{group.title}}</view>
+          <view class="group-count">已记录 {{group.recordedCount}} / {{group.items.length}} 项</view>
+        </view>
+        <text class="group-toggle">{{expandedGroups[group.id] ? '收起 ▴' : '展开 ▾'}}</text>
+      </button>
+      <view class="group-body" wx:if="{{expandedGroups[group.id]}}">
+        <button class="milestone-item" wx:for="{{group.items}}" wx:key="id" data-id="{{item.id}}" bindtap="openObservation">
+          <view class="item-heading">
+            <view class="item-title">{{item.title}}</view>
+            <text class="status-tag {{item.status || 'unrecorded'}}">{{item.statusLabel}}</text>
+          </view>
+          <view class="item-tip">{{item.tip}}</view>
+          <view wx:if="{{item.observedDate}}" class="observation-date">观察于 {{item.observedDate}}</view>
+          <view wx:if="{{item.note}}" class="observation-note">{{item.note}}</view>
+          <view class="item-action">{{item.status ? '更新观察' : '轻点记录'}} <text>›</text></view>
+        </button>
+      </view>
+    </view>
+
     <view wx:if="{{activities.length}}" class="card activity-card">
-      <view class="group-title">接下来可以这样玩</view>
-      <view class="item-tip">根据当前月龄和已记录的观察匹配，选一个宝宝感兴趣的即可。烦躁或疲倦时暂停、安抚。</view>
+      <view class="section-title">陪宝宝玩一会儿</view>
+      <view class="item-tip activity-intro">根据这阶段的观察挑选，选一个宝宝感兴趣的就好。烦躁或疲倦时暂停、安抚。</view>
       <view wx:for="{{activities}}" wx:key="id" class="activity-item">
         <view class="item-title">{{item.title}}</view>
         <view class="activity-reason">{{item.reason}}</view>
         <view class="item-tip">{{item.text}}</view>
-        <view class="observation-date">观察方向：{{item.targetTitle}}</view>
-        <button class="observe-button" data-id="{{item.milestoneId}}" bindtap="openObservation">记录这次观察</button>
+        <view class="observation-date">可以留意：{{item.targetTitle}}</view>
+        <button class="observe-button" data-id="{{item.milestoneId}}" bindtap="openObservation">记下这次互动</button>
       </view>
-      <view class="observation-date">活动依据：CDC {{selectedMonth}}个月亲子活动建议</view>
-      <button class="source-button" bindtap="copyActivitySource">复制活动依据链接</button>
+      <button class="source-button" bindtap="copyActivitySource">查看陪玩依据 · 复制 CDC 链接</button>
     </view>
-    <view class="card group-card" wx:for="{{groups}}" wx:for-item="group" wx:key="id">
-      <view class="group-title">{{group.title}}</view>
-      <view class="milestone-item" wx:for="{{group.items}}" wx:key="id" data-id="{{item.id}}" bindtap="openObservation">
-        <view class="item-heading">
-          <view class="item-title">{{item.title}}</view>
-          <text class="status-tag {{item.status || 'unrecorded'}}">{{item.statusLabel}}</text>
-        </view>
-        <view class="item-tip">{{item.tip}}</view>
-        <view wx:if="{{item.observedDate}}" class="observation-date">观察日期：{{item.observedDate}}</view>
-        <view wx:if="{{item.note}}" class="observation-note">{{item.note}}</view>
-      </view>
+
+    <view class="card summary-card">
+      <view class="section-title">把观察带去儿保</view>
+      <view class="item-tip">整理成一份记录，和医生聊得更具体。</view>
+      <button class="summary-button" bindtap="copySummary">复制观察摘要</button>
     </view>
   </block>
 
-  <view class="card reference-card">
-    <view>依据：CDC 发育里程碑清单（中文整理）。这些项目描述多数宝宝在相应月龄会出现的表现。</view>
-    <view class="reference-note">清单用于记录和儿保沟通，不能替代专业发育筛查。当前参考月龄的项目若还没观察到，或出现已会技能退步及其他担忧，请带记录咨询儿保医生。</view>
-    <button class="source-button" bindtap="copySource">复制 CDC 原文链接</button>
+  <view class="reference-card">
+    <view class="reference-title">关于这份清单</view>
+    <view>参考 CDC 发育里程碑（中文整理），用于日常观察和儿保沟通，不能替代专业发育筛查。</view>
+    <view class="reference-note">当前参考月龄的项目若还没观察到，或出现已会技能退步及其他担忧，请带记录咨询儿保医生。</view>
+    <button class="source-button" bindtap="copySource">复制 CDC 清单原文链接</button>
   </view>
 </view>
 
 <view wx:if="{{editor}}" class="editor-mask" bindtap="closeEditor">
   <view class="editor-panel" catchtap="stopTap">
+    <view class="editor-handle"></view>
+    <view class="editor-header">
+      <view class="editor-caption">记下宝宝的小变化</view>
+      <button class="close-button" bindtap="closeEditor" disabled="{{saving}}">关闭</button>
+    </view>
     <scroll-view scroll-y class="editor-scroll">
       <view class="editor-title">{{editor.title}}</view>
       <view class="item-tip">{{editor.tip}}</view>
+      <view class="field-label">这次观察到了吗？</view>
       <view class="status-options">
-        <button wx:for="{{statusOptions}}" wx:key="value" class="status-option {{editor.status === item.value ? 'selected' : ''}}" data-status="{{item.value}}" bindtap="selectStatus" disabled="{{saving}}">{{item.label}}</button>
+        <button wx:for="{{statusOptions}}" wx:key="value" class="status-option {{editor.status === item.value ? 'selected' : ''}}" data-status="{{item.value}}" bindtap="selectStatus" disabled="{{saving}}">
+          <view class="choice-copy">
+            <view class="choice-title">{{item.label}}</view>
+            <view class="choice-description">{{item.description}}</view>
+          </view>
+          <text class="choice-check">{{editor.status === item.value ? '✓ 已选' : '选择'}}</text>
+        </button>
       </view>
-      <view class="choice-help">
-        <view>还没观察到：已有自然观察机会，尚未见到。</view>
-        <view>不确定：记不清、尚无观察机会或暂时无法判断。</view>
-      </view>
+      <view class="field-label">这次观察是哪天？</view>
       <picker mode="date" value="{{editor.observedDate}}" end="{{today}}" bindchange="onDateChange" disabled="{{saving}}">
-        <view class="date-field">观察日期 <text>{{editor.observedDate}} ✎</text></view>
+        <view class="date-field"><text>{{editor.observedDate}}</text><text class="date-edit">更改 ›</text></view>
       </picker>
-      <textarea class="note-input" placeholder="可选：记下当时的情境和宝宝的反应" value="{{editor.note}}" maxlength="300" bindinput="onNoteInput" disabled="{{saving}}" />
+      <view class="field-label">想补充的话 <text class="optional-label">选填</text></view>
+      <textarea class="note-input" placeholder="当时怎么玩的？宝宝有什么反应？" value="{{editor.note}}" maxlength="300" bindinput="onNoteInput" disabled="{{saving}}" />
       <view class="note-limit">{{editor.note.length}} / 300</view>
     </scroll-view>
     <view class="editor-actions">
-      <button class="cancel-button" bindtap="closeEditor" disabled="{{saving}}">取消</button>
-      <button class="btn-primary save-button" bindtap="saveObservation" loading="{{saving}}" disabled="{{saving}}">保存观察</button>
+      <button class="btn-primary save-button" bindtap="saveObservation" loading="{{saving}}" disabled="{{saving || !editor.status}}">{{saving ? '正在保存…' : '保存这次观察'}}</button>
     </view>
   </view>
 </view>

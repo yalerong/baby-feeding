@@ -180,9 +180,9 @@ Page({
       // Y 轴网格线与标签
       ctx.textAlign = 'right'
       ctx.textBaseline = 'middle'
-      ctx.font = '10px sans-serif'
-      ctx.fillStyle = '#999'
-      ctx.strokeStyle = '#eee'
+      ctx.font = '11px sans-serif'
+      ctx.fillStyle = '#647165'
+      ctx.strokeStyle = '#E8ECE4'
       ctx.lineWidth = 1
 
       const ySteps = Math.round((yMax - yMin) / tick)
@@ -204,7 +204,7 @@ Page({
       const xCenter = padding.left + chartW / 2
 
       ctx.beginPath()
-      ctx.strokeStyle = isWeight ? '#5BC58F' : '#5BAEE2'
+      ctx.strokeStyle = isWeight ? '#3F7B60' : '#527A94'
       ctx.lineWidth = 2
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -235,7 +235,7 @@ Page({
         ctx.fill()
         // 内圈色点
         ctx.beginPath()
-        ctx.fillStyle = isWeight ? '#5BC58F' : '#5BAEE2'
+        ctx.fillStyle = isWeight ? '#3F7B60' : '#527A94'
         ctx.arc(x, y, 3.5, 0, Math.PI * 2)
         ctx.fill()
 
@@ -243,16 +243,16 @@ Page({
         const isLast = i === count - 1
         const nearLast = !isLast && (count - 1 - i) * xStep < labelWidth
         if (!isLast && (i % labelStep !== 0 || nearLast)) return
-        ctx.fillStyle = '#666'
+        ctx.fillStyle = '#647165'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'top'
-        ctx.font = '10px sans-serif'
+        ctx.font = '11px sans-serif'
         const label = d.date.substring(5)
         ctx.fillText(label, x, padding.top + chartH + 8)
       })
 
       // 标题
-      ctx.fillStyle = '#333'
+      ctx.fillStyle = '#35463D'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'top'
       ctx.font = 'bold 12px sans-serif'
