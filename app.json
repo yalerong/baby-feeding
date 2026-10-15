@@ -6,6 +6,7 @@
     "pages/stats/stats",
     "pages/batch/batch",
     "pages/growth/growth",
+    "pages/milestones/milestones",
     "pages/growthEdit/growthEdit",
     "pages/menu/menu",
     "pages/menuDish/menuDish",

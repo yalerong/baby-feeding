@@ -14,6 +14,7 @@
 - 食材试吃：一次追踪一种新食材，连续 3 天记录后解锁；可标记疑似过敏。
 - 统计：近 7 天、近 30 天与全部记录；近 7 天统计使用过去 7 个完整日，不包含今天。
 - 成长与疫苗：身高体重趋势、疫苗计划与接种记录。
+- 发育里程碑：从「生长 → 发育里程碑」进入，按首页生日选择6个月或9个月 CDC 清单；每项可记录「已观察到 / 还没观察到 / 不确定」、观察日期和备注，同一家庭共享。根据月龄与观察状态匹配有来源的陪玩建议，可复制儿保沟通摘要。7至8个月默认回顾6个月清单，9个月清单可提前查看；目前仅收录这两个节点。
 - 家庭共享：使用同一 `familyCode` 的家庭成员共享数据。
 
 ## 快速开始
@@ -30,6 +31,7 @@ getRecords         getStats            batchFeeding
 growthRecord       batchVaccine        weeklyMenu
 foodTrial          dailyReview         supplement
 homeSummary        customDish
+milestoneRecord
 ```
 
 `homeSummary` 是首页启动聚合接口，一次返回当天记录、昨日回顾、补剂状态和间隔建议。未部署时首页会自动回退为多次请求，功能不受影响但启动更慢。
@@ -51,6 +53,7 @@ homeSummary        customDish
 | `custom_dishes` | 家庭菜谱库（家长自己写的菜，跨周复用） |
 | `families` | 家庭级设置（`trialMode` 试吃模式）；未建时 foodTrial 按严格模式运行，切换模式时会自动创建文档 |
 | `growth_records` | 身高、体重记录 |
+| `milestone_records` | 家庭共享的发育里程碑观察结果、日期与备注（首次使用自动建集合） |
 | `vaccine_records` | 疫苗计划与接种记录 |
 | `supplement_records` | 营养补充剂记录（如启用） |
 
@@ -72,6 +75,10 @@ homeSummary        customDish
 - 菜单大厅里可以“自己写一道”自定义菜：保存时先进家庭菜谱库 `custom_dishes`（云函数 `customDish`，按 `_id`/菜名去重），再写进本周 `weekly_menus`；大厅顶部「我的菜谱」可复用或删除库里的菜；录入页常吃列表按 历史 → 本周自定义菜 → 菜谱库 → 菜库 的顺序填满，选中时把菜的规范食材带进记录。
 
 ## 数据与隐私
+
+发育里程碑清单参考 [CDC 6个月清单](https://www.cdc.gov/act-early/digital-online-checklist/6-months.html) 与 [CDC 9个月清单](https://www.cdc.gov/act-early/digital-online-checklist/9-months.html)，中文内容核对于2026-10-14。清单用于日常观察和儿保沟通，不能替代专业发育筛查；「已记录」只是记录数量，不是能力评分。每项保存最新一条观察，可修改日期和备注；不会自动勾选聊天中提到的能力，也不会虚构首次达成日期。家人下次进入页面或下拉刷新时读取共享结果，同一项同时修改时以后保存的内容为准。陪玩建议只按当前月龄和观察状态匹配，尚未接入大模型，不分析备注。产品调研、来源与取舍见 [里程碑调研记录](docs/milestone-research.md)。
+
+新增功能需部署 `cloudfunctions/milestoneRecord`（沿用项目已有的 `wx-server-sdk`），然后重新编译小程序。集合只需云函数访问，建议在云开发控制台将 `milestone_records` 权限设为「仅管理端可读写」。
 
 - `familyCode` 是家庭数据分组标识。请使用不易猜测的随机字符串，不要使用默认值或公开信息。
 - 云函数会按 `familyCode` 查询和写入数据；为防止串号，家庭成员应使用同一个家庭码。

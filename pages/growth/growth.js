@@ -267,6 +267,10 @@ Page({
     return niceFraction * Math.pow(10, exponent)
   },
 
+  goMilestones() {
+    wx.navigateTo({ url: '/pages/milestones/milestones' })
+  },
+
   goAdd() {
     wx.navigateTo({ url: '/pages/growthEdit/growthEdit' })
   },

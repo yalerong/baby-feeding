@@ -1,4 +1,12 @@
 <view class="container">
+  <view class="card milestone-entry" bindtap="goMilestones">
+    <view>
+      <view class="milestone-entry-title">🌱 发育里程碑</view>
+      <view class="milestone-entry-desc">6 / 9个月清单 · 记录宝宝的新本领</view>
+    </view>
+    <text class="milestone-entry-arrow">›</text>
+  </view>
+
   <!-- 最新数据卡片 -->
   <view class="card latest-card">
     <view class="latest-row">
