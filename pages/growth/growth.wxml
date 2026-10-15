@@ -1,56 +1,59 @@
 <view class="container">
-  <view class="card milestone-entry" bindtap="goMilestones">
-    <view>
-      <view class="milestone-entry-title">🌱 发育里程碑</view>
-      <view class="milestone-entry-desc">6 / 9 / 12个月清单 · 记录宝宝的新本领</view>
-    </view>
-    <text class="milestone-entry-arrow">›</text>
+  <view class="page-intro">
+    <view class="page-title">陪宝宝，一点点长大</view>
+    <view class="page-subtitle">记下身高体重，留住每一次小变化。</view>
   </view>
 
   <!-- 最新数据卡片 -->
   <view class="card latest-card">
+    <view class="section-title">最近的成长记录</view>
     <view class="latest-row">
       <view class="latest-item">
-        <view class="latest-value">{{latest.weight}} <text class="unit">kg</text></view>
         <view class="latest-label">最新体重</view>
-        <view class="latest-change {{latest.weightDiff >= 0 ? 'up' : 'down'}}" wx:if="{{latest.weightDiff !== '-'}}">
-          {{latest.weightDiff > 0 ? '+' : ''}}{{latest.weightDiff}} kg
+        <view class="latest-value">{{latest.weight}} <text class="unit">kg</text></view>
+        <view class="latest-change" wx:if="{{latest.weightDiff !== '-'}}">
+          较上次 {{latest.weightDiff > 0 ? '+' : ''}}{{latest.weightDiff}} kg
         </view>
       </view>
       <view class="latest-item">
-        <view class="latest-value">{{latest.height}} <text class="unit">cm</text></view>
         <view class="latest-label">最新身高</view>
-        <view class="latest-change {{latest.heightDiff >= 0 ? 'up' : 'down'}}" wx:if="{{latest.heightDiff !== '-'}}">
-          {{latest.heightDiff > 0 ? '+' : ''}}{{latest.heightDiff}} cm
+        <view class="latest-value">{{latest.height}} <text class="unit">cm</text></view>
+        <view class="latest-change" wx:if="{{latest.heightDiff !== '-'}}">
+          较上次 {{latest.heightDiff > 0 ? '+' : ''}}{{latest.heightDiff}} cm
         </view>
       </view>
     </view>
+    <button class="btn-primary record-button" bindtap="goAdd">＋ 记录身高体重</button>
   </view>
 
+  <view class="section-heading">
+    <view class="section-title">看看成长的变化</view>
+    <view class="section-caption">每次记录，都在这里连成一条线</view>
+  </view>
   <!-- 图表切换 -->
   <view class="chart-toggle">
-    <view class="toggle-item {{viewMode === 'weight' ? 'active' : ''}}" bindtap="switchMode" data-mode="weight">体重曲线</view>
-    <view class="toggle-item {{viewMode === 'height' ? 'active' : ''}}" bindtap="switchMode" data-mode="height">身高曲线</view>
+    <button class="toggle-item {{viewMode === 'weight' ? 'active' : ''}}" bindtap="switchMode" data-mode="weight">体重曲线</button>
+    <button class="toggle-item {{viewMode === 'height' ? 'active' : ''}}" bindtap="switchMode" data-mode="height">身高曲线</button>
   </view>
 
   <!-- Canvas 图表 -->
   <view class="card chart-card">
     <canvas type="2d" id="growthCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"></canvas>
     <view wx:if="{{records.length === 0}}" class="chart-empty">
-      <text class="empty-emoji">📏</text>
-      还没有数据，添加一条试试吧
+      <view class="empty-symbol">＋</view>
+      从第一次测量开始
+      <view class="empty-sub">记下身高或体重，就能看到成长曲线</view>
     </view>
   </view>
 
   <!-- 记录列表 -->
-  <view class="card">
-    <view class="list-header history-header" bindtap="toggleHistory">
-      <text class="list-title">历史记录</text>
+  <view class="card history-card">
+    <button class="list-header history-header" bindtap="toggleHistory">
+      <view class="history-title"><text class="section-title">历史记录</text><text class="list-count">{{records.length}} 条</text></view>
       <view class="history-controls">
-        <text class="list-count">{{records.length}} 条</text>
         <text class="history-toggle">{{historyExpanded ? '收起 ▴' : '展开 ▾'}}</text>
       </view>
-    </view>
+    </button>
     <block wx:if="{{historyExpanded && records.length > 0}}">
       <view class="record-item" wx:for="{{records}}" wx:key="_id" bindtap="goEdit" data-id="{{item._id}}">
         <view class="record-left">
@@ -62,15 +65,23 @@
             <text class="tag weight-tag" wx:if="{{item.weight > 0}}">{{item.weight}} kg</text>
             <text class="tag height-tag" wx:if="{{item.height > 0}}">{{item.height}} cm</text>
           </view>
+          <text class="record-arrow">›</text>
         </view>
       </view>
     </block>
     <view wx:elif="{{historyExpanded}}" class="empty-tip">
-      <text class="empty-emoji">🌱</text>
-      还没有记录哦
-      <view class="empty-sub">点击下方按钮记一下吧</view>
+      这里会留住宝宝的成长足迹
+      <view class="empty-sub">点击上方「记录身高体重」开始吧</view>
     </view>
   </view>
 
-  <button class="btn-primary" bindtap="goAdd">📏 记录身高体重</button>
+  <button class="card milestone-entry" bindtap="goMilestones">
+    <view class="milestone-entry-icon">🌱</view>
+    <view class="milestone-entry-copy">
+      <view class="milestone-entry-title">发育里程碑</view>
+      <view class="milestone-entry-desc">会笑、会抓握…一起记下新发现</view>
+      <view class="milestone-entry-ages">6 · 9 · 12个月观察清单</view>
+    </view>
+    <text class="milestone-entry-arrow">›</text>
+  </button>
 </view>
