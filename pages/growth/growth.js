@@ -3,6 +3,7 @@ const familyRecordSync = require('../../utils/familyRecordSync.js')
 Page({
   data: {
     records: [],
+    historyExpanded: true,
     viewMode: 'weight',
     latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' },
     canvasWidth: 345,
@@ -128,6 +129,10 @@ Page({
     })
   },
 
+  toggleHistory() {
+    this.setData({ historyExpanded: !this.data.historyExpanded })
+  },
+
   switchMode(e) {
     const mode = e.currentTarget.dataset.mode
     this.setData({ viewMode: mode })
@@ -165,9 +170,9 @@ Page({
       const minVal = Math.min(...values)
       const maxVal = Math.max(...values)
       const valRange = maxVal - minVal || 1
-      let yMin = Math.max(0, minVal - valRange * 0.2)
-      let yMax = maxVal + valRange * 0.2
-      const tick = this.niceTick(yMax - yMin)
+      let yMin = isWeight ? 0 : Math.max(0, minVal - valRange * 0.2)
+      let yMax = isWeight ? 20 : maxVal + valRange * 0.2
+      const tick = isWeight ? 5 : this.niceTick(yMax - yMin)
       yMin = Math.floor(yMin / tick) * tick
       yMax = Math.ceil(yMax / tick) * tick
       if (yMax === yMin) { yMax += tick }

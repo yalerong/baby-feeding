@@ -8,6 +8,7 @@
   <view class="month-tabs">
     <button class="month-tab {{selectedMonth === 6 ? 'active' : ''}}" data-month="6" bindtap="selectMonth">6个月清单</button>
     <button class="month-tab {{selectedMonth === 9 ? 'active' : ''}}" data-month="9" bindtap="selectMonth">9个月清单</button>
+    <button class="month-tab {{selectedMonth === 12 ? 'active' : ''}}" data-month="12" bindtap="selectMonth">12个月清单</button>
   </view>
   <view class="stage-hint">{{stageHint}}</view>
 

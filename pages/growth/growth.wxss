@@ -104,6 +104,23 @@
   text-align: center;
 }
 
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-controls {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.history-toggle {
+  color: #2E8753;
+  font-size: 26rpx;
+}
+
 .record-date {
   font-size: 32rpx;
   font-weight: 500;

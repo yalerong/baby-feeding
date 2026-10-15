@@ -60,9 +60,9 @@ Page({
   renderChecklist() {
     const { selectedMonth, ageMonths } = this.data
     let stageHint = `${selectedMonth}个月节点的日常观察参考。已记录项目数不代表能力评分。`
-    if (ageMonths === null) stageHint = '请先在首页设置宝宝生日；目前可手动查看6个月和9个月清单。'
+    if (ageMonths === null) stageHint = '请先在首页设置宝宝生日；目前可手动查看6、9、12个月清单。'
     else if (ageMonths < selectedMonth) stageHint = `下一阶段预览：宝宝目前无需提前完成${selectedMonth}个月清单。`
-    else if (ageMonths >= 12) stageHint = '这里收录的是6个月和9个月历史参考，请结合当前月龄继续进行儿保随访。'
+    else if (ageMonths >= 15) stageHint = '这里收录的是6、9、12个月历史参考，请结合当前月龄继续进行儿保随访。'
     this.setData({
       ...milestones.buildChecklist(selectedMonth, this._records), stageHint,
       activities: milestones.getActivities(ageMonths, selectedMonth, this._records)
@@ -140,12 +140,12 @@ Page({
 
   copySource() {
     wx.setClipboardData({
-      data: `https://www.cdc.gov/act-early/digital-online-checklist/${this.data.selectedMonth}-months.html`
+      data: milestones.getSourceUrl(this.data.selectedMonth)
     })
   },
 
   copyActivitySource() {
-    wx.setClipboardData({ data: `https://www.cdc.gov/act-early/milestones/${this.data.selectedMonth}-months.html` })
+    wx.setClipboardData({ data: milestones.getSourceUrl(this.data.selectedMonth, 'activities') })
   },
 
   copySummary() {

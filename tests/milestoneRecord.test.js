@@ -92,7 +92,8 @@ async function run() {
   const countBefore = world.writes
   for (const invalid of [
     { familyCode: '' }, { familyCode: '  ' }, { familyCode: {} },
-    { milestoneId: '9-motor-5' }, { milestoneId: '6-social-4' }, { milestoneId: '12-social-1' },
+    { milestoneId: '9-motor-5' }, { milestoneId: '6-social-4' }, { milestoneId: '12-social-2' },
+    { milestoneId: '12-motor-5' }, { milestoneId: '15-social-1' },
     { status: 'passed' }, { status: '' },
     { observedDate: '2026-02-30' }, { observedDate: '2999-01-01' }, { observedDate: '2026-1-01' },
     { note: 'a'.repeat(301) }, { note: {} }, { action: 'remove' }
@@ -105,8 +106,8 @@ async function run() {
       assert.strictEqual((await world.main({ ...baseRecord, milestoneId: item.id })).success, true, item.id)
     }
   }
-  assert.strictEqual((await world.main({ action: 'list', familyCode: 'FAM' })).data.length, 25)
-  console.log('ok - server accepts all 25 catalog ids and rejects invalid statuses, dates, notes and out-of-catalog ids')
+  assert.strictEqual((await world.main({ action: 'list', familyCode: 'FAM' })).data.length, 35)
+  console.log('ok - server accepts all 35 catalog ids and rejects invalid statuses, dates, notes and out-of-catalog ids')
 
   const fresh = makeWorld()
   let page = fresh.newPage()
@@ -117,6 +118,10 @@ async function run() {
   assert.match(page.data.stageHint, /下一阶段预览/)
   assert.deepStrictEqual(page.data.activities, [])
   assert.strictEqual(page.data.total, 13)
+  page.selectMonth(tap('month', 12))
+  assert.match(page.data.stageHint, /下一阶段预览/)
+  assert.strictEqual(page.data.total, 10)
+  assert.deepStrictEqual(page.data.activities, [])
   page.selectMonth(tap('month', 6))
   page.openObservation(tap('id', '6-cognitive-2'))
   await page.saveObservation()
@@ -226,6 +231,29 @@ async function run() {
   await pendingLoad
   assert.strictEqual(page.data.recordedCount, 1)
   console.log('ok - late list responses cannot overwrite a page after it is unloaded')
+
+  const oneYear = makeWorld()
+  oneYear.storage.babyBirthDate = dateUtil.addDays(dateUtil.todayStr(), -380)
+  const oneYearPage = oneYear.newPage()
+  await oneYearPage.onShow()
+  assert.strictEqual(oneYearPage.data.selectedMonth, 12)
+  assert.strictEqual(oneYearPage.data.activities.length, 2)
+  oneYearPage.openObservation(tap('id', '12-language-2'))
+  oneYearPage.selectStatus(tap('status', 'yes'))
+  oneYearPage.onNoteInput(input('会看着妈妈叫妈妈'))
+  await oneYearPage.saveObservation()
+  const reopened = oneYear.newPage()
+  await reopened.onShow()
+  assert.strictEqual(reopened.data.recordedCount, 1)
+  assert.strictEqual(findItem(reopened, '12-language-2').note, '会看着妈妈叫妈妈')
+  reopened.copySource()
+  assert.strictEqual(oneYear.clipboard, 'https://www.cdc.gov/act-early/digital-online-checklist/1-year.html')
+  reopened.copyActivitySource()
+  assert.strictEqual(oneYear.clipboard, 'https://www.cdc.gov/act-early/milestones/1-year.html')
+  reopened.copySummary()
+  assert.match(oneYear.clipboard, /已记录 1\/10 项/)
+  assert.match(oneYear.clipboard, /1-year\.html/)
+  console.log('ok - twelve month observations save, reopen and export with the correct sources')
 }
 
 run().catch(err => { console.error(err); process.exitCode = 1 })
