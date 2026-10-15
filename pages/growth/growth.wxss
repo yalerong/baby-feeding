@@ -1,3 +1,23 @@
+.milestone-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.milestone-entry-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #2E8753;
+}
+.milestone-entry-desc {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: #999;
+}
+.milestone-entry-arrow {
+  font-size: 42rpx;
+  color: #5BC58F;
+}
+
 .latest-card {
   background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
   color: #fff;
