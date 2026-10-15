@@ -5,6 +5,8 @@ Page({
     records: [],
     historyExpanded: true,
     viewMode: 'weight',
+    weightOverflowCount: 0,
+    weightOverflowMax: 0,
     latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' },
     canvasWidth: 345,
     canvasHeight: 280,
@@ -63,7 +65,12 @@ Page({
 
   renderRecords(records) {
     this.calculateLatest(records)
-    this.setData({ records }, () => {
+    const overflow = records.filter(record => record.weight > 20)
+    this.setData({
+      records,
+      weightOverflowCount: overflow.length,
+      weightOverflowMax: overflow.length ? Math.max(...overflow.map(record => record.weight)) : 0
+    }, () => {
       if (records.length > 0) this.drawChart(records)
     })
   },
@@ -209,7 +216,7 @@ Page({
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
       data.forEach((d, i) => {
-        const val = isWeight ? d.weight : d.height
+        const val = isWeight ? Math.min(d.weight, yMax) : d.height
         const x = count > 1 ? padding.left + i * xStep : xCenter
         const y = padding.top + chartH - ((val - yMin) / (yMax - yMin)) * chartH
         if (i === 0) ctx.moveTo(x, y)
@@ -224,20 +231,29 @@ Page({
 
       // 数据点与 X 轴标签
       data.forEach((d, i) => {
-        const val = isWeight ? d.weight : d.height
+        const val = isWeight ? Math.min(d.weight, yMax) : d.height
         const x = count > 1 ? padding.left + i * xStep : xCenter
         const y = padding.top + chartH - ((val - yMin) / (yMax - yMin)) * chartH
 
-        // 外圈白点
-        ctx.beginPath()
-        ctx.fillStyle = '#fff'
-        ctx.arc(x, y, 5, 0, Math.PI * 2)
-        ctx.fill()
-        // 内圈色点
-        ctx.beginPath()
-        ctx.fillStyle = isWeight ? '#3F7B60' : '#527A94'
-        ctx.arc(x, y, 3.5, 0, Math.PI * 2)
-        ctx.fill()
+        if (isWeight && d.weight > yMax) {
+          // 超出固定刻度的真实值保留在历史中，使用上沿三角区别于20kg数据点。
+          ctx.beginPath()
+          ctx.fillStyle = '#926B50'
+          ctx.moveTo(x, y - 5)
+          ctx.lineTo(x + 5, y + 4)
+          ctx.lineTo(x - 5, y + 4)
+          ctx.closePath()
+          ctx.fill()
+        } else {
+          ctx.beginPath()
+          ctx.fillStyle = '#fff'
+          ctx.arc(x, y, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.fillStyle = isWeight ? '#3F7B60' : '#527A94'
+          ctx.arc(x, y, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+        }
 
         // X 轴日期标签：末点必画，其余按步长画且离末点太近的不画
         const isLast = i === count - 1

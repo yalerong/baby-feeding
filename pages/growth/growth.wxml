@@ -26,6 +26,16 @@
     <button class="btn-primary record-button" bindtap="goAdd">＋ 记录身高体重</button>
   </view>
 
+  <button class="card milestone-entry" bindtap="goMilestones">
+    <view class="milestone-entry-icon">🌱</view>
+    <view class="milestone-entry-copy">
+      <view class="milestone-entry-title">发育里程碑</view>
+      <view class="milestone-entry-desc">会笑、会抓握…一起记下新发现</view>
+      <view class="milestone-entry-ages">6 · 9 · 12个月观察清单</view>
+    </view>
+    <text class="milestone-entry-arrow">›</text>
+  </button>
+
   <view class="section-heading">
     <view class="section-title">看看成长的变化</view>
     <view class="section-caption">每次记录，都在这里连成一条线</view>
@@ -39,6 +49,9 @@
   <!-- Canvas 图表 -->
   <view class="card chart-card">
     <canvas type="2d" id="growthCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"></canvas>
+    <view wx:if="{{viewMode === 'weight' && weightOverflowCount > 0}}" class="chart-overflow-tip">
+      △ {{weightOverflowCount}}条记录超过20 kg，最高{{weightOverflowMax}} kg。图中以顶部三角标记，实际数值保留在历史记录中。
+    </view>
     <view wx:if="{{records.length === 0}}" class="chart-empty">
       <view class="empty-symbol">＋</view>
       从第一次测量开始
@@ -74,14 +87,4 @@
       <view class="empty-sub">点击上方「记录身高体重」开始吧</view>
     </view>
   </view>
-
-  <button class="card milestone-entry" bindtap="goMilestones">
-    <view class="milestone-entry-icon">🌱</view>
-    <view class="milestone-entry-copy">
-      <view class="milestone-entry-title">发育里程碑</view>
-      <view class="milestone-entry-desc">会笑、会抓握…一起记下新发现</view>
-      <view class="milestone-entry-ages">6 · 9 · 12个月观察清单</view>
-    </view>
-    <text class="milestone-entry-arrow">›</text>
-  </button>
 </view>

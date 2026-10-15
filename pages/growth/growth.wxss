@@ -130,6 +130,15 @@ canvas {
   max-width: 100%;
   margin: 0 auto;
 }
+.chart-overflow-tip {
+  margin-top: 12rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 12rpx;
+  background: #F7F0E2;
+  color: #70563C;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
 .chart-empty {
   position: absolute;
   top: 50%;
@@ -259,7 +268,7 @@ canvas {
   align-items: center;
   gap: 22rpx;
   width: 100%;
-  margin: 0;
+  margin: 0 0 24rpx;
   padding: 30rpx 26rpx;
   text-align: left;
   line-height: 1.5;
