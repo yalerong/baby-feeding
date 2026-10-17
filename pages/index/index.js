@@ -588,7 +588,15 @@ Page({
           if (curTs <= now) mostRecentPastTs = curTs
         }
       }
-      return Object.assign({}, r, { intervalText, icons: recordIcons(r), images: Array.isArray(r.images) ? r.images : [] })
+      const quantities = []
+      if (isFeeding) quantities.push((breastMilk + formulaMilk) + 'ml')
+      if (r.solidFood && r.solidFoodGrams > 0) quantities.push(r.solidFoodGrams + '克')
+      return Object.assign({}, r, {
+        intervalText,
+        icons: recordIcons(r),
+        images: Array.isArray(r.images) ? r.images : [],
+        quantityText: quantities.join(' · ')
+      })
     })
     const total = breast + formula
     const ratio = total === 0 ? '0%' : (breast / total * 100).toFixed(1) + '%'

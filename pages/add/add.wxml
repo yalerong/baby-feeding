@@ -31,7 +31,7 @@
 
     <view class="form-item">
       <view class="form-label">有大便</view>
-      <switch checked="{{stool}}" bindchange="bindStoolChange" color="#5BC58F" />
+      <switch checked="{{stool}}" bindchange="bindStoolChange" color="#76C393" />
     </view>
 
     <block wx:if="{{stool}}">
@@ -59,7 +59,7 @@
 
     <view class="form-item">
       <view class="form-label">🍚 辅食</view>
-      <switch checked="{{solidFood}}" bindchange="bindSolidFoodChange" color="#5BC58F" />
+      <switch checked="{{solidFood}}" bindchange="bindSolidFoodChange" color="#76C393" />
     </view>
 
     <block wx:if="{{solidFood}}">

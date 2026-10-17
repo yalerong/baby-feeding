@@ -31,7 +31,7 @@
 
 .picker-value {
   font-size: 30rpx;
-  color: #5BC58F;
+  color: #76C393;
   text-align: right;
   min-width: 200rpx;
 }
@@ -49,7 +49,7 @@ input {
 }
 
 .preview-card {
-  background: #C6EDD4;
+  background: #CFECD9;
 }
 
 .solid-food-preview {
@@ -82,8 +82,8 @@ input {
 }
 
 .solid-food-quick-tag.active {
-  border-color: #5BC58F;
-  background: #5BC58F;
+  border-color: #76C393;
+  background: #76C393;
   color: #fff;
 }
 

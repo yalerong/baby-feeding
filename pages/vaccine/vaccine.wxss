@@ -1,5 +1,5 @@
 .birth-card {
-  background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
+  background: linear-gradient(135deg, #76C393 0%, #96D5B0 100%);
   color: #fff;
 }
 
@@ -48,7 +48,7 @@
 }
 
 .filter-value {
-  color: #5BC58F;
+  color: #76C393;
   font-weight: 500;
   margin-left: 10rpx;
 }
@@ -113,7 +113,7 @@
 }
 
 .cat1 {
-  background: #C6EDD4;
+  background: #CFECD9;
   color: #2E8753;
 }
 
@@ -133,7 +133,7 @@
 }
 
 .completed-text {
-  color: #5BC58F;
+  color: #76C393;
 }
 
 .pending-text {

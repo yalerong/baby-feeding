@@ -1,5 +1,5 @@
 .hero-card {
-  background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
+  background: linear-gradient(135deg, #76C393 0%, #96D5B0 100%);
   color: #fff;
 }
 
@@ -43,7 +43,7 @@
   border-radius: 24rpx;
   margin-bottom: 24rpx;
   padding: 6rpx;
-  box-shadow: 0 6rpx 20rpx rgba(91, 197, 143, 0.10);
+  box-shadow: 0 6rpx 20rpx rgba(118, 195, 147, 0.10);
 }
 
 .toggle-item {
@@ -58,7 +58,7 @@
 .toggle-item.active {
   color: #fff;
   font-weight: 600;
-  background: #5BC58F;
+  background: #76C393;
 }
 
 .milk-title,
@@ -108,7 +108,7 @@
   height: 64rpx;
   line-height: 58rpx;
   text-align: center;
-  color: #5BC58F;
+  color: #76C393;
   font-size: 54rpx;
 }
 
@@ -132,11 +132,11 @@
   border-radius: 18rpx;
   padding: 14rpx 8rpx;
   text-align: center;
-  box-shadow: 0 6rpx 20rpx rgba(91, 197, 143, 0.08);
+  box-shadow: 0 6rpx 20rpx rgba(118, 195, 147, 0.08);
 }
 
 .day-tab.active {
-  background: #5BC58F;
+  background: #76C393;
   color: #fff;
 }
 
@@ -199,7 +199,7 @@
 
 .meal-label {
   width: 82rpx;
-  color: #5BC58F;
+  color: #76C393;
   font-size: 26rpx;
   font-weight: 600;
   padding-top: 18rpx;
@@ -418,7 +418,7 @@
   text-align: center;
 }
 
-.trial-log-btn { background: #5BC58F; color: #fff; }
+.trial-log-btn { background: #76C393; color: #fff; }
 .trial-manual-unlock-btn { background: #EAF6EF; color: #3D8F64; }
 .trial-alert-btn { background: #FFF1E9; color: #C45D43; }
 .trial-alert-subtle-btn { background: #F3F0EA; color: #8C8578; }
@@ -472,7 +472,7 @@
   height: 56rpx;
   line-height: 56rpx;
   text-align: center;
-  color: #5BC58F;
+  color: #76C393;
   background: #EAF8F0;
   border-radius: 28rpx;
   font-size: 24rpx;
@@ -480,7 +480,7 @@
 }
 
 .hall-head {
-  background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
+  background: linear-gradient(135deg, #76C393 0%, #96D5B0 100%);
   color: #fff;
 }
 
@@ -551,7 +551,7 @@
 }
 
 .catalog-entry {
-  border: 1rpx solid #C6EDD4;
+  border: 1rpx solid #CFECD9;
 }
 
 .entry-tags {
@@ -562,7 +562,7 @@
 }
 
 .catalog-hero {
-  background: linear-gradient(135deg, #5BC58F 0%, #8AD8AE 100%);
+  background: linear-gradient(135deg, #76C393 0%, #96D5B0 100%);
   color: #fff;
 }
 
@@ -616,7 +616,7 @@
 
 .filter-chip.active {
   color: #fff;
-  background: #5BC58F;
+  background: #76C393;
 }
 
 .catalog-item {
@@ -649,7 +649,7 @@
 .catalog-label {
   flex-shrink: 0;
   width: 74rpx;
-  color: #5BC58F;
+  color: #76C393;
   font-size: 25rpx;
   font-weight: 600;
 }
@@ -686,7 +686,7 @@
 
 .guide-move {
   font-size: 24rpx;
-  color: #5BC58F;
+  color: #76C393;
   padding: 4rpx 12rpx;
 }
 
@@ -715,7 +715,7 @@
   margin: 12rpx 0 4rpx;
   padding: 16rpx 20rpx;
   font-size: 26rpx;
-  color: #5BC58F;
+  color: #76C393;
   background: #F0FAF5;
   border-radius: 16rpx;
   line-height: 1.55;
@@ -726,7 +726,7 @@
 }
 
 .month-picker {
-  color: #5BC58F;
+  color: #76C393;
   font-size: 30rpx;
   font-weight: 600;
 }
@@ -760,7 +760,7 @@
 
 .month-preview {
   margin-top: 10rpx;
-  color: #5BC58F;
+  color: #76C393;
 }
 
 .custom-food-card {
@@ -794,7 +794,7 @@
   height: 72rpx;
   line-height: 72rpx;
   border-radius: 18rpx;
-  background: #5BC58F;
+  background: #76C393;
   color: #fff;
   font-size: 28rpx;
 }
@@ -884,7 +884,7 @@
 .unlock-notice-btn {
   padding: 10rpx 24rpx;
   border-radius: 999rpx;
-  background: #5BC58F;
+  background: #76C393;
   color: #fff;
   font-size: 26rpx;
 }

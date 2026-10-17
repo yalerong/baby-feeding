@@ -285,7 +285,7 @@ Page({
         hitAreas.push(this.createHitArea(slotX, padding.top, slotWidth, chartH + padding.bottom, d))
 
         if (d.breast > 0) {
-          ctx.fillStyle = isSelected ? '#FFC940' : '#8AD8AE'
+          ctx.fillStyle = isSelected ? '#FFC940' : '#96D5B0'
           const y = padding.top + chartH - breastH
           this.roundRect(ctx, x, y, barWidth, breastH, { tl: 3, tr: 3, bl: 0, br: 0 }, true)
         }
@@ -323,7 +323,7 @@ Page({
       }
 
       const legendY = 8
-      ctx.fillStyle = '#8AD8AE'
+      ctx.fillStyle = '#96D5B0'
       ctx.fillRect(width - 115, legendY, 12, 12)
       ctx.fillStyle = '#666'
       ctx.textAlign = 'left'

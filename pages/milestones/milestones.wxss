@@ -1,6 +1,6 @@
 page {
-  background: #FBF8F2;
-  color: #35463D;
+  background: #FFFAF5;
+  color: #4A4A4A;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 button {
@@ -15,12 +15,12 @@ button::after {
 .card {
   box-sizing: border-box;
   padding: 28rpx;
-  border: 1rpx solid #EEEAE1;
-  box-shadow: 0 4rpx 18rpx rgba(47, 67, 53, .035);
+  border: 1rpx solid #E5F0E8;
+  box-shadow: 0 4rpx 18rpx rgba(118, 195, 147, .035);
 }
 .intro-card {
-  background: #EFF6EE;
-  border-color: #DDEADB;
+  background: #DCEFE3;
+  border-color: #BFE4CC;
   margin-bottom: 22rpx;
 }
 .intro-topline {
@@ -31,14 +31,14 @@ button::after {
   gap: 10rpx;
 }
 .intro-mark {
-  color: #426B50;
+  color: #2E8753;
   font-size: 24rpx;
 }
 .age-pill {
   padding: 5rpx 14rpx;
   border-radius: 24rpx;
   background: #FFF;
-  color: #426B50;
+  color: #2E8753;
   font-size: 23rpx;
 }
 .page-title {
@@ -52,7 +52,7 @@ button::after {
   margin-top: 12rpx;
   font-size: 27rpx;
   line-height: 1.75;
-  color: #5F6E61;
+  color: #64806E;
 }
 .month-tabs {
   position: sticky;
@@ -61,9 +61,9 @@ button::after {
   display: flex;
   gap: 8rpx;
   padding: 8rpx;
-  border: 1rpx solid #E7EADF;
+  border: 1rpx solid #CFECD9;
   border-radius: 22rpx;
-  background: #F0F2EB;
+  background: #F2FAF5;
 }
 .month-tab {
   flex: 1;
@@ -74,14 +74,14 @@ button::after {
   border: 1rpx solid transparent;
   border-radius: 16rpx;
   background: transparent;
-  color: #5F6E61;
+  color: #64806E;
   line-height: 1.5;
 }
 .month-tab.active {
-  color: #285D49;
-  background: #FFF;
-  border-color: #DCE7D8;
-  box-shadow: 0 2rpx 8rpx rgba(47, 67, 53, .05);
+  color: #FFF;
+  background: #76C393;
+  border-color: #BFE4CC;
+  box-shadow: 0 2rpx 8rpx rgba(118, 195, 147, .05);
 }
 .month-label {
   font-size: 32rpx;
@@ -93,12 +93,12 @@ button::after {
 }
 .stage-hint {
   padding: 20rpx 4rpx 28rpx;
-  color: #647165;
+  color: #78857C;
   font-size: 25rpx;
   line-height: 1.7;
 }
 .section-title {
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 31rpx;
   font-weight: 600;
   line-height: 1.5;
@@ -107,12 +107,12 @@ button::after {
   margin: 0 4rpx 22rpx;
 }
 .summary-number {
-  color: #285D49;
+  color: #2E8753;
   font-size: 37rpx;
 }
 .summary-hint {
   margin-top: 4rpx;
-  color: #69756B;
+  color: #888888;
   font-size: 25rpx;
   line-height: 1.6;
 }
@@ -141,44 +141,44 @@ button::after {
   line-height: 70rpx;
   border-radius: 20rpx;
   text-align: center;
-  background: #F7EDE5;
+  background: #FFF1E0;
   color: #926B50;
   font-size: 38rpx;
 }
 .group-icon.language {
-  background: #EDF3E8;
-  color: #587346;
+  background: #CFECD9;
+  color: #2E8753;
 }
 .group-icon.cognitive {
-  background: #F5F0DF;
-  color: #8D743A;
+  background: #FFF3D6;
+  color: #B8771F;
 }
 .group-icon.motor {
-  background: #EBF1F5;
-  color: #527388;
+  background: #C7E2FF;
+  color: #2D72BF;
 }
 .group-heading-copy {
   flex: 1;
   min-width: 0;
 }
 .group-title {
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 30rpx;
   font-weight: 600;
 }
 .group-count {
   margin-top: 5rpx;
   font-size: 23rpx;
-  color: #69756B;
+  color: #888888;
 }
 .group-toggle {
   font-size: 24rpx;
-  color: #2E6952;
+  color: #2E8753;
   white-space: nowrap;
 }
 .group-body {
   padding: 0 26rpx;
-  border-top: 1rpx solid #F0EDE6;
+  border-top: 1rpx solid #F0F0F0;
 }
 .milestone-item {
   display: block;
@@ -189,7 +189,7 @@ button::after {
   line-height: 1.6;
   background: #FFF;
   border-radius: 0;
-  border-bottom: 1rpx solid #EEEAE1;
+  border-bottom: 1rpx solid #E5F0E8;
   white-space: normal;
   overflow: visible;
 }
@@ -205,7 +205,7 @@ button::after {
 .item-title {
   flex: 1;
   min-width: 0;
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 29rpx;
   line-height: 1.6;
   font-weight: 500;
@@ -214,32 +214,32 @@ button::after {
   flex-shrink: 0;
   padding: 5rpx 12rpx;
   border-radius: 10rpx;
-  background: #F1F2ED;
+  background: #F5F5F5;
   color: #657061;
   font-size: 23rpx;
   line-height: 1.6;
   white-space: nowrap;
 }
 .status-tag.yes {
-  color: #315D42;
-  background: #EAF3E8;
+  color: #2E8753;
+  background: #CFECD9;
 }
 .status-tag.notYet {
   color: #826440;
-  background: #F7F0E2;
+  background: #FFF3D6;
 }
 .status-tag.unsure {
   color: #4A687B;
-  background: #EDF2F6;
+  background: #C7E2FF;
 }
 .item-tip {
-  color: #647165;
+  color: #78857C;
   font-size: 26rpx;
   line-height: 1.75;
 }
 .observation-date {
   margin-top: 12rpx;
-  color: #69756B;
+  color: #888888;
   font-size: 23rpx;
   line-height: 1.6;
 }
@@ -247,7 +247,7 @@ button::after {
   margin-top: 10rpx;
   padding: 12rpx 16rpx;
   border-radius: 10rpx;
-  background: #F8F7F2;
+  background: #FFFAF5;
   color: #566154;
   font-size: 26rpx;
   line-height: 1.7;
@@ -259,7 +259,7 @@ button::after {
   justify-content: flex-end;
   gap: 10rpx;
   margin-top: 12rpx;
-  color: #2E6952;
+  color: #2E8753;
   font-size: 25rpx;
 }
 .item-action text {
@@ -268,19 +268,19 @@ button::after {
 }
 .activity-card {
   margin-top: 28rpx;
-  background: #F2F6EE;
-  border-color: #E1E8D9;
+  background: #F2FAF5;
+  border-color: #CFECD9;
 }
 .activity-intro {
   margin-top: 10rpx;
 }
 .activity-item {
   padding: 26rpx 0;
-  border-bottom: 1rpx solid #DFE7D8;
+  border-bottom: 1rpx solid #CFECD9;
 }
 .activity-reason {
   margin: 10rpx 0;
-  color: #466B50;
+  color: #2E8753;
   font-size: 25rpx;
   line-height: 1.7;
 }
@@ -290,10 +290,10 @@ button::after {
   margin: 20rpx 0 0;
   padding: 18rpx 12rpx;
   line-height: 1.7;
-  border: 1rpx solid #BFD2B8;
+  border: 1rpx solid #BFE4CC;
   border-radius: 16rpx;
   background: #FFF;
-  color: #285D49;
+  color: #2E8753;
   font-size: 27rpx;
 }
 .summary-card {
@@ -307,16 +307,16 @@ button::after {
   min-height: 88rpx;
   margin: 20rpx 0 0;
   padding: 18rpx 12rpx;
-  border: 1rpx solid #CFDCCD;
+  border: 1rpx solid #BFE4CC;
   border-radius: 16rpx;
   line-height: 1.7;
-  color: #285D49;
-  background: #F8FAF6;
+  color: #2E8753;
+  background: #F2FAF5;
   font-size: 27rpx;
 }
 .reference-card {
   padding: 12rpx 8rpx;
-  color: #647165;
+  color: #78857C;
   font-size: 24rpx;
   line-height: 1.8;
 }
@@ -333,7 +333,7 @@ button::after {
   min-height: 88rpx;
   margin: 12rpx 0 0;
   padding: 18rpx 0;
-  color: #2E6952;
+  color: #2E8753;
   background: transparent;
   font-size: 24rpx;
   line-height: 1.8;
@@ -341,7 +341,7 @@ button::after {
   white-space: normal;
 }
 .state-card {
-  color: #647165;
+  color: #78857C;
   font-size: 27rpx;
   line-height: 1.8;
 }
@@ -357,7 +357,7 @@ button::after {
   z-index: 100;
   display: flex;
   align-items: flex-end;
-  background: rgba(27, 39, 31, .38);
+  background: rgba(74, 74, 74, .38);
 }
 .editor-panel {
   display: flex;
@@ -368,7 +368,7 @@ button::after {
   padding: 20rpx 28rpx;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   border-radius: 32rpx 32rpx 0 0;
-  background: #FBF8F2;
+  background: #FFFAF5;
 }
 .editor-handle {
   flex-shrink: 0;
@@ -376,7 +376,7 @@ button::after {
   height: 8rpx;
   margin: 0 auto 8rpx;
   border-radius: 8rpx;
-  background: #D9DED3;
+  background: #CFECD9;
 }
 .editor-header {
   display: flex;
@@ -387,7 +387,7 @@ button::after {
   min-height: 88rpx;
 }
 .editor-caption {
-  color: #647165;
+  color: #78857C;
   font-size: 25rpx;
 }
 .close-button {
@@ -396,7 +396,7 @@ button::after {
   margin: 0;
   padding: 0;
   background: transparent;
-  color: #2E6952;
+  color: #2E8753;
   font-size: 26rpx;
   line-height: 88rpx;
 }
@@ -407,14 +407,14 @@ button::after {
 }
 .editor-title {
   margin: 8rpx 0 12rpx;
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 35rpx;
   font-weight: 600;
   line-height: 1.5;
 }
 .field-label {
   margin: 28rpx 0 14rpx;
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 28rpx;
   font-weight: 500;
 }
@@ -433,7 +433,7 @@ button::after {
   min-height: 108rpx;
   margin: 0;
   padding: 20rpx 22rpx;
-  border: 2rpx solid #E3E5DB;
+  border: 2rpx solid #CFECD9;
   border-radius: 18rpx;
   background: #FFF;
   text-align: left;
@@ -441,31 +441,31 @@ button::after {
   white-space: normal;
 }
 .status-option.selected {
-  border-color: #2E6952;
-  background: #EFF5EB;
+  border-color: #76C393;
+  background: #E8F6ED;
 }
 .choice-copy {
   flex: 1;
   min-width: 0;
 }
 .choice-title {
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 29rpx;
   font-weight: 500;
 }
 .choice-description {
   margin-top: 5rpx;
-  color: #647165;
+  color: #78857C;
   font-size: 24rpx;
   line-height: 1.7;
 }
 .choice-check {
   flex-shrink: 0;
-  color: #647165;
+  color: #78857C;
   font-size: 23rpx;
 }
 .selected .choice-check {
-  color: #285D49;
+  color: #2E8753;
   font-weight: 600;
 }
 .date-field {
@@ -476,19 +476,19 @@ button::after {
   box-sizing: border-box;
   min-height: 94rpx;
   padding: 20rpx 22rpx;
-  border: 1rpx solid #E3E5DB;
+  border: 1rpx solid #CFECD9;
   border-radius: 16rpx;
   background: #FFF;
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 28rpx;
 }
 .date-edit {
-  color: #2E6952;
+  color: #2E8753;
   font-size: 25rpx;
 }
 .optional-label {
   margin-left: 10rpx;
-  color: #69756B;
+  color: #888888;
   font-size: 24rpx;
   font-weight: normal;
 }
@@ -497,17 +497,17 @@ button::after {
   width: 100%;
   height: 176rpx;
   padding: 20rpx 22rpx;
-  border: 1rpx solid #E3E5DB;
+  border: 1rpx solid #CFECD9;
   border-radius: 16rpx;
   background: #FFF;
-  color: #35463D;
+  color: #4A4A4A;
   font-size: 27rpx;
   line-height: 1.7;
 }
 .note-limit {
   margin-top: 8rpx;
   text-align: right;
-  color: #69756B;
+  color: #888888;
   font-size: 23rpx;
 }
 .editor-actions {
@@ -519,13 +519,13 @@ button::after {
   height: 96rpx;
   margin: 0;
   border-radius: 18rpx;
-  background: #2E6952;
+  background: #76C393;
   color: #FFF;
   font-size: 30rpx;
   line-height: 96rpx;
   box-shadow: none;
 }
 .save-button[disabled] {
-  background: #E1E7DD;
-  color: #69756B;
+  background: #D9EBDD;
+  color: #888888;
 }

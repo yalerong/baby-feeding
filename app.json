@@ -15,14 +15,14 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#5BC58F",
+    "navigationBarBackgroundColor": "#76C393",
     "navigationBarTitleText": "彬彬喂养记录",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#FFFAF5"
   },
   "tabBar": {
     "color": "#B0A89F",
-    "selectedColor": "#5BC58F",
+    "selectedColor": "#76C393",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

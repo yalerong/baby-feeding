@@ -60,7 +60,7 @@ test('weights above 20 stay inside the fixed plot and get distinct overflow mark
   const original = JSON.stringify(records)
   page.renderRecords(records)
   assert.deepStrictEqual(drawing.labels, ['0', '5', '10', '15', '20'])
-  const curve = drawing.strokes.find(stroke => stroke.color === '#3F7B60' && stroke.points.length === records.length)
+  const curve = drawing.strokes.find(stroke => stroke.color === '#76C393' && stroke.points.length === records.length)
   assert.ok(curve)
   assert.ok(curve.points.every(point => point.y >= 35 && point.y <= 230),
     'all weight values must map inside the plotting area')
@@ -86,7 +86,7 @@ test('the ceiling itself is a normal measurement and stale overflow notices clea
 test('height data keeps its automatic range and never uses weight overflow markers', () => {
   const { page, drawing } = makePage('height')
   page.renderRecords(records)
-  const curve = drawing.strokes.find(stroke => stroke.color === '#527A94' && stroke.points.length === records.length)
+  const curve = drawing.strokes.find(stroke => stroke.color === '#7DBBE8' && stroke.points.length === records.length)
   assert.ok(curve && curve.points.every(point => point.y >= 35 && point.y <= 230))
   assert.strictEqual(drawing.fills.filter(points => points.length === 3).length, 0)
   assert.notDeepStrictEqual(drawing.labels, ['0', '5', '10', '15', '20'])

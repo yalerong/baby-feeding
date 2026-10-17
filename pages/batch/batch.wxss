@@ -12,7 +12,7 @@
 
 .picker-value {
   font-size: 30rpx;
-  color: #5BC58F;
+  color: #76C393;
 }
 
 .list-header {
@@ -31,7 +31,7 @@
 
 .add-row {
   font-size: 28rpx;
-  color: #5BC58F;
+  color: #76C393;
 }
 
 .batch-row {
@@ -102,7 +102,7 @@
 }
 
 .preview-card {
-  background: #C6EDD4;
+  background: #CFECD9;
 }
 
 .preview-title {
