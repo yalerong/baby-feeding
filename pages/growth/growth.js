@@ -1,4 +1,5 @@
 const familyRecordSync = require('../../utils/familyRecordSync.js')
+const { withChartCanvas } = require('../../utils/chartCanvas.js')
 
 Page({
   data: {
@@ -159,19 +160,7 @@ Page({
     if (data.length === 0) return
     const values = data.map(d => isWeight ? d.weight : d.height)
 
-    const query = wx.createSelectorQuery()
-    query.select('#growthCanvas').fields({ node: true, size: true }).exec((res) => {
-      if (!res || !res[0]) return
-      const canvas = res[0].node
-      const ctx = canvas.getContext('2d')
-      const width = res[0].width
-      const height = res[0].height
-      const dpr = this.data.pixelRatio
-      canvas.width = width * dpr
-      canvas.height = height * dpr
-      ctx.scale(dpr, dpr)
-      ctx.clearRect(0, 0, width, height)
-
+    withChartCanvas('#growthCanvas', this.data.pixelRatio, (ctx, width, height) => {
       const padding = { top: 35, right: 20, bottom: 50, left: 55 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom

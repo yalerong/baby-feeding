@@ -1,3 +1,5 @@
+const { withChartCanvas } = require('../../utils/chartCanvas.js')
+
 Page({
   data: {
     range: '7',
@@ -228,20 +230,8 @@ Page({
       return
     }
     const data = [...dailyStats].sort((a, b) => a.date.localeCompare(b.date))
-    const dpr = this.data.pixelRatio
 
-    const query = wx.createSelectorQuery()
-    query.select('#chartCanvas').fields({ node: true, size: true }).exec((res) => {
-      if (!res || !res[0]) return
-      const canvas = res[0].node
-      const ctx = canvas.getContext('2d')
-      const width = res[0].width
-      const height = res[0].height
-      canvas.width = width * dpr
-      canvas.height = height * dpr
-      ctx.scale(dpr, dpr)
-      ctx.clearRect(0, 0, width, height)
-
+    withChartCanvas('#chartCanvas', this.data.pixelRatio, (ctx, width, height) => {
       const padding = { top: 60, right: 15, bottom: 50, left: 45 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom
