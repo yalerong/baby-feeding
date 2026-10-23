@@ -34,6 +34,8 @@ Page({
     quickBreast: '',
     quickFormula: '',
     quickSaving: false,
+    // 哭声提醒已下线：入口默认关闭，恢复时改成 true
+    cryAlertEnabled: false,
     cryAlertTemplateId: '',
     babyBirthDate: '',
     babyDays: 0,

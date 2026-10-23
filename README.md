@@ -41,6 +41,8 @@ milestoneRecord
 
 如需使用哭声订阅提醒，再部署 `cryAlertSubscription` 和 `cryAlertWebhook`，并按各自的 `config.js.example` 配置密钥与模板。
 
+> 首页的「哭声提醒」入口当前默认关闭（`pages/index/index.js` 里的 `cryAlertEnabled`），云函数、配置和文档都保留；需要恢复时把它改成 `true`，重新部署后即可。
+
 ## 云数据库集合
 
 核心集合如下：
