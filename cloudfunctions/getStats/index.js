@@ -15,6 +15,8 @@ async function fetchAll(conditions) {
       .where(conditions)
       .orderBy('date', 'desc')
       .orderBy('time', 'desc')
+      // 同一天同一分钟可能有多条记录，补 _id 作为最终排序键，避免翻页时重复或漏记录
+      .orderBy('_id', 'desc')
       .skip(skip)
       .limit(PAGE_SIZE)
       .get()

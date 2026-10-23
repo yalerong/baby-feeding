@@ -8,6 +8,8 @@ async function fetchAllRecords(collection, conditions) {
       .where(conditions)
       .orderBy('date', 'asc')
       .orderBy('time', 'asc')
+      // 同一天同一分钟可能有多条记录，补 _id 作为最终排序键，避免翻页时重复或漏记录
+      .orderBy('_id', 'asc')
       .skip(skip)
       .limit(PAGE_SIZE)
       .get()
