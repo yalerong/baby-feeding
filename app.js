@@ -1,5 +1,11 @@
 // 引入本地配置（云开发环境 ID 等敏感信息放在这里，不提交到 Git）
-const localConfig = require('./config.local.js')
+// 首次克隆时这个文件还不存在，缺失时按未配置处理，避免小程序直接启动失败
+let localConfig = {}
+try {
+  localConfig = require('./config.local.js')
+} catch (err) {
+  console.warn('未找到 config.local.js，使用默认配置；请按 README 第 4 步创建')
+}
 
 App({
   onLaunch() {

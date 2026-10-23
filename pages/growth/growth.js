@@ -42,6 +42,8 @@ Page({
     const fetchPage = (skip, collected) => db.collection('growth_records')
       .where({ familyCode })
       .orderBy('date', 'desc')
+      // 同一天可能有多次测量，补 _id 作为最终排序键，避免翻页时重复或漏记录
+      .orderBy('_id', 'desc')
       .skip(skip)
       .limit(pageSize)
       .get()

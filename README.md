@@ -41,6 +41,8 @@ milestoneRecord
 
 如需使用哭声订阅提醒，再部署 `cryAlertSubscription` 和 `cryAlertWebhook`，并按各自的 `config.js.example` 配置密钥与模板。
 
+> 首页的「哭声提醒」入口当前默认关闭（`pages/index/index.js` 里的 `cryAlertEnabled`），云函数、配置和文档都保留；需要恢复时把它改成 `true`，重新部署后即可。
+
 ## 云数据库集合
 
 核心集合如下：
@@ -83,6 +85,7 @@ milestoneRecord
 
 - `familyCode` 是家庭数据分组标识。请使用不易猜测的随机字符串，不要使用默认值或公开信息。
 - 云函数会按 `familyCode` 查询和写入数据；为防止串号，家庭成员应使用同一个家庭码。
+- 日期统一按北京时间（UTC+8）计算，与手机所在时区无关；跨时区使用时「今天」仍以北京时间为准。
 - 疑似过敏标记只是记录和菜单过滤工具；若出现不适或疑似过敏反应，请及时咨询专业医疗人员。
 
 ## 开发校验
@@ -110,7 +113,7 @@ pages/           小程序页面
 utils/           日期、菜单、间隔审查与缓存等通用逻辑
 cloudfunctions/  微信云函数
 tests/           Node.js 回归测试
-add picture/     可选扩展：给记录添加图片的上传组件与接入说明，尚未接入
+components/      通用组件（photo-uploader 图片上传）
 ```
 
 ## GitHub
