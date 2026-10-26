@@ -14,6 +14,7 @@
         <view class="latest-change" wx:if="{{latest.weightDiff !== '-'}}">
           较上次 {{latest.weightDiff > 0 ? '+' : ''}}{{latest.weightDiff}} kg
         </view>
+        <view class="latest-percentile" wx:if="{{weightPercentile !== '-'}}">约第 {{weightPercentile}} 百分位</view>
       </view>
       <view class="latest-item">
         <view class="latest-label">最新身高</view>
@@ -21,6 +22,7 @@
         <view class="latest-change" wx:if="{{latest.heightDiff !== '-'}}">
           较上次 {{latest.heightDiff > 0 ? '+' : ''}}{{latest.heightDiff}} cm
         </view>
+        <view class="latest-percentile" wx:if="{{heightPercentile !== '-'}}">约第 {{heightPercentile}} 百分位</view>
       </view>
     </view>
     <button class="btn-primary record-button" bindtap="goAdd">＋ 记录身高体重</button>
@@ -45,6 +47,14 @@
     <button class="toggle-item {{viewMode === 'weight' ? 'active' : ''}}" bindtap="switchMode" data-mode="weight">体重曲线</button>
     <button class="toggle-item {{viewMode === 'height' ? 'active' : ''}}" bindtap="switchMode" data-mode="height">身高曲线</button>
   </view>
+
+  <!-- WHO 参考带：性别决定用哪条标准曲线 -->
+  <view class="percentile-row">
+    <text class="percentile-label">WHO 参考带</text>
+    <view class="sex-chip {{babySex === 'boy' ? 'active' : ''}}" bindtap="selectSex" data-sex="boy">男宝</view>
+    <view class="sex-chip {{babySex === 'girl' ? 'active' : ''}}" bindtap="selectSex" data-sex="girl">女宝</view>
+  </view>
+  <view class="percentile-hint" wx:if="{{!babySex}}">选择性别后，曲线会叠上 WHO 0–5 岁的 P3–P97 参考带</view>
 
   <!-- Canvas 图表 -->
   <view class="card chart-card">

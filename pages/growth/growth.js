@@ -1,5 +1,7 @@
 const familyRecordSync = require('../../utils/familyRecordSync.js')
 const { withChartCanvas } = require('../../utils/chartCanvas.js')
+const dateUtil = require('../../utils/date.js')
+const growthStandards = require('../../utils/growthStandards.js')
 
 Page({
   data: {
@@ -9,6 +11,10 @@ Page({
     weightOverflowCount: 0,
     weightOverflowMax: 0,
     latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' },
+    babySex: '',
+    babyBirthDate: '',
+    weightPercentile: '-',
+    heightPercentile: '-',
     canvasWidth: 345,
     canvasHeight: 280,
     pixelRatio: 1
@@ -24,6 +30,10 @@ Page({
   },
 
   onShow() {
+    this.setData({
+      babySex: wx.getStorageSync('babySex') || '',
+      babyBirthDate: wx.getStorageSync('babyBirthDate') || ''
+    })
     this.loadRecords()
   },
 
@@ -120,7 +130,9 @@ Page({
   calculateLatest(records) {
     if (records.length === 0) {
       this.setData({
-        latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' }
+        latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' },
+        weightPercentile: '-',
+        heightPercentile: '-'
       })
       return
     }
@@ -135,8 +147,21 @@ Page({
         height: latestHeight ? latestHeight.height : '-',
         weightDiff: (latestWeight && prevWeight) ? (latestWeight.weight - prevWeight.weight).toFixed(2) : '-',
         heightDiff: (latestHeight && prevHeight) ? (latestHeight.height - prevHeight.height).toFixed(1) : '-'
-      }
+      },
+      weightPercentile: this.percentileFor('weight', latestWeight),
+      heightPercentile: this.percentileFor('height', latestHeight)
     })
+  },
+
+  // 最新一条记录的百分位，不知道性别或生日时返回 '-'
+  percentileFor(measure, record) {
+    const sex = this.data.babySex
+    const birth = this.data.babyBirthDate
+    if (!sex || !birth || !record) return '-'
+    const age = dateUtil.ageInMonths(birth, record.date)
+    if (age === null || age < 0) return '-'
+    const value = growthStandards.percentileOf(measure, sex, age, measure === 'weight' ? record.weight : record.height)
+    return value === null ? '-' : String(Math.round(value))
   },
 
   toggleHistory() {
@@ -151,25 +176,55 @@ Page({
     }
   },
 
+  // 选择性别后叠加 WHO 参考带，并重算最新值的百分位
+  selectSex(e) {
+    const sex = e.currentTarget.dataset.sex
+    wx.setStorageSync('babySex', sex)
+    this.setData({ babySex: sex }, () => {
+      this.calculateLatest(this.data.records)
+      if (this.data.records.length > 0) this.drawChart(this.data.records)
+    })
+  },
+
   drawChart(records) {
     if (!records || records.length === 0) return
     const isWeight = this.data.viewMode === 'weight'
-    const data = [...records]
-      .sort((a, b) => a.date.localeCompare(b.date))
+    const measure = isWeight ? 'weight' : 'height'
+    const sex = this.data.babySex
+    const birth = this.data.babyBirthDate
+    // 只有同时知道性别和生日才能对上 WHO 参考带；否则保持原来的按记录顺序排列
+    const useBand = Boolean(sex && birth)
+
+    const data = records
       .filter(d => isWeight ? d.weight > 0 : d.height > 0)
+      .map(d => ({ ...d, age: useBand ? dateUtil.ageInMonths(birth, d.date) : null }))
+      .filter(d => !useBand || (d.age !== null && d.age >= 0))
+    data.sort(useBand
+      ? (a, b) => a.age - b.age
+      : (a, b) => a.date.localeCompare(b.date))
     if (data.length === 0) return
+
+    const maxAge = useBand ? Math.max(...data.map(d => d.age)) : 0
+    const xMax = useBand ? Math.max(12, Math.ceil(maxAge) + 1) : 0
+    const band = useBand
+      ? growthStandards.bandSeries(measure, sex, 0, Math.min(growthStandards.MAX_MONTH, xMax))
+      : []
+    const bandP3 = band.map(row => row.p3)
+    const bandP97 = band.map(row => row.p97)
     const values = data.map(d => isWeight ? d.weight : d.height)
+    const rangeValues = values.concat(bandP3, bandP97)
+    const minVal = Math.min(...rangeValues)
+    const maxVal = Math.max(...rangeValues)
+    const valRange = maxVal - minVal || 1
+    const bandTop = bandP97.length ? Math.max(...bandP97) : 0
 
     withChartCanvas('#growthCanvas', this.data.pixelRatio, (ctx, width, height) => {
       const padding = { top: 35, right: 20, bottom: 50, left: 55 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom
 
-      const minVal = Math.min(...values)
-      const maxVal = Math.max(...values)
-      const valRange = maxVal - minVal || 1
       let yMin = isWeight ? 0 : Math.max(0, minVal - valRange * 0.2)
-      let yMax = isWeight ? 20 : maxVal + valRange * 0.2
+      let yMax = isWeight ? Math.max(20, Math.ceil((bandTop + 1) / 5) * 5) : maxVal + valRange * 0.2
       const tick = isWeight ? 5 : this.niceTick(yMax - yMin)
       yMin = Math.floor(yMin / tick) * tick
       yMax = Math.ceil(yMax / tick) * tick
@@ -196,10 +251,45 @@ Page({
         }
       }
 
+      // WHO 参考带：先铺 P3–P97 的浅色区域，再叠一条 P50 虚线的中位线
+      const yOf = value => padding.top + chartH - ((value - yMin) / (yMax - yMin)) * chartH
+      const xOfMonth = month => padding.left + (Math.min(month, xMax) / xMax) * chartW
+      if (band.length > 1) {
+        ctx.beginPath()
+        band.forEach((row, index) => {
+          const x = xOfMonth(row.month)
+          const y = yOf(row.p3)
+          if (index === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        })
+        for (let index = band.length - 1; index >= 0; index -= 1) {
+          ctx.lineTo(xOfMonth(band[index].month), yOf(band[index].p97))
+        }
+        ctx.closePath()
+        ctx.fillStyle = isWeight ? 'rgba(118, 195, 147, 0.16)' : 'rgba(125, 187, 232, 0.16)'
+        ctx.fill()
+
+        ctx.beginPath()
+        band.forEach((row, index) => {
+          const x = xOfMonth(row.month)
+          const y = yOf(row.p50)
+          if (index === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        })
+        if (ctx.setLineDash) ctx.setLineDash([4, 4])
+        ctx.strokeStyle = isWeight ? 'rgba(118, 195, 147, 0.75)' : 'rgba(125, 187, 232, 0.75)'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        if (ctx.setLineDash) ctx.setLineDash([])
+      }
+
       // 折线
       const count = data.length
       const xStep = count > 1 ? chartW / (count - 1) : 0
       const xCenter = padding.left + chartW / 2
+      const xForIndex = index => useBand
+        ? xOfMonth(data[index].age)
+        : (count > 1 ? padding.left + index * xStep : xCenter)
 
       ctx.beginPath()
       ctx.strokeStyle = isWeight ? '#76C393' : '#7DBBE8'
@@ -208,7 +298,7 @@ Page({
       ctx.lineCap = 'round'
       data.forEach((d, i) => {
         const val = isWeight ? Math.min(d.weight, yMax) : d.height
-        const x = count > 1 ? padding.left + i * xStep : xCenter
+        const x = xForIndex(i)
         const y = padding.top + chartH - ((val - yMin) / (yMax - yMin)) * chartH
         if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
@@ -223,7 +313,7 @@ Page({
       // 数据点与 X 轴标签
       data.forEach((d, i) => {
         const val = isWeight ? Math.min(d.weight, yMax) : d.height
-        const x = count > 1 ? padding.left + i * xStep : xCenter
+        const x = xForIndex(i)
         const y = padding.top + chartH - ((val - yMin) / (yMax - yMin)) * chartH
 
         if (isWeight && d.weight > yMax) {
@@ -264,6 +354,13 @@ Page({
       ctx.textBaseline = 'top'
       ctx.font = 'bold 12px sans-serif'
       ctx.fillText(isWeight ? '体重趋势 (kg)' : '身高趋势 (cm)', 0, 10)
+      if (useBand) {
+        ctx.fillStyle = '#9AA79F'
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'top'
+        ctx.font = '10px sans-serif'
+        ctx.fillText('WHO P3–P97', width - 2, 11)
+      }
     })
   },
 

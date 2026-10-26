@@ -133,6 +133,15 @@ function compareDates(a, b) {
   return aMs - bMs
 }
 
+// 月龄（可带小数），用于生长曲线按月龄对齐；数值异常返回 null
+function ageInMonths(birthStr, refStr) {
+  const birth = parseDateParts(birthStr)
+  const ref = parseDateParts(refStr || new Date())
+  if (!birth || !ref) return null
+  const days = (Date.UTC(ref.year, ref.month - 1, ref.day) - Date.UTC(birth.year, birth.month - 1, birth.day)) / DAY_MS
+  return days / 30.4375
+}
+
 function monthsBetween(startStr, endStr) {
   const s = parseDateParts(startStr)
   const e = parseDateParts(endStr || new Date())
@@ -212,6 +221,7 @@ module.exports = {
   addMonths,
   compareDates,
   monthsBetween,
+  ageInMonths,
   toBeijingTimestamp,
   supplementReminder
 }

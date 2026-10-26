@@ -310,3 +310,40 @@ canvas {
   color: #2E8753;
   font-size: 40rpx;
 }
+
+/* WHO 参考带 */
+.percentile-row {
+  display: flex;
+  align-items: center;
+  margin: 20rpx 0 8rpx;
+}
+.percentile-label {
+  font-size: 24rpx;
+  color: #64806E;
+  margin-right: 16rpx;
+}
+.sex-chip {
+  padding: 8rpx 22rpx;
+  margin-right: 12rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid #CFECD9;
+  background: #fff;
+  font-size: 24rpx;
+  color: #64806E;
+}
+.sex-chip.active {
+  background: #76C393;
+  border-color: #76C393;
+  color: #fff;
+}
+.percentile-hint {
+  font-size: 22rpx;
+  color: #8B9A90;
+  line-height: 1.6;
+  margin-bottom: 8rpx;
+}
+.latest-percentile {
+  margin-top: 4rpx;
+  font-size: 23rpx;
+  color: #5A8F70;
+}
