@@ -13,6 +13,7 @@ async function fetchAll(conditions) {
   while (true) {
     const res = await db.collection('feeding_records')
       .where(conditions)
+      .field({ date: true, time: true, _id: true, breastMilk: true, formula: true, stool: true, solidFood: true, solidFoodGrams: true })
       .orderBy('date', 'desc')
       .orderBy('time', 'desc')
       // 同一天同一分钟可能有多条记录，补 _id 作为最终排序键，避免翻页时重复或漏记录

@@ -21,11 +21,9 @@ exports.main = async (event) => {
       conditions.date = _.gte(startDate).and(_.lt(endDateExclusive))
     }
 
-    const records = await fetchAllRecords(db.collection('feeding_records'), conditions)
-
-    let prevFeeding = null
-    if (date && !_id) {
-      const prevRes = await db.collection('feeding_records')
+    const recordsPromise = fetchAllRecords(db.collection('feeding_records'), conditions)
+    const previousPromise = date && !_id
+      ? db.collection('feeding_records')
         .where({
           familyCode,
           date: _.lt(date),
@@ -35,10 +33,9 @@ exports.main = async (event) => {
         .orderBy('time', 'desc')
         .limit(1)
         .get()
-      if (prevRes.data && prevRes.data.length > 0) {
-        prevFeeding = prevRes.data[0]
-      }
-    }
+      : null
+    const [records, prevRes] = await Promise.all([recordsPromise, previousPromise])
+    const prevFeeding = (prevRes && prevRes.data && prevRes.data[0]) || null
 
     return { success: true, data: records, prevFeeding }
   } catch (err) {

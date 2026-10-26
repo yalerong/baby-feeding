@@ -10,13 +10,15 @@ const { getReviewDocumentId } = require('./reviewId.js')
 // getRecords / dailyReview / supplement 保持一致。
 
 async function fetchDayRecords(familyCode, date) {
-  const records = await fetchAllRecords(db.collection('feeding_records'), { familyCode, date })
-  const prevRes = await db.collection('feeding_records')
-    .where({ familyCode, date: _.lt(date), total: _.gt(0) })
-    .orderBy('date', 'desc')
-    .orderBy('time', 'desc')
-    .limit(1)
-    .get()
+  const [records, prevRes] = await Promise.all([
+    fetchAllRecords(db.collection('feeding_records'), { familyCode, date }),
+    db.collection('feeding_records')
+      .where({ familyCode, date: _.lt(date), total: _.gt(0) })
+      .orderBy('date', 'desc')
+      .orderBy('time', 'desc')
+      .limit(1)
+      .get()
+  ])
   return { records, prevFeeding: (prevRes.data && prevRes.data[0]) || null }
 }
 
