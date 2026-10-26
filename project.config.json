@@ -1,15 +1,39 @@
-﻿{
-  "description": "瀹濆疂鍠傚吇璁板綍灏忕▼搴?,
+{
+  "description": "宝宝喂养记录小程序",
   "packOptions": {
     "ignore": [
-      { "type": "folder", "value": ".omx" },
-      { "type": "folder", "value": ".git" },
-      { "type": "folder", "value": ".github" },
-      { "type": "folder", "value": "tests" },
-      { "type": "folder", "value": "scripts" },
-      { "type": "folder", "value": "docs" },
-      { "type": "file", "value": "README.md" },
-      { "type": "file", "value": "DESIGN.md" }
+      {
+        "type": "folder",
+        "value": ".omx"
+      },
+      {
+        "type": "folder",
+        "value": ".git"
+      },
+      {
+        "type": "folder",
+        "value": ".github"
+      },
+      {
+        "type": "folder",
+        "value": "tests"
+      },
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
+        "value": "docs"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      },
+      {
+        "type": "file",
+        "value": "DESIGN.md"
+      }
     ],
     "include": []
   },
