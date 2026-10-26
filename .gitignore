@@ -24,4 +24,5 @@ gen_import.py
 node_modules/
 .miniprogram/
 .cloudbase/
+.omx/
 .eslintrc.js
