@@ -1,6 +1,7 @@
 // 菜品详情页必须显示菜单页跳转前缓存的那份菜单，而不是自己不带解锁状态重新生成一份
 const assert = require('assert')
 const menuData = require('../utils/menuData.js')
+const menuStorage = require('../utils/menuStorage.js')
 
 const birthDate = '2026-03-05'
 const weekStart = '2026-09-21'
@@ -8,7 +9,7 @@ const storage = { babyBirthDate: birthDate, familyCode: 'FAM' }
 const shown = menuData.generateWeeklyMenu({ birthDate, weekStart, excludedIngredients: [], unlockedFoods: ['米粉', '南瓜'] })
 const unrestricted = menuData.generateWeeklyMenu({ birthDate, weekStart })
 assert.notStrictEqual(shown.days[1].meals.lunch[0].id, unrestricted.days[1].meals.lunch[0].id, 'fixture must differ between restricted and unrestricted plans')
-storage[`menuPlanCache:${weekStart}`] = shown
+storage[menuStorage.planKey('FAM', weekStart)] = shown
 
 let pageConfig = null
 global.Page = config => { pageConfig = config }

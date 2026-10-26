@@ -4,6 +4,8 @@ const menuData = require('../../utils/menuData.js')
 const solidFood = require('../../utils/solidFood.js')
 const foodUnlock = require('../../utils/foodUnlock.js')
 const feedingReminderCache = require('../../utils/feedingReminderCache.js')
+const pageSnapshot = require('../../utils/pageSnapshot.js')
+const menuStorage = require('../../utils/menuStorage.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -39,9 +41,10 @@ Page({
     images: []
   },
 
-  onLoad(options) {
-    this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(todayStr()) })
-    this.loadFrequentSolidFoods()
+  onLoad(options = {}) {
+    this._addActive = true
+    this._addGeneration = (this._addGeneration || 0) + 1
+    this._addFamilyCode = wx.getStorageSync('familyCode') || ''
     if (options.id) {
       const id = decodeURIComponent(options.id)
       wx.setNavigationBarTitle({ title: '编辑记录' })
@@ -58,32 +61,92 @@ Page({
   },
 
   onShow() {
-    this.loadSolidFoodQuickTags()
+    const returning = this._addActive === false
+    this._addActive = true
+    const familyCode = wx.getStorageSync('familyCode') || ''
+    if (familyCode !== this._addFamilyCode) {
+      this._addGeneration = (this._addGeneration || 0) + 1
+      this._addFamilyCode = familyCode
+      this._recentSolidFoodRecords = []
+      this._customDishes = []
+      this._libraryDishes = []
+      this._foodTrials = []
+      this._solidFoodCandidatesKey = ''
+      this._solidFoodTrialsFamily = ''
+      this._dayFeedings = []
+      this.setData({ latestFeeding: null, solidFoodFrequentDishes: [], solidFoodQuickTags: [] })
+    }
+    if (returning) {
+      if (this.data.isEdit && !this._originalRecord) this.loadRecord(this.data._id)
+      else if (!this.data.isEdit) this.loadLatestFeeding(this.data.date)
+    }
+    if (this.data.solidFood) this.loadSolidFoodOptions(returning)
+  },
+
+  onHide() {
+    this._addActive = false
+    this._addGeneration = (this._addGeneration || 0) + 1
+    if (this._recordLoading) {
+      this._recordLoading = false
+      wx.hideLoading()
+    }
+  },
+
+  onUnload() {
+    this.onHide()
+  },
+
+  addReadContext() {
+    return { familyCode: wx.getStorageSync('familyCode') || '', generation: this._addGeneration || 0 }
+  },
+
+  isCurrentAddRead(context) {
+    return this._addActive !== false && context.generation === (this._addGeneration || 0) &&
+      context.familyCode === (wx.getStorageSync('familyCode') || '')
+  },
+
+  loadSolidFoodOptions(refreshTrials = false) {
+    this.setData({
+      solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(this.data.date),
+      solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods)
+    })
+    const familyCode = wx.getStorageSync('familyCode') || ''
+    return Promise.all([
+      this.loadFrequentSolidFoods(),
+      refreshTrials || this._solidFoodTrialsFamily !== familyCode ? this.loadSolidFoodQuickTags() : Promise.resolve()
+    ])
   },
 
   loadLatestFeeding(date) {
-    const familyCode = wx.getStorageSync('familyCode')
+    const context = this.addReadContext()
+    const familyCode = context.familyCode
     if (!familyCode || !date) return
     // 连同前一天一起拉：凌晨补录要和昨晚的记录比对
-    wx.cloud.callFunction({
+    const key = pageSnapshot.key({ operation: 'nearbyFeedings', familyCode, date })
+    return pageSnapshot.fetch('add', key, () => wx.cloud.callFunction({
       name: 'getRecords',
       data: { familyCode, startDate: dateUtil.addDays(date, -1), endDateExclusive: dateUtil.addDays(date, 1) }
-    }).then(res => {
-      if (this.data.date !== date) return
+    })).then(res => {
+      if (!this.isCurrentAddRead(context) || this.data.date !== date) return
       const feedings = feedingAudit.feedingRecords((res.result && res.result.data) || [])
       const sameDay = feedings.filter(record => record.date === date)
       this._dayFeedings = feedings
       this.setData({ latestFeeding: sameDay.length ? sameDay[sameDay.length - 1] : null })
-    }).catch(err => console.error(err))
+    }).catch(err => { if (this.isCurrentAddRead(context)) console.error(err) })
   },
 
   loadRecord(_id) {
-    const familyCode = wx.getStorageSync('familyCode')
+    const context = this.addReadContext()
+    const familyCode = context.familyCode
+    this._recordLoading = true
     wx.showLoading({ title: '加载中...' })
-    wx.cloud.callFunction({
+    const key = pageSnapshot.key({ operation: 'record', familyCode, _id })
+    return pageSnapshot.fetch('add', key, () => wx.cloud.callFunction({
       name: 'getRecords',
       data: { familyCode, _id }
-    }).then(res => {
+    })).then(res => {
+      if (!this.isCurrentAddRead(context) || this.data._id !== _id) return
+      this._recordLoading = false
       wx.hideLoading()
       const list = res.result.data || []
       if (list.length > 0) {
@@ -110,18 +173,19 @@ Page({
           stoolColorIndex,
           stoolAmountIndex,
           total: r.total || 0,
-          solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(r.date),
           solidFood: !!r.solidFood,
           solidFoodDishId: r.solidFoodDishId || '',
           solidFoodName: r.solidFoodDishName || '',
           solidFoodCustomName: r.solidFoodDishId ? '' : (r.solidFoodDishName || ''),
           solidFoodGrams: r.solidFoodGrams > 0 ? String(r.solidFoodGrams) : '',
           solidFoodFoods: Array.isArray(r.solidFoodFoods) ? r.solidFoodFoods : [],
-          solidFoodQuickTags: this.getSolidFoodQuickTags(r.date, r.solidFoodFoods),
           images: Array.isArray(r.images) ? r.images : []
         })
+        if (r.solidFood) this.loadSolidFoodOptions()
       }
     }).catch(err => {
+      if (!this.isCurrentAddRead(context)) return
+      this._recordLoading = false
       wx.hideLoading()
       wx.showToast({ title: '加载失败', icon: 'none' })
     })
@@ -149,55 +213,78 @@ Page({
   },
 
   loadSolidFoodQuickTags() {
-    const familyCode = wx.getStorageSync('familyCode')
+    const context = this.addReadContext()
+    const familyCode = context.familyCode
     if (!familyCode) {
       this._foodTrials = []
       this.setData({ solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods) })
       return Promise.resolve()
     }
-    return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
+    const key = pageSnapshot.key({ operation: 'foodTrials', familyCode })
+    return pageSnapshot.fetch('add', key, () => wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } }))
       .then(res => {
+        if (!this.isCurrentAddRead(context)) return
         if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
         this._foodTrials = res.result.data || []
+        this._solidFoodTrialsFamily = familyCode
         this.setData({ solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods) })
       })
       .catch(err => {
+        if (!this.isCurrentAddRead(context)) return
         console.error(err)
         this._foodTrials = []
+        this._solidFoodTrialsFamily = ''
         this.setData({ solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, this.data.solidFoodFoods) })
       })
   },
 
   // 常吃列表 = 最近 30 天辅食记录 + 本周菜单里家长自己写的菜（含未保存草稿）+ 家庭菜谱库
   loadFrequentSolidFoods() {
-    const familyCode = wx.getStorageSync('familyCode')
-    if (!familyCode) return
+    const context = this.addReadContext()
+    const familyCode = context.familyCode
+    if (!familyCode) return Promise.resolve()
     const today = todayStr()
     const birthDate = wx.getStorageSync('babyBirthDate') || ''
-    const recordsReq = wx.cloud.callFunction({
-      name: 'getRecords',
-      data: { familyCode, startDate: dateUtil.addDays(today, -30), endDateExclusive: dateUtil.addDays(today, 1) }
-    }).then(res => (res.result && res.result.data) || []).catch(err => { console.error(err); return [] })
-    let menuReq = Promise.resolve([])
-    if (birthDate) {
-      const weekStart = menuData.getDefaultPlanningWeekStart({ birthDate, today })
-      const draft = wx.getStorageSync(`menuDraft:${weekStart}`)
-      menuReq = wx.cloud.callFunction({ name: 'weeklyMenu', data: { action: 'get', familyCode, weekStart } })
-        .then(res => solidFood.customDishesFromPlan(res.result && res.result.data))
-        .catch(() => [])
-        .then(saved => {
-          const merged = solidFood.customDishesFromPlan(draft)
-          saved.forEach(dish => { if (!merged.some(item => item.name === dish.name)) merged.push(dish) })
-          return merged
-        })
-    }
-    const libraryReq = wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
-      .then(res => solidFood.libraryDishesFromDocs(res.result && res.result.success ? res.result.data : []))
-      .catch(() => [])
-    Promise.all([recordsReq, menuReq, libraryReq]).then(([records, customDishes, libraryDishes]) => {
+    const key = pageSnapshot.key({ operation: 'solidFoodCandidates', familyCode, birthDate, today })
+    if (this._solidFoodCandidatesKey === key) return Promise.resolve()
+    return pageSnapshot.fetch('add', key, () => {
+      let complete = true
+      const failed = () => { complete = false; return [] }
+      const recordsReq = wx.cloud.callFunction({
+        name: 'getRecords',
+        data: { familyCode, startDate: dateUtil.addDays(today, -30), endDateExclusive: dateUtil.addDays(today, 1) }
+      }).then(res => {
+        if (!res.result || !res.result.success) throw new Error('recent records read failed')
+        return res.result.data || []
+      }).catch(failed)
+      let menuReq = Promise.resolve([])
+      if (birthDate) {
+        const weekStart = menuData.getDefaultPlanningWeekStart({ birthDate, today })
+        const draft = wx.getStorageSync(menuStorage.draftKey(familyCode, weekStart))
+        menuReq = wx.cloud.callFunction({ name: 'weeklyMenu', data: { action: 'get', familyCode, weekStart } })
+          .then(res => {
+            if (!res.result || !res.result.success) throw new Error('weekly menu read failed')
+            return solidFood.customDishesFromPlan(res.result.data)
+          }).catch(failed)
+          .then(saved => {
+            const merged = solidFood.customDishesFromPlan(draft)
+            saved.forEach(dish => { if (!merged.some(item => item.name === dish.name)) merged.push(dish) })
+            return merged
+          })
+      }
+      const libraryReq = wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
+        .then(res => {
+          if (!res.result || !res.result.success) throw new Error('dish library read failed')
+          return solidFood.libraryDishesFromDocs(res.result.data)
+        }).catch(failed)
+      return Promise.all([recordsReq, menuReq, libraryReq])
+        .then(([records, customDishes, libraryDishes]) => ({ records, customDishes, libraryDishes, complete }))
+    }).then(({ records, customDishes, libraryDishes, complete }) => {
+      if (!this.isCurrentAddRead(context)) return
       this._recentSolidFoodRecords = records
       this._customDishes = customDishes
       this._libraryDishes = libraryDishes
+      this._solidFoodCandidatesKey = complete ? key : ''
       this.setData({ solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(this.data.date) })
     })
   },
@@ -208,8 +295,10 @@ Page({
     this.setData({
       date,
       latestFeeding: null,
-      solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(date),
-      solidFoodQuickTags: this.getSolidFoodQuickTags(date, this.data.solidFoodFoods)
+      ...(this.data.solidFood ? {
+        solidFoodFrequentDishes: this.getFrequentSolidFoodDishes(date),
+        solidFoodQuickTags: this.getSolidFoodQuickTags(date, this.data.solidFoodFoods)
+      } : {})
     })
     if (!this.data.isEdit) this.loadLatestFeeding(date)
   },
@@ -277,9 +366,10 @@ Page({
         solidFoodQuickTags: this.getSolidFoodQuickTags(this.data.date, lastSelection.solidFoodFoods),
         solidFoodReused: true
       })
-      return
+      return this.loadSolidFoodOptions()
     }
     this.setData({ solidFood: true, solidFoodReused: false })
+    return this.loadSolidFoodOptions()
   },
 
   selectFrequentSolidFood(e) {

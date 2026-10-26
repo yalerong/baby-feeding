@@ -1,4 +1,8 @@
 <view class="container" wx:if="{{dish}}">
+  <view class="card" wx:if="{{validating || validationError}}">
+    <view class="form-hint">{{validating ? '正在核对食材与菜单，稍后可保存' : validationError}}</view>
+    <button class="btn-secondary" wx:if="{{validationError}}" bindtap="loadDish" disabled="{{saving}}">重新核对</button>
+  </view>
   <view class="card dish-hero">
     <view class="dish-art" style="background: {{dish.color}};">{{dish.imageEmoji}}</view>
     <view class="dish-title-wrap">
@@ -34,5 +38,9 @@
     <textarea value="{{cautionsText}}" bindinput="bindCautionsInput" auto-height maxlength="-1" />
   </view>
 
-  <button class="btn-primary" bindtap="saveDish">保存修改</button>
+  <button class="btn-primary" bindtap="saveDish" disabled="{{validating || !canSave || saving}}" loading="{{saving}}">保存修改</button>
+</view>
+<view class="container" wx:else>
+  <view class="card form-hint">{{validationError || '正在加载菜品…'}}</view>
+  <button class="btn-secondary" wx:if="{{validationError}}" bindtap="loadDish">重新加载</button>
 </view>
