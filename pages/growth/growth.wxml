@@ -48,23 +48,26 @@
     <button class="toggle-item {{viewMode === 'height' ? 'active' : ''}}" bindtap="switchMode" data-mode="height">身高曲线</button>
   </view>
 
-  <!-- WHO 参考带：性别决定用哪条标准曲线 -->
-  <view class="percentile-row">
-    <text class="percentile-label">WHO 参考带</text>
-    <view class="sex-chip {{babySex === 'boy' ? 'active' : ''}}" bindtap="selectSex" data-sex="boy">男宝</view>
-    <view class="sex-chip {{babySex === 'girl' ? 'active' : ''}}" bindtap="selectSex" data-sex="girl">女宝</view>
-  </view>
-  <view class="percentile-hint" wx:if="{{!babySex}}">选择性别后，曲线会叠上 WHO 0–5 岁的 P3–P97 参考带</view>
-
   <!-- Canvas 图表 -->
-  <view class="card chart-card">
-    <canvas type="2d" id="growthCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"></canvas>
-    <view wx:if="{{viewMode === 'weight' && weightOverflowCount > 0}}" class="chart-overflow-tip">
-      △ {{weightOverflowCount}}条记录超过20 kg，最高{{weightOverflowMax}} kg。图中以顶部三角标记，实际数值保留在历史记录中。
+  <view class="card chart-card {{viewMode}}-chart">
+    <view class="chart-heading">
+      <view class="chart-title">WHO 生长曲线</view>
+      <text class="chart-standard">男宝 · 0–5 岁</text>
     </view>
-    <view wx:if="{{records.length === 0}}" class="chart-empty">
+    <canvas type="2d" id="growthCanvas" style="width: 100%; height: {{canvasHeight}}px;"></canvas>
+    <view class="chart-legend" wx:if="{{chartRecordCount > 0}}">
+      <view class="legend-item"><view class="legend-line"></view>宝宝记录</view>
+      <view class="legend-item" wx:if="{{babyBirthDate}}"><view class="legend-line median-line"></view>P50 中位线</view>
+      <view class="legend-item" wx:if="{{babyBirthDate}}"><view class="legend-band"></view>P3–P97 参考带</view>
+    </view>
+    <view class="chart-hint" wx:if="{{chartRecordCount === 1}}">已记录 1 次测量，再记一次就能连成成长曲线</view>
+    <view class="chart-hint" wx:if="{{!babyBirthDate && records.length > 0}}">在首页设置出生日期后，可按月龄查看 WHO 参考曲线</view>
+    <view wx:if="{{viewMode === 'weight' && weightOverflowCount > 0}}" class="chart-overflow-tip">
+      △ {{weightOverflowCount}}条记录超过20 kg，最高{{weightOverflowMax}} kg。超出纵轴范围时以顶部三角标记，实际数值保留在历史记录中。
+    </view>
+    <view wx:if="{{chartRecordCount === 0}}" class="chart-empty">
       <view class="empty-symbol">＋</view>
-      从第一次测量开始
+      还没有{{viewMode === 'weight' ? '体重' : '身高'}}记录
       <view class="empty-sub">记下身高或体重，就能看到成长曲线</view>
     </view>
   </view>
@@ -72,7 +75,7 @@
   <!-- 记录列表 -->
   <view class="card history-card">
     <button class="list-header history-header" bindtap="toggleHistory">
-      <view class="history-title"><text class="section-title">历史记录</text><text class="list-count">{{records.length}} 条</text></view>
+      <view class="history-title"><text class="section-title">历史记录</text><text class="list-count">{{recordCount}} 条</text></view>
       <view class="history-controls">
         <text class="history-toggle">{{historyExpanded ? '收起 ▴' : '展开 ▾'}}</text>
       </view>
@@ -91,6 +94,7 @@
           <text class="record-arrow">›</text>
         </view>
       </view>
+      <button wx:if="{{records.length < recordCount}}" class="history-more" bindtap="showMoreHistory">查看更多记录 · 已显示 {{records.length}} / {{recordCount}} 条</button>
     </block>
     <view wx:elif="{{historyExpanded}}" class="empty-tip">
       这里会留住宝宝的成长足迹

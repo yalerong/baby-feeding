@@ -2,124 +2,183 @@ const familyRecordSync = require('../../utils/familyRecordSync.js')
 const { withChartCanvas } = require('../../utils/chartCanvas.js')
 const dateUtil = require('../../utils/date.js')
 const growthStandards = require('../../utils/growthStandards.js')
+const pageSnapshot = require('../../utils/pageSnapshot.js')
+
+function fetchGrowthRecords(familyCode) {
+  const db = wx.cloud.database()
+  const fetchPage = (skip, collected) => db.collection('growth_records')
+    .where({ familyCode })
+    .orderBy('date', 'desc')
+    .orderBy('_id', 'desc')
+    .skip(skip)
+    .limit(20)
+    .get()
+    .then(res => {
+      const page = res.data || []
+      const records = collected.concat(page)
+      return page.length === 20 ? fetchPage(skip + 20, records) : records
+    })
+  return fetchPage(0, [])
+}
 
 Page({
   data: {
     records: [],
+    recordCount: 0,
     historyExpanded: true,
     viewMode: 'weight',
     weightOverflowCount: 0,
     weightOverflowMax: 0,
     latest: { weight: '-', height: '-', weightDiff: '-', heightDiff: '-' },
-    babySex: '',
     babyBirthDate: '',
     weightPercentile: '-',
     heightPercentile: '-',
-    canvasWidth: 345,
-    canvasHeight: 280,
+    chartRecordCount: 0,
+    canvasHeight: 300,
     pixelRatio: 1
   },
 
   onLoad() {
     const sys = wx.getSystemInfoSync()
     this.setData({
-      canvasWidth: sys.windowWidth - 60,
-      canvasHeight: 280,
       pixelRatio: sys.pixelRatio || 1
     })
   },
 
   onShow() {
-    this.setData({
-      babySex: wx.getStorageSync('babySex') || '',
-      babyBirthDate: wx.getStorageSync('babyBirthDate') || ''
-    })
+    this.stopGrowthSync()
+    const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    const birthDate = wx.getStorageSync('babyBirthDate') || ''
+    const key = pageSnapshot.key({ familyCode, birthDate })
+    const changedContext = this._growthContextKey !== key
+    this._growthVisible = true
+    this._growthContextKey = key
+    this._growthContext = { familyCode, birthDate, key, watchVersion: 0, fallbackStarted: false }
+    this.setData({ babyBirthDate: birthDate })
+    if (changedContext) {
+      this._growthSignature = ''
+      this._growthVisibleCount = 20
+    }
+    const cached = pageSnapshot.read('growth', key)
+    if (cached !== null) this.renderRecords(cached)
+    else if (changedContext && (this._growthRecords || this.data.records).length) this.renderRecords([])
     this.loadRecords()
   },
 
   onHide() {
+    this._growthVisible = false
     this.stopGrowthSync()
+    this._growthContext = null
   },
 
   onUnload() {
-    this.stopGrowthSync()
+    this.onHide()
   },
 
   loadRecords() {
-    const db = wx.cloud.database()
-    const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    // 客户端单次 get 默认最多 20 条，翻页取全量
-    const pageSize = 20
-    const fetchPage = (skip, collected) => db.collection('growth_records')
-      .where({ familyCode })
-      .orderBy('date', 'desc')
-      // 同一天可能有多次测量，补 _id 作为最终排序键，避免翻页时重复或漏记录
-      .orderBy('_id', 'desc')
-      .skip(skip)
-      .limit(pageSize)
-      .get()
-      .then(res => {
-        const records = collected.concat(res.data || [])
-        if ((res.data || []).length === pageSize && records.length < 1000) {
-          return fetchPage(skip + pageSize, records)
-        }
-        return records
-      })
-    fetchPage(0, [])
+    const context = this._growthContext
+    if (!this.isGrowthContextCurrent(context)) return
+    this.startGrowthSync(context.familyCode, context)
+  },
+
+  isGrowthContextCurrent(context) {
+    return !!context && this._growthVisible && this._growthContext === context &&
+      (wx.getStorageSync('familyCode') || 'FAMILY') === context.familyCode &&
+      (wx.getStorageSync('babyBirthDate') || '') === context.birthDate
+  },
+
+  loadGrowthFallback(context) {
+    if (!this.isGrowthContextCurrent(context) || context.fallbackStarted) return
+    context.fallbackStarted = true
+    this.clearGrowthInitTimer()
+    const version = context.watchVersion
+    const key = pageSnapshot.key({ familyCode: context.familyCode, birthDate: context.birthDate, operation: 'getRecords' })
+    return pageSnapshot.fetch('growth', key, () => fetchGrowthRecords(context.familyCode))
       .then(records => {
+        if (!this.isGrowthContextCurrent(context) || context.watchVersion !== version) return
+        pageSnapshot.write('growth', context.key, records)
         this.renderRecords(records)
-        this.startGrowthSync(familyCode)
       })
       .catch(err => {
+        if (!this.isGrowthContextCurrent(context) || context.watchVersion !== version) return
         console.error(err)
         wx.showToast({ title: '加载失败', icon: 'none' })
       })
   },
 
   renderRecords(records) {
+    const signature = JSON.stringify([this.data.babyBirthDate, records.map(row => [row._id, row.date, row.weight, row.height, row.note])])
+    if (this._growthSignature === signature) return false
+    this._growthSignature = signature
+    this._growthRecords = records
     this.calculateLatest(records)
     const overflow = records.filter(record => record.weight > 20)
     this.setData({
-      records,
+      records: records.slice(0, this._growthVisibleCount || 20),
+      recordCount: records.length,
       weightOverflowCount: overflow.length,
       weightOverflowMax: overflow.length ? Math.max(...overflow.map(record => record.weight)) : 0
     }, () => {
-      if (records.length > 0) this.drawChart(records)
+      if (this._growthVisible !== false) this.drawChart(records)
     })
+    return true
   },
 
-  startGrowthSync(familyCode) {
-    if (!familyRecordSync.shouldSyncFamilyRecords({ familyCode })) {
-      this.stopGrowthSync()
-      return
-    }
+  showMoreHistory() {
+    const records = this._growthRecords || []
+    this._growthVisibleCount = Math.min(records.length, (this._growthVisibleCount || 20) + 20)
+    this.setData({ records: records.slice(0, this._growthVisibleCount) })
+  },
 
-    const key = familyRecordSync.getFamilySyncKey({ familyCode })
-    if (this._growthSyncKey === key) return
-
-    this.stopGrowthSync()
-    this._growthSyncKey = key
+  startGrowthSync(familyCode, context = this._growthContext) {
+    if (!this.isGrowthContextCurrent(context) || this._growthSyncKey === context.key) return
+    this._growthSyncKey = context.key
+    this._growthInitTimer = setTimeout(() => this.loadGrowthFallback(context), 8000)
     try {
-      if (!wx.cloud || !wx.cloud.database) return
+      if (!wx.cloud || !wx.cloud.database) throw new Error('watch unavailable')
       const db = wx.cloud.database()
-      this._growthWatcher = db.collection('growth_records')
+      const query = db.collection('growth_records')
         .where({ familyCode })
         .orderBy('date', 'desc')
-        .watch({
-          onChange: snapshot => {
-            if (this._growthSyncKey !== key) return
-            this.renderRecords(familyRecordSync.recordsFromWatchSnapshot(snapshot))
-          },
-          onError: err => {
-            console.error(err)
+        .orderBy('_id', 'desc')
+      if (typeof query.watch !== 'function') throw new Error('watch unavailable')
+      const watcher = query.watch({
+        onChange: snapshot => {
+          if (!this.isGrowthContextCurrent(context) || context.watchFailed) return
+          this.clearGrowthInitTimer()
+          context.watchVersion += 1
+          const records = familyRecordSync.recordsFromWatchSnapshot(snapshot)
+          const changed = this.renderRecords(records)
+          if (changed || !context.synced) pageSnapshot.write('growth', context.key, records)
+          context.synced = true
+        },
+        onError: err => {
+          if (!this.isGrowthContextCurrent(context)) return
+          context.watchFailed = true
+          console.error(err)
+          this.loadGrowthFallback(context)
+          if (this._growthWatcher) {
+            this._growthWatcher.close()
+            this._growthWatcher = null
           }
-        })
+        }
+      })
+      if (!this.isGrowthContextCurrent(context) || context.watchFailed) watcher.close()
+      else this._growthWatcher = watcher
     } catch (err) {
-      console.error(err)
+      this.loadGrowthFallback(context)
+    }
+  },
+
+  clearGrowthInitTimer() {
+    if (this._growthInitTimer !== undefined) {
+      clearTimeout(this._growthInitTimer)
+      this._growthInitTimer = undefined
     }
   },
 
   stopGrowthSync() {
+    this.clearGrowthInitTimer()
     this._growthSyncKey = ''
     if (this._growthWatcher) {
       this._growthWatcher.close()
@@ -153,14 +212,13 @@ Page({
     })
   },
 
-  // 最新一条记录的百分位，不知道性别或生日时返回 '-'
+  // 固定使用男宝标准；没有生日时无法对齐月龄。
   percentileFor(measure, record) {
-    const sex = this.data.babySex
     const birth = this.data.babyBirthDate
-    if (!sex || !birth || !record) return '-'
+    if (!birth || !record) return '-'
     const age = dateUtil.ageInMonths(birth, record.date)
     if (age === null || age < 0) return '-'
-    const value = growthStandards.percentileOf(measure, sex, age, measure === 'weight' ? record.weight : record.height)
+    const value = growthStandards.percentileOf(measure, 'boy', age, measure === 'weight' ? record.weight : record.height)
     return value === null ? '-' : String(Math.round(value))
   },
 
@@ -171,29 +229,18 @@ Page({
   switchMode(e) {
     const mode = e.currentTarget.dataset.mode
     this.setData({ viewMode: mode })
-    if (this.data.records.length > 0) {
-      this.drawChart(this.data.records)
+    const records = this._growthRecords || this.data.records
+    if (records.length > 0) {
+      this.drawChart(records)
     }
   },
 
-  // 选择性别后叠加 WHO 参考带，并重算最新值的百分位
-  selectSex(e) {
-    const sex = e.currentTarget.dataset.sex
-    wx.setStorageSync('babySex', sex)
-    this.setData({ babySex: sex }, () => {
-      this.calculateLatest(this.data.records)
-      if (this.data.records.length > 0) this.drawChart(this.data.records)
-    })
-  },
-
   drawChart(records) {
-    if (!records || records.length === 0) return
+    if (!records || this._growthVisible === false) return
     const isWeight = this.data.viewMode === 'weight'
     const measure = isWeight ? 'weight' : 'height'
-    const sex = this.data.babySex
     const birth = this.data.babyBirthDate
-    // 只有同时知道性别和生日才能对上 WHO 参考带；否则保持原来的按记录顺序排列
-    const useBand = Boolean(sex && birth)
+    const useBand = Boolean(birth)
 
     const data = records
       .filter(d => isWeight ? d.weight > 0 : d.height > 0)
@@ -202,12 +249,18 @@ Page({
     data.sort(useBand
       ? (a, b) => a.age - b.age
       : (a, b) => a.date.localeCompare(b.date))
-    if (data.length === 0) return
+    this.setData({ chartRecordCount: data.length })
+    if (data.length === 0) {
+      withChartCanvas('#growthCanvas', this.data.pixelRatio, () => {})
+      return
+    }
 
     const maxAge = useBand ? Math.max(...data.map(d => d.age)) : 0
-    const xMax = useBand ? Math.max(12, Math.ceil(maxAge) + 1) : 0
+    const xLimit = Math.max(12, Math.ceil(maxAge))
+    const xTick = xLimit <= 12 ? 3 : xLimit <= 24 ? 6 : xLimit <= 60 ? 12 : this.niceTick(xLimit / 4)
+    const xMax = useBand ? Math.ceil(xLimit / xTick) * xTick : 0
     const band = useBand
-      ? growthStandards.bandSeries(measure, sex, 0, Math.min(growthStandards.MAX_MONTH, xMax))
+      ? growthStandards.bandSeries(measure, 'boy', 0, Math.min(growthStandards.MAX_MONTH, xMax))
       : []
     const bandP3 = band.map(row => row.p3)
     const bandP97 = band.map(row => row.p97)
@@ -219,41 +272,55 @@ Page({
     const bandTop = bandP97.length ? Math.max(...bandP97) : 0
 
     withChartCanvas('#growthCanvas', this.data.pixelRatio, (ctx, width, height) => {
-      const padding = { top: 35, right: 20, bottom: 50, left: 55 }
+      if (this._growthVisible === false) return
+      const padding = { top: 32, right: 16, bottom: 52, left: 40 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom
 
-      let yMin = isWeight ? 0 : Math.max(0, minVal - valRange * 0.2)
-      let yMax = isWeight ? Math.max(20, Math.ceil((bandTop + 1) / 5) * 5) : maxVal + valRange * 0.2
-      const tick = isWeight ? 5 : this.niceTick(yMax - yMin)
+      let yMin = isWeight ? 0 : Math.max(0, minVal - valRange * 0.1)
+      let yMax = isWeight ? Math.max(20, Math.ceil((bandTop + 1) / 5) * 5) : maxVal + valRange * 0.1
+      const tick = isWeight ? 5 : this.niceTick((yMax - yMin) / 4)
       yMin = Math.floor(yMin / tick) * tick
       yMax = Math.ceil(yMax / tick) * tick
       if (yMax === yMin) { yMax += tick }
+      const yOf = value => padding.top + chartH - ((value - yMin) / (yMax - yMin)) * chartH
+      const xOfMonth = month => padding.left + (month / xMax) * chartW
 
       // Y 轴网格线与标签
       ctx.textAlign = 'right'
       ctx.textBaseline = 'middle'
       ctx.font = '11px sans-serif'
-      ctx.fillStyle = '#647165'
-      ctx.strokeStyle = '#E8ECE4'
+      ctx.fillStyle = '#7B8981'
+      ctx.strokeStyle = '#EDF1ED'
       ctx.lineWidth = 1
 
       const ySteps = Math.round((yMax - yMin) / tick)
       for (let i = 0; i <= ySteps; i++) {
         const yVal = yMin + tick * i
-        const y = padding.top + chartH - ((yVal - yMin) / (yMax - yMin)) * chartH
+        const y = yOf(yVal)
         ctx.fillText(String(Math.round(yVal * 100) / 100), padding.left - 8, y)
-        if (i > 0) {
+        ctx.beginPath()
+        ctx.moveTo(padding.left, y)
+        ctx.lineTo(padding.left + chartW, y)
+        ctx.stroke()
+      }
+
+      // 月龄刻度独立于记录数量，密集测量也不会堆出一排日期。
+      if (useBand) {
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        for (let month = 0; month <= xMax; month += xTick) {
+          const x = xOfMonth(month)
+          ctx.fillText(String(month), x, padding.top + chartH + 10)
           ctx.beginPath()
-          ctx.moveTo(padding.left, y)
-          ctx.lineTo(padding.left + chartW, y)
+          ctx.strokeStyle = '#F3F5F2'
+          ctx.moveTo(x, padding.top)
+          ctx.lineTo(x, padding.top + chartH)
           ctx.stroke()
         }
       }
 
-      // WHO 参考带：先铺 P3–P97 的浅色区域，再叠一条 P50 虚线的中位线
-      const yOf = value => padding.top + chartH - ((value - yMin) / (yMax - yMin)) * chartH
-      const xOfMonth = month => padding.left + (Math.min(month, xMax) / xMax) * chartW
+      // 淡色参考带及边界线，P50 用虚线，与宝宝的实线分开。
       if (band.length > 1) {
         ctx.beginPath()
         band.forEach((row, index) => {
@@ -266,20 +333,22 @@ Page({
           ctx.lineTo(xOfMonth(band[index].month), yOf(band[index].p97))
         }
         ctx.closePath()
-        ctx.fillStyle = isWeight ? 'rgba(118, 195, 147, 0.16)' : 'rgba(125, 187, 232, 0.16)'
+        ctx.fillStyle = isWeight ? 'rgba(118, 195, 147, 0.12)' : 'rgba(125, 187, 232, 0.12)'
         ctx.fill()
 
-        ctx.beginPath()
-        band.forEach((row, index) => {
-          const x = xOfMonth(row.month)
-          const y = yOf(row.p50)
-          if (index === 0) ctx.moveTo(x, y)
-          else ctx.lineTo(x, y)
-        })
-        if (ctx.setLineDash) ctx.setLineDash([4, 4])
-        ctx.strokeStyle = isWeight ? 'rgba(118, 195, 147, 0.75)' : 'rgba(125, 187, 232, 0.75)'
-        ctx.lineWidth = 1
-        ctx.stroke()
+        for (const key of ['p3', 'p97', 'p50']) {
+          ctx.beginPath()
+          band.forEach((row, index) => {
+            const x = xOfMonth(row.month)
+            const y = yOf(row[key])
+            if (index === 0) ctx.moveTo(x, y)
+            else ctx.lineTo(x, y)
+          })
+          if (ctx.setLineDash) ctx.setLineDash(key === 'p50' ? [5, 5] : [])
+          ctx.strokeStyle = isWeight ? 'rgba(118, 195, 147, 0.65)' : 'rgba(125, 187, 232, 0.65)'
+          ctx.lineWidth = key === 'p50' ? 1.5 : 1
+          ctx.stroke()
+        }
         if (ctx.setLineDash) ctx.setLineDash([])
       }
 
@@ -292,32 +361,35 @@ Page({
         : (count > 1 ? padding.left + index * xStep : xCenter)
 
       ctx.beginPath()
-      ctx.strokeStyle = isWeight ? '#76C393' : '#7DBBE8'
-      ctx.lineWidth = 2
+      ctx.strokeStyle = isWeight ? '#2E8753' : '#2D72BF'
+      ctx.lineWidth = 2.5
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
       data.forEach((d, i) => {
         const val = isWeight ? Math.min(d.weight, yMax) : d.height
         const x = xForIndex(i)
-        const y = padding.top + chartH - ((val - yMin) / (yMax - yMin)) * chartH
-        if (i === 0) ctx.moveTo(x, y)
+        const y = yOf(val)
+        // 仅一次测量时画短横线，避免无圆点后看不见，也不虚构一段趋势。
+        if (count === 1) {
+          ctx.moveTo(Math.max(padding.left, x - 4), y)
+          ctx.lineTo(Math.min(padding.left + chartW, x + 4), y)
+        } else if (i === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       })
       ctx.stroke()
 
-      // 标签约 30px 宽，按可用宽度抽稀，首尾必画
-      const labelWidth = 44
-      const maxLabels = Math.max(2, Math.floor(chartW / labelWidth) + 1)
-      const labelStep = Math.max(1, Math.ceil((count - 1) / (maxLabels - 1)))
+      // 无生日时保留日期横轴，按实际像素距离为标签留白。
+      const labelWidth = 56
+      let lastLabelX = -Infinity
 
-      // 数据点与 X 轴标签
+      // 只保留超出纵轴范围的三角提示，普通测量不再画圆点。
       data.forEach((d, i) => {
         const val = isWeight ? Math.min(d.weight, yMax) : d.height
         const x = xForIndex(i)
-        const y = padding.top + chartH - ((val - yMin) / (yMax - yMin)) * chartH
+        const y = yOf(val)
 
         if (isWeight && d.weight > yMax) {
-          // 超出固定刻度的真实值保留在历史中，使用上沿三角区别于20kg数据点。
+          // 超出纵轴的真实值保留在历史中，使用上沿三角提示。
           ctx.beginPath()
           ctx.fillStyle = '#926B50'
           ctx.moveTo(x, y - 5)
@@ -325,42 +397,29 @@ Page({
           ctx.lineTo(x - 5, y + 4)
           ctx.closePath()
           ctx.fill()
-        } else {
-          ctx.beginPath()
-          ctx.fillStyle = '#fff'
-          ctx.arc(x, y, 5, 0, Math.PI * 2)
-          ctx.fill()
-          ctx.beginPath()
-          ctx.fillStyle = isWeight ? '#76C393' : '#7DBBE8'
-          ctx.arc(x, y, 3.5, 0, Math.PI * 2)
-          ctx.fill()
         }
 
-        // X 轴日期标签：末点必画，其余按步长画且离末点太近的不画
+        if (useBand) return
         const isLast = i === count - 1
-        const nearLast = !isLast && (count - 1 - i) * xStep < labelWidth
-        if (!isLast && (i % labelStep !== 0 || nearLast)) return
-        ctx.fillStyle = '#647165'
-        ctx.textAlign = 'center'
+        if (!isLast && (x - lastLabelX < labelWidth || (count > 1 && xForIndex(count - 1) - x < labelWidth))) return
+        lastLabelX = x
+        ctx.fillStyle = '#7B8981'
+        ctx.textAlign = count === 1 ? 'center' : i === 0 ? 'left' : isLast ? 'right' : 'center'
         ctx.textBaseline = 'top'
         ctx.font = '11px sans-serif'
         const label = d.date.substring(5)
-        ctx.fillText(label, x, padding.top + chartH + 8)
+        ctx.fillText(label, x, padding.top + chartH + 10)
       })
 
-      // 标题
-      ctx.fillStyle = '#35463D'
+      // 单位单独占一行，不与首尾刻度挤在一起。
+      ctx.fillStyle = '#647165'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'top'
-      ctx.font = 'bold 12px sans-serif'
-      ctx.fillText(isWeight ? '体重趋势 (kg)' : '身高趋势 (cm)', 0, 10)
-      if (useBand) {
-        ctx.fillStyle = '#9AA79F'
-        ctx.textAlign = 'right'
-        ctx.textBaseline = 'top'
-        ctx.font = '10px sans-serif'
-        ctx.fillText('WHO P3–P97', width - 2, 11)
-      }
+      ctx.font = '11px sans-serif'
+      ctx.fillText(isWeight ? '体重（kg）' : '身高（cm）', padding.left, 4)
+      ctx.textAlign = 'right'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(useBand ? '月龄（月）' : '测量日期', width - padding.right, height - 4)
     })
   },
 
@@ -369,9 +428,10 @@ Page({
     const exponent = Math.floor(Math.log10(range))
     const fraction = range / Math.pow(10, exponent)
     let niceFraction
-    if (fraction <= 1) niceFraction = 1
-    else if (fraction <= 2) niceFraction = 2
-    else if (fraction <= 5) niceFraction = 5
+    if (fraction < 1.5) niceFraction = 1
+    else if (fraction < 2.25) niceFraction = 2
+    else if (fraction < 3.75) niceFraction = 2.5
+    else if (fraction < 7.5) niceFraction = 5
     else niceFraction = 10
     return niceFraction * Math.pow(10, exponent)
   },

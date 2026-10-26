@@ -1,6 +1,7 @@
 const VACCINE_SCHEDULES = require('../../utils/vaccineSchedules.js')
 
 const dateUtil = require('../../utils/date.js')
+const pageSnapshot = require('../../utils/pageSnapshot.js')
 
 Page({
   data: {
@@ -115,6 +116,7 @@ Page({
           if (!res.result || !res.result.success) {
             throw new Error(res.result && res.result.error)
           }
+          pageSnapshot.invalidate('vaccine')
           if (isCompleted) {
             return this.recalculateFollowing()
           }
@@ -151,6 +153,7 @@ Page({
           if (!res.result || !res.result.success) {
             throw new Error(res.result && res.result.error)
           }
+          pageSnapshot.invalidate('vaccine')
           wx.hideLoading()
           wx.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(() => wx.navigateBack(), 800)
@@ -255,6 +258,7 @@ Page({
             .then(res => {
               wx.hideLoading()
               if (res.result && res.result.success) {
+                pageSnapshot.invalidate('vaccine')
                 wx.showToast({ title: '已删除', icon: 'success' })
                 setTimeout(() => wx.navigateBack(), 800)
               } else {

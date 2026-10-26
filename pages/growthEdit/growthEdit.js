@@ -1,4 +1,5 @@
 const dateUtil = require('../../utils/date.js')
+const pageSnapshot = require('../../utils/pageSnapshot.js')
 const todayStr = dateUtil.todayStr
 
 Page({
@@ -105,7 +106,9 @@ Page({
         name: 'growthRecord',
         data: { action: 'update', familyCode, _id: this.data._id, data: payload }
       })
-        .then(() => {
+        .then(res => {
+          if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'update failed')
+          pageSnapshot.invalidate('growth')
           wx.hideLoading()
           wx.showToast({ title: '修改成功', icon: 'success' })
           setTimeout(() => wx.navigateBack(), 800)
@@ -120,7 +123,9 @@ Page({
         name: 'growthRecord',
         data: { action: 'add', familyCode, data: payload }
       })
-        .then(() => {
+        .then(res => {
+          if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'add failed')
+          pageSnapshot.invalidate('growth')
           wx.hideLoading()
           wx.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(() => wx.navigateBack(), 800)
@@ -147,7 +152,9 @@ Page({
             name: 'growthRecord',
             data: { action: 'remove', familyCode, _id: this.data._id }
           })
-            .then(() => {
+            .then(res => {
+              if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'remove failed')
+              pageSnapshot.invalidate('growth')
               wx.hideLoading()
               wx.showToast({ title: '已删除', icon: 'success' })
               setTimeout(() => wx.navigateBack(), 800)

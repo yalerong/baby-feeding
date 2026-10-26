@@ -122,8 +122,82 @@ button::after {
 }
 .chart-card {
   position: relative;
-  padding: 20rpx;
+  padding: 28rpx 24rpx 24rpx;
   overflow: hidden;
+}
+.chart-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding: 0 8rpx 26rpx;
+}
+.chart-title {
+  color: #35463D;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.chart-standard {
+  padding: 7rpx 16rpx;
+  border-radius: 999rpx;
+  background: #F2F7F3;
+  color: #64806E;
+  font-size: 22rpx;
+  white-space: nowrap;
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx 20rpx;
+  padding-top: 22rpx;
+  margin-top: 12rpx;
+  border-top: 1rpx solid #EDF1ED;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  color: #7B8981;
+  font-size: 22rpx;
+  white-space: nowrap;
+}
+.legend-line {
+  width: 30rpx;
+  height: 0;
+  border-top: 5rpx solid #2E8753;
+  border-radius: 4rpx;
+}
+.median-line {
+  border-top: 3rpx dashed #76C393;
+  border-radius: 0;
+}
+.legend-band {
+  width: 24rpx;
+  height: 16rpx;
+  border: 1rpx solid #BFE4CC;
+  border-radius: 4rpx;
+  background: rgba(118, 195, 147, .12);
+}
+.height-chart .legend-line {
+  border-color: #2D72BF;
+}
+.height-chart .median-line {
+  border-color: #7DBBE8;
+}
+.height-chart .legend-band {
+  border-color: #C7E2FF;
+  background: rgba(125, 187, 232, .12);
+}
+.chart-hint {
+  margin-top: 18rpx;
+  padding: 14rpx 18rpx;
+  border-radius: 12rpx;
+  background: #F4F8F4;
+  color: #7B8981;
+  font-size: 23rpx;
+  line-height: 1.7;
 }
 canvas {
   display: block;
@@ -201,6 +275,15 @@ canvas {
   font-size: 25rpx;
   color: #2E8753;
   white-space: nowrap;
+}
+.history-more {
+  margin: 0;
+  padding: 24rpx;
+  background: #F2FAF5;
+  color: #2E8753;
+  font-size: 24rpx;
+  line-height: 1.6;
+  border-radius: 0;
 }
 .record-item {
   display: flex;
@@ -311,37 +394,6 @@ canvas {
   font-size: 40rpx;
 }
 
-/* WHO 参考带 */
-.percentile-row {
-  display: flex;
-  align-items: center;
-  margin: 20rpx 0 8rpx;
-}
-.percentile-label {
-  font-size: 24rpx;
-  color: #64806E;
-  margin-right: 16rpx;
-}
-.sex-chip {
-  padding: 8rpx 22rpx;
-  margin-right: 12rpx;
-  border-radius: 999rpx;
-  border: 1rpx solid #CFECD9;
-  background: #fff;
-  font-size: 24rpx;
-  color: #64806E;
-}
-.sex-chip.active {
-  background: #76C393;
-  border-color: #76C393;
-  color: #fff;
-}
-.percentile-hint {
-  font-size: 22rpx;
-  color: #8B9A90;
-  line-height: 1.6;
-  margin-bottom: 8rpx;
-}
 .latest-percentile {
   margin-top: 4rpx;
   font-size: 23rpx;

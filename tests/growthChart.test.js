@@ -16,7 +16,7 @@ function makePage(mode) {
     lineTo(x, y) { points.push({ x, y }) },
     stroke() { drawing.strokes.push({ color: this.strokeStyle, points: points.slice() }) },
     fill() { drawing.fills.push(points.slice()) },
-    fillText(value) { if (this.textAlign === 'right') drawing.labels.push(value) }
+    fillText(value) { if (this.textAlign === 'right' && /^\d+(\.\d+)?$/.test(value)) drawing.labels.push(value) }
   }
   global.wx = {
     createSelectorQuery() {
@@ -60,9 +60,9 @@ test('weights above 20 stay inside the fixed plot and get distinct overflow mark
   const original = JSON.stringify(records)
   page.renderRecords(records)
   assert.deepStrictEqual(drawing.labels, ['0', '5', '10', '15', '20'])
-  const curve = drawing.strokes.find(stroke => stroke.color === '#76C393' && stroke.points.length === records.length)
+  const curve = drawing.strokes.find(stroke => stroke.color === '#2E8753' && stroke.points.length === records.length)
   assert.ok(curve)
-  assert.ok(curve.points.every(point => point.y >= 35 && point.y <= 230),
+  assert.ok(curve.points.every(point => point.y >= 32 && point.y <= 228),
     'all weight values must map inside the plotting area')
   assert.strictEqual(drawing.fills.filter(points => points.length === 3).length, 2,
     'out-of-range values must be visibly different from actual 20kg measurements')
@@ -86,8 +86,8 @@ test('the ceiling itself is a normal measurement and stale overflow notices clea
 test('height data keeps its automatic range and never uses weight overflow markers', () => {
   const { page, drawing } = makePage('height')
   page.renderRecords(records)
-  const curve = drawing.strokes.find(stroke => stroke.color === '#7DBBE8' && stroke.points.length === records.length)
-  assert.ok(curve && curve.points.every(point => point.y >= 35 && point.y <= 230))
+  const curve = drawing.strokes.find(stroke => stroke.color === '#2D72BF' && stroke.points.length === records.length)
+  assert.ok(curve && curve.points.every(point => point.y >= 32 && point.y <= 228))
   assert.strictEqual(drawing.fills.filter(points => points.length === 3).length, 0)
   assert.notDeepStrictEqual(drawing.labels, ['0', '5', '10', '15', '20'])
 })
