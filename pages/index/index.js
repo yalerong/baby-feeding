@@ -3,6 +3,7 @@ const supplementSync = require('../../utils/supplementSync.js')
 const familyRecordSync = require('../../utils/familyRecordSync.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
 const feedingReminderCache = require('../../utils/feedingReminderCache.js')
+const pageSnapshot = require('../../utils/pageSnapshot.js')
 const dailyReviewError = require('../../utils/dailyReviewError.js')
 const { recordIcons } = require('../../utils/recordIcons.js')
 const todayStr = dateUtil.todayStr
@@ -91,12 +92,28 @@ Page({
   },
 
   onShow() {
+    this._homeActive = true
+    this._homeGeneration = (this._homeGeneration || 0) + 1
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     const today = todayStr()
     const currentDate = this.data.currentDate || today
     const savedReminderMinutes = Number(wx.getStorageSync('feedingReminderMinutes'))
     const feedingReminderMinutes = savedReminderMinutes || feedingAudit.DEFAULT_REMINDER_MINUTES
     const feedingReminderIndex = this.data.feedingReminderOptions.findIndex(item => item.minutes === feedingReminderMinutes)
+    if (familyCode !== this.data.familyCode) {
+      this._prevFeedingByDate = {}
+      this._dailyReviewRequestDate = ''
+      this.stopFeedingSync()
+      this.stopSupplementSync()
+      this.setData({
+        dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 },
+        supplementReminder: { ...this.data.supplementReminder, visible: false, taken: false, name: '' },
+        feedingPeriodRecommendations: {
+          daytime: { minutes: 240, sampleCount: 0, usingDefault: true },
+          nighttime: { minutes: 240, sampleCount: 0, usingDefault: true }
+        }
+      })
+    }
 
     this.setData({
       familyCode,
@@ -114,9 +131,47 @@ Page({
     this.startSinceTimer()
   },
 
-  // 启动聚合：一次云调用取回当天记录/昨日回顾/补剂状态/近10日建议，失败回退多请求路径
+  homeRecordsKey(date) {
+    return pageSnapshot.key({ familyCode: this.data.familyCode, date })
+  },
+
+  isCurrentHomeRead(seq, familyCode, date) {
+    return this._homeActive !== false && this._homeReadSeq === seq &&
+      this.data.familyCode === familyCode && this.data.currentDate === date
+  },
+
+  showHomeSnapshot(date) {
+    const key = this.homeRecordsKey(date)
+    const cached = pageSnapshot.read('home', key)
+    if (cached) this.applyHomeRecords(cached.records, cached.prevFeeding, date, false)
+    else if (this._homeRecordsKey !== key) {
+      this._homeRecordsKey = key
+      this._homeRecordsSignature = ''
+      this.calculateStats([], null)
+    }
+  },
+
+  applyHomeRecords(records, prevFeeding, date, save = true) {
+    const key = this.homeRecordsKey(date)
+    const value = { records: records || [], prevFeeding: prevFeeding || null }
+    if (save) pageSnapshot.write('home', key, value)
+    this._prevFeedingByDate = this._prevFeedingByDate || {}
+    this._prevFeedingByDate[date] = value.prevFeeding
+    const signature = JSON.stringify(value)
+    if (this._homeRecordsKey === key && this._homeRecordsSignature === signature) {
+      this.refreshSinceLastFeeding()
+      this.refreshDailyReview()
+      return
+    }
+    this._homeRecordsKey = key
+    this._homeRecordsSignature = signature
+    this.calculateStats(value.records, value.prevFeeding)
+  },
+
+  // 今日记录不等待近十日建议扫描；快照先显示，云端始终重新校验。
   loadHomeSummary(date, today) {
     const familyCode = this.data.familyCode
+    const seq = this._homeReadSeq = (this._homeReadSeq || 0) + 1
     const reminder = dateUtil.supplementReminder(wx.getStorageSync('babyBirthDate') || '', today)
     const supplementName = (date === today && reminder.name) ? reminder.name : ''
     const reviewDate = feedingAudit.getPreviousDayReviewDate(today) || ''
@@ -131,28 +186,41 @@ Page({
       }, () => this.refreshSinceLastFeeding())
     }
 
-    if (reviewDate) this._dailyReviewRequestDate = reviewDate
+    if (reviewDate) {
+      this._dailyReviewRequestDate = reviewDate
+      this._dailyReviewSummarySeq = seq
+    }
     this._suppressSupplementFetch = !!supplementName
+    this.showHomeSnapshot(date)
 
-    wx.cloud.callFunction({
+    if (!hasRecommendationCache) this.loadFeedingReminderRecommendation()
+    const fallback = () => {
+      if (!this.isCurrentHomeRead(seq, familyCode, date)) return
+      if (this._dailyReviewRequestDate === reviewDate) this._dailyReviewRequestDate = ''
+      this._dailyReviewSummarySeq = 0
+      this._suppressSupplementFetch = false
+      const pending = this.fetchRecords(date)
+      if (supplementName) this.fetchSupplementTaken(reminder, today)
+      return pending
+    }
+    if (this._homeSummaryUnavailable) return fallback()
+    const pendingKey = pageSnapshot.key({ operation: 'homeSummary', familyCode, date, reviewDate, supplementName })
+    return pageSnapshot.fetch('home', pendingKey, () => wx.cloud.callFunction({
       name: 'homeSummary',
       data: {
         familyCode,
         date,
         reviewDate,
         supplementName,
-        recommendation: hasRecommendationCache
-          ? null
-          : { startDate: dateUtil.addDays(today, -RECOMMENDATION_WINDOW_DAYS), endDateExclusive: today }
+        recommendation: null
       }
-    }).then(res => {
+    })).then(res => {
+      if (!this.isCurrentHomeRead(seq, familyCode, date)) return
       const result = res.result
       if (!result || !result.success) throw new Error((result && result.error) || 'homeSummary failed')
 
       if (this.data.currentDate === date) {
-        this._prevFeedingByDate = this._prevFeedingByDate || {}
-        this._prevFeedingByDate[date] = result.prevFeeding || null
-        this.calculateStats(result.records || [], result.prevFeeding || null)
+        this.applyHomeRecords(result.records || [], result.prevFeeding || null, date)
         this.startFeedingSync(familyCode, date)
       }
 
@@ -172,6 +240,7 @@ Page({
 
       if (reviewDate && result.review &&
         feedingAudit.getPreviousDayReviewDate(this.data.todayDate) === reviewDate) {
+        this._dailyReviewSummarySeq = 0
         if (result.review.confirmed) {
           this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
         } else {
@@ -188,25 +257,27 @@ Page({
         }
       }
     }).catch(err => {
+      if (!this.isCurrentHomeRead(seq, familyCode, date)) return
       console.error(err)
-      if (reviewDate && this._dailyReviewRequestDate === reviewDate) this._dailyReviewRequestDate = ''
-      this._suppressSupplementFetch = false
-      this.fetchRecords(date)
-      if (!hasRecommendationCache) this.loadFeedingReminderRecommendation()
-      if (supplementName) this.fetchSupplementTaken(reminder, today)
+      const message = String(err.code || '') + ' ' + String(err.errMsg || err.message || '')
+      if (/FUNCTION_NOT_FOUND|function(?:name)?[^\r\n]*(?:not[ _-]*(?:found|exist)|does not exist)|云函数[^\r\n]*(?:不存在|未部署)/i.test(message)) this._homeSummaryUnavailable = true
+      return fallback()
     })
   },
 
   onHide() {
+    this._homeActive = false
+    this._homeGeneration = (this._homeGeneration || 0) + 1
+    this._homeReadSeq = (this._homeReadSeq || 0) + 1
+    this._dailyReviewRequestDate = ''
+    this._dailyReviewSummarySeq = 0
     this.stopSinceTimer()
     this.stopSupplementSync()
     this.stopFeedingSync()
   },
 
   onUnload() {
-    this.stopSinceTimer()
-    this.stopSupplementSync()
-    this.stopFeedingSync()
+    this.onHide()
   },
 
   startSinceTimer() {
@@ -260,6 +331,8 @@ Page({
   },
 
   loadFeedingReminderRecommendation() {
+    const familyCode = this.data.familyCode
+    const generation = this._homeGeneration
     const endDateExclusive = this.data.todayDate
     const startDate = dateUtil.addDays(endDateExclusive, -RECOMMENDATION_WINDOW_DAYS)
     const cacheKey = feedingReminderCache.getKey(this.data.familyCode, endDateExclusive)
@@ -271,14 +344,19 @@ Page({
       }, () => this.refreshSinceLastFeeding())
       return
     }
-    wx.cloud.callFunction({
+    const current = () => this._homeActive !== false && generation === this._homeGeneration &&
+      familyCode === this.data.familyCode && endDateExclusive === this.data.todayDate
+    const pendingKey = pageSnapshot.key({ operation: 'recommendation', familyCode, startDate, endDateExclusive })
+    return pageSnapshot.fetch('recommendation', pendingKey, () => wx.cloud.callFunction({
       name: 'getRecords',
       data: {
         familyCode: this.data.familyCode,
         startDate,
         endDateExclusive
       }
-    }).then(res => {
+    })).then(res => {
+      if (!current()) return
+      if (!res.result || !res.result.success) throw new Error('recommendation read failed')
       const recommendations = feedingAudit.recommendReminderByPeriod((res.result && res.result.data) || [])
       wx.setStorageSync(cacheKey, recommendations)
       const data = {
@@ -287,6 +365,7 @@ Page({
       }
       this.setData(data, () => this.refreshSinceLastFeeding())
     }).catch(err => {
+      if (!current()) return
       console.error(err)
       this.setData({ feedingRecommendationText: `暂时无法计算近 ${RECOMMENDATION_WINDOW_DAYS} 天建议，暂用默认间隔` })
     })
@@ -370,6 +449,8 @@ Page({
   },
 
   fetchSupplementTaken(reminder, date) {
+    const generation = this._homeGeneration
+    const familyCode = this.data.familyCode
     // 启动时聚合接口已带回补剂状态，跳过这一次单独查询
     if (this._suppressSupplementFetch) {
       this._suppressSupplementFetch = false
@@ -380,7 +461,8 @@ Page({
       date,
       name: reminder.name
     })
-    wx.cloud.callFunction({
+    const pendingKey = pageSnapshot.key({ operation: 'supplement:get', familyCode, date, name: reminder.name })
+    return pageSnapshot.fetch('supplement', pendingKey, () => wx.cloud.callFunction({
       name: 'supplement',
       data: {
         action: 'get',
@@ -388,7 +470,8 @@ Page({
         date,
         name: reminder.name
       }
-    }).then(res => {
+    })).then(res => {
+      if (this._homeActive === false || generation !== this._homeGeneration || familyCode !== this.data.familyCode) return
       if (!res.result || !res.result.success) return
       if (this._supplementSyncKey && this._supplementSyncKey !== key) return
       if (this.data.todayDate !== date || this.data.supplementReminder.name !== reminder.name) return
@@ -399,6 +482,7 @@ Page({
   },
 
   startSupplementSync(reminder, date) {
+    if (this._homeActive === false) return
     const familyCode = this.data.familyCode
     if (!supplementSync.shouldSyncSupplement({
       currentDate: this.data.currentDate,
@@ -419,6 +503,7 @@ Page({
   },
 
   startSupplementWatcher(reminder, date, key) {
+    const generation = this._homeGeneration
     try {
       if (!wx.cloud || !wx.cloud.database) return
       const db = wx.cloud.database()
@@ -430,7 +515,7 @@ Page({
         })
         .watch({
           onChange: snapshot => {
-            if (this._supplementSyncKey !== key) return
+            if (this._homeActive === false || generation !== this._homeGeneration || this._supplementSyncKey !== key) return
             this.applySupplementReminder(reminder, supplementSync.takenFromWatchSnapshot(snapshot))
           },
           onError: err => {
@@ -499,27 +584,36 @@ Page({
   },
 
   fetchRecords(date) {
-    wx.cloud.callFunction({
+    if (this._dailyReviewSummarySeq) {
+      this._dailyReviewRequestDate = ''
+      this._dailyReviewSummarySeq = 0
+    }
+    const familyCode = this.data.familyCode
+    const seq = this._homeReadSeq = (this._homeReadSeq || 0) + 1
+    this.showHomeSnapshot(date)
+    const key = pageSnapshot.key({ operation: 'getRecords', familyCode, date })
+    return pageSnapshot.fetch('home', key, () => wx.cloud.callFunction({
       name: 'getRecords',
       data: {
-        familyCode: this.data.familyCode,
+        familyCode,
         date: date
       }
-    }).then(res => {
-      if (this.data.currentDate !== date) return
+    })).then(res => {
+      if (!this.isCurrentHomeRead(seq, familyCode, date)) return
+      if (!res.result || !res.result.success) throw new Error('records read failed')
       const records = res.result.data || []
       const prevFeeding = res.result.prevFeeding || null
-      this._prevFeedingByDate = this._prevFeedingByDate || {}
-      this._prevFeedingByDate[date] = prevFeeding
-      this.calculateStats(records, prevFeeding)
+      this.applyHomeRecords(records, prevFeeding, date)
       this.startFeedingSync(this.data.familyCode, date)
     }).catch(err => {
+      if (!this.isCurrentHomeRead(seq, familyCode, date)) return
       console.error(err)
       wx.showToast({ title: '获取记录失败', icon: 'none' })
     })
   },
 
   startFeedingSync(familyCode, date) {
+    if (this._homeActive === false) return
     if (!familyRecordSync.shouldSyncFamilyRecords({ familyCode }) || !date) {
       this.stopFeedingSync()
       return
@@ -530,19 +624,21 @@ Page({
 
     this.stopFeedingSync()
     this._feedingSyncKey = key
+    const generation = this._homeGeneration
     try {
       if (!wx.cloud || !wx.cloud.database) return
       const db = wx.cloud.database()
       this._feedingWatcher = db.collection('feeding_records')
         .where({ familyCode, date })
         .orderBy('time', 'asc')
+        .orderBy('_id', 'asc')
         .watch({
           onChange: snapshot => {
-            if (this._feedingSyncKey !== key) return
+            if (this._homeActive === false || generation !== this._homeGeneration || this._feedingSyncKey !== key) return
             const prevFeeding = this._prevFeedingByDate && this._prevFeedingByDate[date]
               ? this._prevFeedingByDate[date]
               : null
-            this.calculateStats(familyRecordSync.recordsFromWatchSnapshot(snapshot), prevFeeding)
+            this.applyHomeRecords(familyRecordSync.recordsFromWatchSnapshot(snapshot), prevFeeding, date)
           },
           onError: err => {
             console.error(err)
@@ -621,6 +717,10 @@ Page({
   },
 
   refreshDailyReview() {
+    if (this._homeActive === false) return
+    const generation = this._homeGeneration
+    const familyCode = this.data.familyCode
+    const current = () => this._homeActive !== false && generation === this._homeGeneration && familyCode === this.data.familyCode
     const reviewDate = feedingAudit.getPreviousDayReviewDate(this.data.todayDate)
     if (!reviewDate) {
       this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
@@ -633,6 +733,7 @@ Page({
       name: 'dailyReview',
       data: { action: 'get', familyCode: this.data.familyCode, date: reviewDate }
     }).then(res => {
+      if (!current()) return null
       if (feedingAudit.getPreviousDayReviewDate(this.data.todayDate) !== reviewDate) return
       if (res.result && res.result.success && res.result.confirmed) {
         this.setData({ dailyReview: { visible: false, date: '', feedingCount: 0, totalMilk: 0, closePairCount: 0 } })
@@ -643,7 +744,7 @@ Page({
         data: { familyCode: this.data.familyCode, date: reviewDate }
       })
     }).then(res => {
-      if (!res || feedingAudit.getPreviousDayReviewDate(this.data.todayDate) !== reviewDate) return
+      if (!current() || !res || feedingAudit.getPreviousDayReviewDate(this.data.todayDate) !== reviewDate) return
       const review = feedingAudit.buildDailyReview((res.result && res.result.data) || [])
       this.setData({
         dailyReview: {
@@ -655,6 +756,7 @@ Page({
         }
       })
     }).catch(err => {
+      if (!current()) return
       this._dailyReviewRequestDate = ''
       console.error(err)
     })
@@ -785,6 +887,7 @@ Page({
     }).then(res => {
       wx.hideLoading()
       if (res.result && res.result.success) {
+        feedingReminderCache.clearForToday(familyCode, saveDate)
         wx.showToast({ title: '已保存', icon: 'success' })
         this.setData({ quickBreast: '', quickFormula: '', quickSaving: false })
         if (saveDate !== this.data.todayDate) {

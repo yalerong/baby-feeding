@@ -1,5 +1,6 @@
 const dateUtil = require('../../utils/date.js')
 const feedingAudit = require('../../utils/feedingAudit.js')
+const feedingReminderCache = require('../../utils/feedingReminderCache.js')
 const todayStr = dateUtil.todayStr
 
 Page({
@@ -170,6 +171,7 @@ Page({
       wx.hideLoading()
       if (res.result && res.result.success) {
         wx.showToast({ title: '保存成功', icon: 'success' })
+        feedingReminderCache.clearForToday(familyCode, todayStr())
         setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 800)
       } else {
         this._submitting = false
