@@ -1,4 +1,6 @@
 const { withChartCanvas } = require('../../utils/chartCanvas.js')
+const dateUtil = require('../../utils/date.js')
+const pageSnapshot = require('../../utils/pageSnapshot.js')
 
 Page({
   data: {
@@ -18,9 +20,8 @@ Page({
       breast: 0,
       formula: 0
     },
-    dailyStats: [],
+    chartHasData: false,
     displayDailyStats: [],
-    allDailyStats: [],
     viewMode: 'chart',
     selectedMonth: '',
     monthList: [],
@@ -41,72 +42,103 @@ Page({
   },
 
   onShow() {
-    this.loadStats()
+    this._statsActive = true
+    return this.loadStats()
+  },
+
+  onHide() {
+    this._statsActive = false
+    this._statsSeq = (this._statsSeq || 0) + 1
+    if (this._statsLoading) wx.hideLoading()
+    this._statsLoading = false
+  },
+
+  onUnload() {
+    this.onHide()
   },
 
   switchRange(e) {
     const range = e.currentTarget.dataset.range
-    this.setData({ range, selectedChartItem: null, chartHitAreas: [], displayDailyStats: [] })
-    this.loadStats()
+    if (range === this.data.range) return
+    this.setData({ range })
+    return this.loadStats()
+  },
+
+  statsContext() {
+    const familyCode = wx.getStorageSync('familyCode')
+    const range = this.data.range
+    const key = familyCode ? pageSnapshot.key({ operation: 'getStats', familyCode, range, cutoffDate: dateUtil.todayStr() }) : ''
+    return { familyCode, range, key }
+  },
+
+  isCurrentStats(context, seq) {
+    return this._statsActive !== false && this._statsSeq === seq && this.statsContext().key === context.key
   },
 
   loadStats() {
-    const familyCode = wx.getStorageSync('familyCode')
-    if (!familyCode) {
-      wx.showToast({ title: '缺少家庭码', icon: 'none' })
-      return
-    }
-
-    wx.showLoading({ title: '加载中...' })
-
+    if (this._statsActive === false) return Promise.resolve()
+    const context = this.statsContext()
     const seq = (this._statsSeq || 0) + 1
     this._statsSeq = seq
-    wx.cloud.callFunction({
-      name: 'getStats',
-      data: {
-        familyCode,
-        range: this.data.range
-      }
-    }).then(res => {
-      if (this._statsSeq !== seq) return
-      wx.hideLoading()
-      const dailyStats = this.normalizeDailyStats(((res.result || {}).dailyStats) || [])
-      const stats = this.calculateStatsFromDaily(dailyStats)
-      const avgStats = this.calculateAverageStats(dailyStats)
+    if (!context.familyCode) {
+      this.renderStats([], '')
+      if (this._statsLoading) wx.hideLoading()
+      this._statsLoading = false
+      wx.showToast({ title: '缺少家庭码', icon: 'none' })
+      return Promise.resolve()
+    }
 
-      if (this.data.range === 'all') {
-        const monthList = this.generateMonthList(dailyStats)
-        this.setData({
-          stats,
-          avgStats,
-          dailyStats,
-          displayDailyStats: dailyStats,
-          allDailyStats: dailyStats,
-          monthList,
-          viewMode: 'monthList',
-          selectedMonth: '',
-          selectedChartItem: null,
-          chartHitAreas: []
-        })
-      } else {
-        this.setData({
-          stats,
-          avgStats,
-          dailyStats,
-          displayDailyStats: dailyStats,
-          allDailyStats: dailyStats,
-          viewMode: 'chart',
-          selectedMonth: '',
-          monthList: [],
-          selectedChartItem: null,
-          chartHitAreas: []
-        }, () => this.drawChart(dailyStats))
-      }
-    }).catch(err => {
-      if (this._statsSeq !== seq) return
+    const cached = pageSnapshot.read('stats', context.key)
+    if (Array.isArray(cached)) this.renderStats(cached, context.key)
+    else if (this._statsVisibleKey !== context.key) this.renderStats([], '')
+
+    if (this._statsVisibleKey !== context.key) {
+      this._statsLoading = true
+      wx.showLoading({ title: '加载中...' })
+    } else if (this._statsLoading) {
       wx.hideLoading()
+      this._statsLoading = false
+    }
+
+    return pageSnapshot.fetch('stats', context.key, () => wx.cloud.callFunction({
+      name: 'getStats', data: { familyCode: context.familyCode, range: context.range }
+    }).then(res => {
+      if (!res.result || !res.result.success || !Array.isArray(res.result.dailyStats)) throw new Error('invalid stats response')
+      return res.result.dailyStats
+    })).then(dailyStats => {
+      if (!this.isCurrentStats(context, seq)) return
+      pageSnapshot.write('stats', context.key, dailyStats)
+      this.renderStats(dailyStats, context.key)
+    }).catch(err => {
+      if (!this.isCurrentStats(context, seq)) return
       console.error(err)
       wx.showToast({ title: '加载失败', icon: 'none' })
+    }).finally(() => {
+      if (this._statsActive === false || this._statsSeq !== seq) return
+      if (this._statsLoading) wx.hideLoading()
+      this._statsLoading = false
+    })
+  },
+
+  renderStats(rows, key) {
+    const dailyStats = this.normalizeDailyStats(rows)
+    const isAll = this.data.range === 'all'
+    this._allDailyStats = dailyStats
+    this._dailyStats = isAll ? [] : dailyStats
+    this._statsVisibleKey = key
+    const seq = this._statsSeq
+    this.setData({
+      stats: this.calculateStatsFromDaily(dailyStats),
+      avgStats: this.calculateAverageStats(dailyStats),
+      chartHasData: !isAll && dailyStats.length > 0,
+      displayDailyStats: isAll ? [] : dailyStats,
+      monthList: isAll ? this.generateMonthList(dailyStats) : [],
+      viewMode: isAll ? 'monthList' : 'chart',
+      selectedMonth: '',
+      selectedChartItem: null,
+      chartHitAreas: []
+    }, () => {
+      if (!isAll && this._statsActive !== false && this._statsSeq === seq && this._statsVisibleKey === key) this.drawChart(dailyStats)
     })
   },
 
@@ -195,16 +227,17 @@ Page({
 
   onMonthTap(e) {
     const month = e.currentTarget.dataset.month
-    const monthData = this.data.allDailyStats
+    const monthData = (this._allDailyStats || [])
       .filter(d => d.date.startsWith(month))
       .filter(d => this.hasDailyRecord(d))
       .sort((a, b) => a.date.localeCompare(b.date))
+    this._dailyStats = monthData
     this.setData({
       selectedMonth: this.formatMonthLabel(month),
       viewMode: 'monthDetail',
       stats: this.calculateStatsFromDaily(monthData),
       avgStats: this.calculateAverageStats(monthData),
-      dailyStats: monthData,
+      chartHasData: monthData.length > 0,
       displayDailyStats: monthData,
       selectedChartItem: null,
       chartHitAreas: []
@@ -212,26 +245,33 @@ Page({
   },
 
   backToMonthList() {
+    this._dailyStats = []
+    const dailyStats = this._allDailyStats || []
     this.setData({
       selectedMonth: '',
       viewMode: 'monthList',
-      stats: this.calculateStatsFromDaily(this.data.allDailyStats),
-      avgStats: this.calculateAverageStats(this.data.allDailyStats),
-      dailyStats: this.data.allDailyStats,
-      displayDailyStats: this.data.allDailyStats,
+      stats: this.calculateStatsFromDaily(dailyStats),
+      avgStats: this.calculateAverageStats(dailyStats),
+      chartHasData: false,
+      displayDailyStats: [],
       selectedChartItem: null,
       chartHitAreas: []
     })
   },
 
   drawChart(dailyStats) {
+    if (this._statsActive === false) return
     if (!dailyStats || dailyStats.length === 0) {
       this.setData({ chartHitAreas: [], selectedChartItem: null })
+      withChartCanvas('#chartCanvas', this.data.pixelRatio, () => {})
       return
     }
     const data = [...dailyStats].sort((a, b) => a.date.localeCompare(b.date))
+    const seq = this._statsSeq
+    const viewMode = this.data.viewMode
 
     withChartCanvas('#chartCanvas', this.data.pixelRatio, (ctx, width, height) => {
+      if (this._statsActive === false || this._statsSeq !== seq || this.data.viewMode !== viewMode) return
       const padding = { top: 60, right: 15, bottom: 50, left: 45 }
       const chartW = width - padding.left - padding.right
       const chartH = height - padding.top - padding.bottom
@@ -381,13 +421,13 @@ Page({
 
     if (hit) {
       if (this.data.selectedChartItem && this.data.selectedChartItem.date === hit.data.date) return
-      const selectedDay = this.data.dailyStats.find(item => item.date === hit.data.date)
+      const selectedDay = (this._dailyStats || []).find(item => item.date === hit.data.date)
       this.setData({
         selectedChartItem: hit.data,
         stats: this.calculateStatsFromDaily(selectedDay ? [selectedDay] : []),
         avgStats: this.calculateAverageStats(selectedDay ? [selectedDay] : []),
         displayDailyStats: selectedDay ? [selectedDay] : []
-      }, () => this.drawChart(this.data.dailyStats))
+      }, () => this.drawChart(this._dailyStats))
     }
   },
 

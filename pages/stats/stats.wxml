@@ -15,7 +15,7 @@
       <text class="chart-back" bindtap="backToMonthList">← 返回月份列表</text>
     </view>
     <canvas type="2d" id="chartCanvas" style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;" bindtap="onChartTap" bindtouchstart="onChartTouch" catchtouchmove="onChartTouch"></canvas>
-    <view class="chart-empty" wx:if="{{dailyStats.length === 0}}">
+    <view class="chart-empty" wx:if="{{!chartHasData}}">
       <text class="empty-emoji">📊</text>
       还没有足够数据，多记几天就有图啦
     </view>
