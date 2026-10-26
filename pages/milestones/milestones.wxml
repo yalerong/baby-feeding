@@ -25,12 +25,18 @@
   <view class="stage-hint">{{stageHint}}</view>
 
   <view wx:if="{{loading}}" class="card state-card">正在整理宝宝的观察记录…</view>
-  <view wx:elif="{{loadError}}" class="card state-card">
+  <view wx:elif="{{loadError && !hasSnapshot}}" class="card state-card">
     <view class="section-title">记录暂时没加载出来</view>
     <view class="item-tip">可以稍后重试，或下拉刷新一下。</view>
     <button class="btn-secondary retry-button" bindtap="loadRecords">再试一次</button>
   </view>
   <block wx:else>
+    <view wx:if="{{refreshing}}" class="card state-card">已显示上次记录，正在同步最新观察；同步完成后可编辑和复制摘要。</view>
+    <view wx:elif="{{loadError}}" class="card state-card">
+      <view class="section-title">已显示上次记录，暂时无法同步</view>
+      <view class="item-tip">同步成功后可继续编辑、保存和复制摘要。</view>
+      <button class="btn-secondary retry-button" bindtap="loadRecords">再试一次</button>
+    </view>
     <view class="record-summary">
       <view class="section-title">已记录 <text class="summary-number">{{recordedCount}}</text> / {{total}} 项</view>
       <view class="summary-hint">不用一次填完，想到时再记。</view>
@@ -46,7 +52,7 @@
         <text class="group-toggle">{{expandedGroups[group.id] ? '收起 ▴' : '展开 ▾'}}</text>
       </button>
       <view class="group-body" wx:if="{{expandedGroups[group.id]}}">
-        <button class="milestone-item" wx:for="{{group.items}}" wx:key="id" data-id="{{item.id}}" bindtap="openObservation">
+        <button class="milestone-item" wx:for="{{group.items}}" wx:key="id" data-id="{{item.id}}" bindtap="openObservation" disabled="{{refreshing || loadError || saving}}">
           <view class="item-heading">
             <view class="item-title">{{item.title}}</view>
             <text class="status-tag {{item.status || 'unrecorded'}}">{{item.statusLabel}}</text>
@@ -67,7 +73,7 @@
         <view class="activity-reason">{{item.reason}}</view>
         <view class="item-tip">{{item.text}}</view>
         <view class="observation-date">可以留意：{{item.targetTitle}}</view>
-        <button class="observe-button" data-id="{{item.milestoneId}}" bindtap="openObservation">记下这次互动</button>
+        <button class="observe-button" data-id="{{item.milestoneId}}" bindtap="openObservation" disabled="{{refreshing || loadError || saving}}">记下这次互动</button>
       </view>
       <button class="source-button" bindtap="copyActivitySource">查看陪玩依据 · 复制 CDC 链接</button>
     </view>
@@ -75,7 +81,7 @@
     <view class="card summary-card">
       <view class="section-title">把观察带去儿保</view>
       <view class="item-tip">整理成一份记录，和医生聊得更具体。</view>
-      <button class="summary-button" bindtap="copySummary">复制观察摘要</button>
+      <button class="summary-button" bindtap="copySummary" disabled="{{refreshing || loadError || saving}}">复制观察摘要</button>
     </view>
   </block>
 
@@ -116,7 +122,7 @@
       <view class="note-limit">{{editor.note.length}} / 300</view>
     </scroll-view>
     <view class="editor-actions">
-      <button class="btn-primary save-button" bindtap="saveObservation" loading="{{saving}}" disabled="{{saving || !editor.status}}">{{saving ? '正在保存…' : '保存这次观察'}}</button>
+      <button class="btn-primary save-button" bindtap="saveObservation" loading="{{saving}}" disabled="{{loading || refreshing || loadError || saving || !editor.status}}">{{saving ? '正在保存…' : '保存这次观察'}}</button>
     </view>
   </view>
 </view>
