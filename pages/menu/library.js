@@ -5,14 +5,21 @@ const menuData = require('../../utils/menuData.js')
 module.exports = {
   // 家庭菜谱库：家长自己写过的菜，跨周复用
   loadLibraryDishes() {
+    if (this._menuHidden) return Promise.resolve(false)
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
+    const context = this.captureMenuContext()
+    const requestVersion = (this._libraryRequestVersion || 0) + 1
+    this._libraryRequestVersion = requestVersion
     return wx.cloud.callFunction({ name: 'customDish', data: { action: 'list', familyCode } })
       .then(res => {
+        if (!this.isMenuContextCurrent(context) || this._libraryRequestVersion !== requestVersion) return
         const libraryDishes = res.result && res.result.success ? (res.result.data || []) : []
         this.setData({ libraryDishes })
         if (this.data.hallContext) this.setData({ hallLibraryDishes: this.buildHallLibraryDishes(this.data.hallContext.mealType) })
       })
-      .catch(err => console.error(err))
+      .catch(err => {
+        if (this.isMenuContextCurrent(context) && this._libraryRequestVersion === requestVersion) console.error(err)
+      })
   },
 
   // 菜谱库里的菜也要过一遍过敏排除：按规范食材和原始配料名都匹配，和菜库菜同一口径
@@ -162,6 +169,9 @@ module.exports = {
   },
 
   buildCatalog(ageMonth) {
+    if (this._menuHidden || this.data.viewMode !== 'catalog') return
+    const signature = JSON.stringify([ageMonth, this.data.catalogFilters])
+    if (signature === this._catalogSignature && this.data.catalogDishes.length) return
     const catalogDishes = menuData.getDishCatalog(this.data.catalogFilters).map(dish => ({
       ...dish,
       isForPlanAge: ageMonth >= dish.ageMinMonth && ageMonth <= dish.ageMaxMonth
@@ -170,12 +180,13 @@ module.exports = {
       if (a.isForPlanAge !== b.isForPlanAge) return a.isForPlanAge ? -1 : 1
       return a.ageMinMonth - b.ageMinMonth
     })
+    this._catalogSignature = signature
     this.setData({ catalogDishes })
   },
 
   enterCatalog() {
-    this.buildCatalog(this.data.ageMonth)
     this.setData({ viewMode: 'catalog' })
+    this.buildCatalog(this.data.ageMonth)
   },
 
   closeCatalog() {

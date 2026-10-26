@@ -5,10 +5,18 @@ const foodUnlock = require('../../utils/foodUnlock.js')
 
 module.exports = {
   loadFoodTrials() {
+    if (this._menuHidden) return Promise.resolve(false)
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
-    return wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
+    const context = this.captureMenuContext()
+    const requestVersion = (this._trialRequestVersion || 0) + 1
+    this._trialRequestVersion = requestVersion
+    this._trialLoading = true
+    const isCurrent = () => this.isMenuContextCurrent(context) && this._trialRequestVersion === requestVersion
+    const request = wx.cloud.callFunction({ name: 'foodTrial', data: { action: 'list', familyCode } })
       .then(res => {
+        if (!isCurrent()) return false
         if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'foodTrial list failed')
+        this._trialLoading = false
         const foodTrials = res.result.data || []
         const trialMode = foodUnlock.normalizeMode(res.result.settings && res.result.settings.trialMode)
         this.setData({
@@ -19,17 +27,24 @@ module.exports = {
           unlockedFoods: foodUnlock.getUnlockedFoodNames(foodTrials),
           foodTrialError: ''
         })
-        this.buildTrialFoods()
+        if (this.data.viewMode === 'trial') this.buildTrialFoods()
+        return true
       })
       .catch(err => {
+        if (!isCurrent()) return false
+        this._trialLoading = false
         console.error(err)
         // 试吃数据不可用时 unlockedFoods 保持 null，菜单不做解锁限制
         this.setData({ foodTrialError: '试吃记录暂不可用，请部署 foodTrial 云函数并创建 food_trials 集合', unlockedFoods: null })
-        this.buildTrialFoods()
+        if (this.data.viewMode === 'trial') this.buildTrialFoods()
+        return true
       })
+    this._foodTrialsReady = request
+    return request
   },
 
   buildTrialFoods() {
+    if (this._menuHidden) return
     const ageMonth = Math.max(6, this.data.currentAgeMonth || this.data.ageMonth || 6)
     const byName = {}
     this.data.foodTrials.forEach(trial => { byName[trial.foodName] = trial })
