@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 
@@ -44,14 +45,23 @@ exports.main = async (event) => {
         await db.collection('weekly_menus').doc(saved._id).update({ data: payload })
         return { success: true, _id: saved._id }
       }
-      const res = await db.collection('weekly_menus').add({
-        data: {
-          ...payload,
-          createBy: OPENID || '',
-          createTime: db.serverDate()
-        }
-      })
-      return { success: true, _id: res._id }
+      // 旧菜单沿用原 ID；新周使用固定 ID，避免两台手机首次保存时各建一份。
+      const documentId = `menu_${crypto.createHash('sha256').update(JSON.stringify([familyCode, weekStart])).digest('hex')}`
+      try {
+        await db.collection('weekly_menus').add({
+          data: {
+            _id: documentId,
+            ...payload,
+            createBy: OPENID || '',
+            createTime: db.serverDate()
+          }
+        })
+      } catch (err) {
+        const raced = await db.collection('weekly_menus').where({ _id: documentId, familyCode, weekStart }).limit(1).get()
+        if (!raced.data || !raced.data[0]) throw err
+        await db.collection('weekly_menus').doc(documentId).update({ data: payload })
+      }
+      return { success: true, _id: documentId }
     }
 
     return { success: false, error: 'unknown action' }

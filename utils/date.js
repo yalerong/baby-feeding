@@ -122,7 +122,9 @@ function addDays(dateStr, days) {
 function addMonths(dateStr, months) {
   const parts = parseDateParts(dateStr)
   if (!parts) return ''
-  const ms = Date.UTC(parts.year, parts.month - 1 + months, parts.day)
+  const target = calendarPartsFromMs(Date.UTC(parts.year, parts.month - 1 + months, 1))
+  const day = Math.min(parts.day, daysInMonth(target.year, target.month))
+  const ms = Date.UTC(target.year, target.month - 1, day)
   return partsToDateStr(calendarPartsFromMs(ms))
 }
 

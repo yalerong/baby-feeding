@@ -2,31 +2,31 @@
   <view class="card form-card">
     <view class="form-item">
       <text class="form-label">疫苗名称</text>
-      <input value="{{vaccineName}}" placeholder="如：乙肝疫苗" bindinput="bindNameInput" disabled="{{!isCustom}}" />
+      <input value="{{vaccineName}}" placeholder="如：乙肝疫苗" bindinput="bindNameInput" disabled="{{!isCustom || loading || saving}}" />
     </view>
     <view class="form-item">
       <text class="form-label">剂次</text>
-      <input type="number" value="{{dose}}" placeholder="1" bindinput="bindDoseInput" disabled="{{!isCustom}}" />
+      <input type="number" value="{{dose}}" placeholder="1" bindinput="bindDoseInput" disabled="{{!isCustom || loading || saving}}" />
     </view>
     <view class="form-item">
       <text class="form-label">预计接种</text>
-      <picker mode="date" value="{{plannedDate}}" bindchange="bindPlannedChange">
+      <picker mode="date" value="{{plannedDate}}" bindchange="bindPlannedChange" disabled="{{loading || saving}}">
         <view class="picker-value">{{plannedDate || '请选择'}}</view>
       </picker>
     </view>
     <view class="form-item">
       <text class="form-label">实际接种</text>
-      <picker mode="date" value="{{actualDate}}" end="{{today}}" bindchange="bindActualChange">
+      <picker mode="date" value="{{actualDate}}" end="{{today}}" bindchange="bindActualChange" disabled="{{loading || saving}}">
         <view class="picker-value {{actualDate ? '' : 'placeholder'}}">{{actualDate || '未接种'}}</view>
       </picker>
     </view>
     <view class="form-item">
       <text class="form-label">备注</text>
-      <input value="{{note}}" placeholder="可选，如接种部位反应" bindinput="bindNoteInput" />
+      <input value="{{note}}" placeholder="可选，如接种部位反应" bindinput="bindNoteInput" disabled="{{loading || saving}}" />
     </view>
   </view>
 
-  <button class="btn-primary" bindtap="submit">保存</button>
-  <button wx:if="{{!isCustom && _id}}" class="btn-secondary" bindtap="resetPlanned">恢复系统预计日期</button>
-  <button wx:if="{{_id}}" class="btn-danger" bindtap="deleteRecord">删除记录</button>
+  <button class="btn-primary" bindtap="submit" disabled="{{loading || saving}}" loading="{{saving}}">保存</button>
+  <button wx:if="{{!isCustom && _id}}" class="btn-secondary" bindtap="resetPlanned" disabled="{{loading || saving}}">恢复系统预计日期</button>
+  <button wx:if="{{_id}}" class="btn-danger" bindtap="deleteRecord" disabled="{{loading || saving}}">删除记录</button>
 </view>

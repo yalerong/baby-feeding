@@ -81,6 +81,11 @@ Page({
       else if (!this.data.isEdit) this.loadLatestFeeding(this.data.date)
     }
     if (this.data.solidFood) this.loadSolidFoodOptions(returning)
+    if (this._pendingMutationFinish) {
+      const finish = this._pendingMutationFinish
+      this._pendingMutationFinish = null
+      finish()
+    }
   },
 
   onHide() {
@@ -93,7 +98,18 @@ Page({
   },
 
   onUnload() {
+    this._addUnloaded = true
+    this._pendingMutationFinish = null
     this.onHide()
+  },
+
+  finishMutation(familyCode, complete) {
+    if (this._addUnloaded || familyCode !== (wx.getStorageSync('familyCode') || '')) return
+    if (this._addActive === false) {
+      this._pendingMutationFinish = () => this.finishMutation(familyCode, complete)
+      return
+    }
+    complete()
   },
 
   addReadContext() {
@@ -152,15 +168,16 @@ Page({
       if (list.length > 0) {
         const r = list[0]
         this._originalRecord = r
+        this._stoolDescChanged = false
         const stoolDesc = r.stoolDesc || ''
         let stoolTextureIndex = -1
         let stoolColorIndex = -1
         let stoolAmountIndex = -1
         if (stoolDesc) {
           const parts = stoolDesc.split(/[,，\-、\s]+/).filter(Boolean)
-          if (parts[0]) stoolTextureIndex = this.data.stoolTextures.indexOf(parts[0])
-          if (parts[1]) stoolColorIndex = this.data.stoolColors.indexOf(parts[1])
-          if (parts[2]) stoolAmountIndex = this.data.stoolAmounts.indexOf(parts[2])
+          stoolTextureIndex = this.data.stoolTextures.findIndex(value => parts.includes(value))
+          stoolColorIndex = this.data.stoolColors.findIndex(value => parts.includes(value))
+          stoolAmountIndex = this.data.stoolAmounts.findIndex(value => parts.includes(value))
         }
         this.setData({
           date: r.date,
@@ -436,18 +453,22 @@ Page({
   },
 
   bindStoolTextureChange(e) {
+    this._stoolDescChanged = true
     this.setData({ stoolTextureIndex: parseInt(e.detail.value) })
   },
 
   bindStoolColorChange(e) {
+    this._stoolDescChanged = true
     this.setData({ stoolColorIndex: parseInt(e.detail.value) })
   },
 
   bindStoolAmountChange(e) {
+    this._stoolDescChanged = true
     this.setData({ stoolAmountIndex: parseInt(e.detail.value) })
   },
 
   buildStoolDesc() {
+    if (this.data.isEdit && this._originalRecord && !this._stoolDescChanged) return this.data.stoolDesc
     const texture = this.data.stoolTextures[this.data.stoolTextureIndex] || ''
     const color = this.data.stoolColors[this.data.stoolColorIndex] || ''
     const amount = this.data.stoolAmounts[this.data.stoolAmountIndex] || ''
@@ -457,6 +478,10 @@ Page({
 
   submit() {
     if (this.data.saving) return
+    if (this.data.isEdit && !this._originalRecord) {
+      wx.showToast({ title: '记录还没加载完成，稍后再试', icon: 'none' })
+      return
+    }
     const familyCode = wx.getStorageSync('familyCode')
     if (!familyCode) {
       wx.showToast({ title: '缺少家庭码', icon: 'none' })
@@ -514,6 +539,7 @@ Page({
 
   saveRecord(payload) {
     if (this.data.saving) return
+    payload.familyCode = payload.familyCode || wx.getStorageSync('familyCode')
     this.setData({ saving: true })
     wx.showLoading({ title: '保存中...', mask: true })
     const isEdit = this.data.isEdit
@@ -523,7 +549,7 @@ Page({
       data: payload
     }).then(res => {
       if (res.result && res.result.success) {
-        feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
+        feedingReminderCache.clearForToday(payload.familyCode, todayStr())
         if (payload.solidFood) {
           wx.setStorageSync('lastSolidFoodSelection', {
             dishId: payload.solidFoodDishId,
@@ -540,7 +566,7 @@ Page({
           recordId,
           silent: true
         })
-        const finish = syncResult => {
+        const finish = syncResult => this.finishMutation(payload.familyCode, () => {
           if (syncResult && syncResult.status === 'failed' && syncResult.message) {
             wx.showModal({
               title: saved,
@@ -556,7 +582,7 @@ Page({
                   })
                   return
                 }
-                wx.navigateBack()
+                this.finishMutation(payload.familyCode, () => wx.navigateBack())
               }
             })
             return
@@ -566,13 +592,13 @@ Page({
               title: saved,
               content: syncResult.message,
               showCancel: false,
-              success: () => wx.navigateBack()
+              success: () => this.finishMutation(payload.familyCode, () => wx.navigateBack())
             })
             return
           }
           wx.showToast({ title: syncResult && syncResult.message ? `${saved}，${syncResult.message}`.slice(0, 40) : saved, icon: 'success', duration: syncResult && syncResult.message ? 2500 : 1500 })
-          setTimeout(() => wx.navigateBack(), 800)
-        }
+          setTimeout(() => this.finishMutation(payload.familyCode, () => wx.navigateBack()), 800)
+        })
         return syncTrial().then(syncResult => {
           wx.hideLoading()
           if (isEdit && this._originalRecord && Array.isArray(this._originalRecord.images)) {
@@ -595,7 +621,7 @@ Page({
   // 保存/修改/删除辅食记录后同步试吃打卡：先回退旧记录当天的自动打卡，再给新记录打卡。
   // 只处理不晚于今天的记录；早于最近一次试吃日期的补录由 getAutoTrialTarget 拒绝。
   syncSolidFoodTrial({ before, after, recordId, silent }) {
-    const familyCode = wx.getStorageSync('familyCode')
+    const familyCode = (after && after.familyCode) || (before && before.familyCode) || wx.getStorageSync('familyCode')
     const today = todayStr()
     const beforeSolid = !!(before && before.solidFood && before.date && before.date <= today)
     const afterSolid = !!(after && after.solidFood && after.date && after.date <= today)
@@ -612,7 +638,7 @@ Page({
       let syncFailure = ''
       if (beforeSolid) {
         const beforeFoods = solidFood.getCanonicalFoods({ dishId: before.solidFoodDishId, name: before.solidFoodDishName, foods: before.solidFoodFoods, extraFoods })
-        chain = this.loadOtherSolidFoods(before.date, recordId, extraFoods).then(otherSources => {
+        chain = this.loadOtherSolidFoods(before.date, recordId, extraFoods, familyCode).then(otherSources => {
           const otherFoods = Object.keys(otherSources)
           const sameDayAfter = afterSolid && after.date === before.date
           const covered = otherFoods.concat(sameDayAfter ? afterFoods : [])
@@ -667,8 +693,7 @@ Page({
   },
 
   // 同一天其它记录吃到的食材 → 其中一条记录的 _id，用来判断回退时是否还有别的记录撑着、以及来源移交给谁
-  loadOtherSolidFoods(date, recordId, extraFoods) {
-    const familyCode = wx.getStorageSync('familyCode')
+  loadOtherSolidFoods(date, recordId, extraFoods, familyCode = wx.getStorageSync('familyCode')) {
     return wx.cloud.callFunction({ name: 'getRecords', data: { familyCode, date } }).then(res => {
       if (!res.result || !res.result.success) throw new Error((res.result && res.result.error) || 'getRecords failed')
       const sources = {}
@@ -683,7 +708,7 @@ Page({
 
   // 严格模式沿用「一次只试一种」纪律；宽松模式给这道菜里所有还能打卡的食材各记一天
   autoLogSolidFoodTrial(payload, foods, trials, recordId, mode, silent) {
-    const familyCode = wx.getStorageSync('familyCode')
+    const familyCode = payload.familyCode || wx.getStorageSync('familyCode')
     const { targets, ambiguous, reason } = foodUnlock.getAutoTrialResult(foods, trials, payload.date, mode)
     if (ambiguous) {
       const message = reason || '这道菜含多种未试食材，未自动记试吃'
@@ -729,6 +754,7 @@ Page({
       return
     }
 
+    const familyCode = wx.getStorageSync('familyCode')
     wx.showModal({
       title: '确认删除',
       content: '删除后无法恢复，确定吗？',
@@ -738,18 +764,20 @@ Page({
           wx.showLoading({ title: '删除中...', mask: true })
           wx.cloud.callFunction({
             name: 'deleteRecord',
-            data: { _id: this.data._id, familyCode: wx.getStorageSync('familyCode') }
+            data: { _id: this.data._id, familyCode }
           }).then(res => {
             wx.hideLoading()
             if (!res.result || !res.result.success) {
               wx.showToast({ title: '删除失败', icon: 'none' })
               return
             }
-            feedingReminderCache.clearForToday(wx.getStorageSync('familyCode'), todayStr())
+            feedingReminderCache.clearForToday(familyCode, todayStr())
             this.syncSolidFoodTrial({ before: this._originalRecord, after: null, recordId: this.data._id })
             this.cleanupImages(this._originalRecord.images)
-            wx.showToast({ title: '已删除', icon: 'success' })
-            setTimeout(() => wx.navigateBack(), 800)
+            this.finishMutation(familyCode, () => {
+              wx.showToast({ title: '已删除', icon: 'success' })
+              setTimeout(() => this.finishMutation(familyCode, () => wx.navigateBack()), 800)
+            })
           }).catch(err => {
             wx.hideLoading()
             console.error(err)

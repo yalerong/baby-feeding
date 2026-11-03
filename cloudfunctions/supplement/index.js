@@ -15,7 +15,6 @@ exports.main = async (event) => {
       const res = await db.collection('supplement_records')
         .where({ familyCode, date, name })
         .count()
-        .catch(() => ({ total: 0 }))
       return { success: true, taken: res.total > 0 }
     }
 

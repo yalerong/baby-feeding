@@ -36,7 +36,6 @@ async function fetchSupplementTaken(familyCode, date, name) {
   const res = await db.collection('supplement_records')
     .where({ familyCode, date, name })
     .count()
-    .catch(() => ({ total: 0 }))
   return res.total > 0
 }
 

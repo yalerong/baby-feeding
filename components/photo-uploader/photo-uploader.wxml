@@ -9,9 +9,11 @@
       <view class="image-item">
         <image
           class="thumb"
-          src="{{item}}"
+          src="{{imageUrls[item] || item}}"
           mode="aspectFill"
           data-url="{{item}}"
+          binderror="onImageError"
+          bindload="onImageLoad"
           bindtap="previewImage"
         />
         <view class="delete-btn" data-index="{{index}}" bindtap="removeImage">×</view>

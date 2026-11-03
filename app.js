@@ -32,6 +32,3 @@ App({
     cryAlertTemplateId: localConfig.cryAlertTemplateId || ''
   }
 })
-
-// 如需修复历史数据 familyCode，可手动在控制台执行：
-// wx.cloud.callFunction({ name: 'fixFamilyCode' }).then(res => console.log(res.result))

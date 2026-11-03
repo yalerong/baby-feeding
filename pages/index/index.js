@@ -6,6 +6,7 @@ const feedingReminderCache = require('../../utils/feedingReminderCache.js')
 const pageSnapshot = require('../../utils/pageSnapshot.js')
 const dailyReviewError = require('../../utils/dailyReviewError.js')
 const { recordIcons } = require('../../utils/recordIcons.js')
+const recordPhotos = require('../../utils/recordPhotos.js')
 const todayStr = dateUtil.todayStr
 const nowTimeStr = dateUtil.nowTimeStr
 
@@ -93,6 +94,7 @@ Page({
 
   onShow() {
     this._homeActive = true
+    this._photoRetryKeys = new Set()
     this._homeGeneration = (this._homeGeneration || 0) + 1
     const familyCode = wx.getStorageSync('familyCode') || 'FAMILY'
     const today = todayStr()
@@ -161,11 +163,30 @@ Page({
     if (this._homeRecordsKey === key && this._homeRecordsSignature === signature) {
       this.refreshSinceLastFeeding()
       this.refreshDailyReview()
+      this.loadRecordPhotos(value.records, date)
       return
     }
     this._homeRecordsKey = key
     this._homeRecordsSignature = signature
     this.calculateStats(value.records, value.prevFeeding)
+    this.loadRecordPhotos(value.records, date)
+  },
+
+  loadRecordPhotos(records, date, refresh = false) {
+    const familyCode = this.data.familyCode
+    const generation = this._homeGeneration
+    return recordPhotos.resolveRecordPhotos(records, familyCode, refresh).then(() => {
+      if (this._homeActive === false || this._homeGeneration !== generation ||
+          this.data.familyCode !== familyCode || this.data.currentDate !== date) return
+      let changed = false
+      const next = this.data.records.map(record => {
+        const imageUrls = recordPhotos.displayUrls(record.images, familyCode)
+        if (JSON.stringify(imageUrls) === JSON.stringify(record.imageUrls)) return record
+        changed = true
+        return { ...record, imageUrls }
+      })
+      if (changed) this.setData({ records: next })
+    }).catch(err => console.error(err))
   },
 
   // 今日记录不等待近十日建议扫描；快照先显示，云端始终重新校验。
@@ -693,6 +714,7 @@ Page({
         intervalText,
         icons: recordIcons(r),
         images: Array.isArray(r.images) ? r.images : [],
+        imageUrls: recordPhotos.displayUrls(r.images, this.data.familyCode),
         quantityText: quantities.join(' · ')
       })
     })
@@ -826,10 +848,46 @@ Page({
     wx.navigateTo({ url: '/pages/batch/batch' })
   },
 
-  previewRecordImage(e) {
-    const { url, urls } = e.currentTarget.dataset
+  onRecordImageError(e) {
+    if (this._homeActive === false) return
+    const { id, url } = e.currentTarget.dataset
+    const record = this.data.records.find(item => item._id === id && item.images.includes(url))
+    if (!record) return
+    const key = JSON.stringify([this.data.familyCode, id, url])
+    this._photoRetryKeys = this._photoRetryKeys || new Set()
+    if (this._photoRetryKeys.has(key)) return
+    this._photoRetryKeys.add(key)
+    return this.loadRecordPhotos([{ _id: id, images: [url] }], this.data.currentDate, true)
+  },
+
+  onRecordImageLoad(e) {
+    const { id, url } = e.currentTarget.dataset
+    if (this._photoRetryKeys) this._photoRetryKeys.delete(JSON.stringify([this.data.familyCode, id, url]))
+  },
+
+  async previewRecordImage(e) {
+    const { id, url, urls } = e.currentTarget.dataset
     if (!url) return
-    wx.previewImage({ current: url, urls: Array.isArray(urls) && urls.length ? urls : [url] })
+    const images = Array.isArray(urls) && urls.length ? urls : [url]
+    const familyCode = this.data.familyCode
+    const date = this.data.currentDate
+    const generation = this._homeGeneration
+    try {
+      await recordPhotos.resolveRecordPhotos([{ _id: id, images }], familyCode)
+      if (this._homeActive === false || this._homeGeneration !== generation ||
+          this.data.familyCode !== familyCode || this.data.currentDate !== date) return
+      const display = recordPhotos.displayUrls(images, familyCode)
+      wx.previewImage({
+        current: display[images.indexOf(url)] || url,
+        urls: display,
+        fail: () => wx.showToast({ title: '照片加载失败，请稍后重试', icon: 'none' })
+      })
+    } catch (err) {
+      if (this._homeActive === false || this._homeGeneration !== generation ||
+          this.data.familyCode !== familyCode || this.data.currentDate !== date) return
+      console.error(err)
+      wx.showToast({ title: '照片加载失败，请稍后重试', icon: 'none' })
+    }
   },
 
   goEdit(e) {

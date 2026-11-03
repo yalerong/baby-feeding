@@ -12,8 +12,8 @@
   <!-- 批量录入列表 -->
   <view class="card">
     <view class="list-header">
-      <text class="list-title">记录明细</text>
-      <text class="add-row" bindtap="addRow">+ 添加一行</text>
+      <text class="list-title">记录明细（最多{{maxRows}}条）</text>
+      <text class="add-row" bindtap="addRow" wx:if="{{rows.length < maxRows}}">+ 添加一行</text>
     </view>
 
     <view class="batch-row" wx:for="{{rows}}" wx:key="index">
@@ -37,6 +37,6 @@
     <view class="preview-title">即将保存 {{validCount}} 条记录，总奶量 {{validTotal}}ml</view>
   </view>
 
-  <button class="btn-primary" bindtap="submitBatch">批量保存</button>
+  <button class="btn-primary" bindtap="submitBatch" loading="{{saving}}" disabled="{{saving}}">批量保存</button>
   <button class="btn-secondary" bindtap="goBack">取消</button>
 </view>

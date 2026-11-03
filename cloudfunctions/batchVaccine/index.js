@@ -2,8 +2,13 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
 const maintenance = require('./maintenance.js')
+const crypto = require('crypto')
 
 const MAX_ITEMS = 200
+
+function vaccineKey(record) {
+  return JSON.stringify([record.vaccineName, record.category || '', Number(record.dose) || 1])
+}
 
 async function getOwnedRecord(_id, familyCode) {
   const existing = await db.collection('vaccine_records').doc(_id).get().catch(() => null)
@@ -46,10 +51,28 @@ exports.main = async (event) => {
         createBy: OPENID || '',
         createTime: now
       }))
-      const results = await Promise.all(
-        docs.map(d => db.collection('vaccine_records').add({ data: d }))
-      )
-      return { success: true, count: results.length }
+      // 保留旧版随机 ID 记录及家长填写的接种信息；新初始化使用固定 ID 抵御双手机并发。
+      const existingKeys = new Set()
+      for (let offset = 0; ; offset += MAX_ITEMS) {
+        const page = await db.collection('vaccine_records').where({ familyCode })
+          .orderBy('_id', 'asc').skip(offset).limit(MAX_ITEMS).get()
+        ;(page.data || []).forEach(item => existingKeys.add(vaccineKey(item)))
+        if (!page.data || page.data.length < MAX_ITEMS) break
+      }
+      const results = await Promise.all(docs.map(async item => {
+        const key = vaccineKey(item)
+        if (existingKeys.has(key)) return false
+        const documentId = 'vaccine-' + crypto.createHash('sha256').update(JSON.stringify([familyCode, key])).digest('hex')
+        try {
+          await db.collection('vaccine_records').add({ data: { _id: documentId, ...item } })
+          return true
+        } catch (err) {
+          const raced = await db.collection('vaccine_records').doc(documentId).get().catch(() => null)
+          if (raced && raced.data && raced.data.familyCode === familyCode && vaccineKey(raced.data) === key) return false
+          throw err
+        }
+      }))
+      return { success: true, count: results.filter(Boolean).length }
     }
 
     if (action === 'clear') {
@@ -109,6 +132,17 @@ exports.main = async (event) => {
       allowed.forEach(k => {
         if (data[k] !== undefined) payload[k] = data[k]
       })
+      if (owned.record.category === '自定义') {
+        if (data.vaccineName !== undefined) {
+          if (typeof data.vaccineName !== 'string' || !data.vaccineName.trim()) return { success: false, error: 'vaccineName required' }
+          payload.vaccineName = data.vaccineName.trim()
+        }
+        if (data.dose !== undefined) {
+          const dose = Number(data.dose)
+          if (!Number.isInteger(dose) || dose < 1) return { success: false, error: 'positive integer dose required' }
+          payload.dose = dose
+        }
+      }
       await db.collection('vaccine_records').doc(_id).update({ data: payload })
       return { success: true }
     }

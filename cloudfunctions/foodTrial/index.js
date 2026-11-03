@@ -106,10 +106,27 @@ function validateLogTarget(existing, date) {
 async function transferLogSource(existing, date, recordId) {
   if (!existing || !(existing.logSources || {})[date] && existing.lastTriedDate !== date) return { success: false, error: '这一天没有打卡记录' }
   const sources = withLogSource(existing.logSources, date, recordId)
-  await db.collection('food_trials').doc(existing._id).update({
-    data: { logSources: sources, lastLogRecordId: sources[existing.lastTriedDate] || '', updateTime: db.serverDate() }
+  const updated = await updateTrialIfUnchanged(existing, existing.familyCode, {
+    logSources: sources, lastLogRecordId: sources[existing.lastTriedDate] || '', updateTime: db.serverDate()
   })
+  if (!updated) return { success: false, error: '食材记录已变化，请刷新后重试' }
   return { success: true }
+}
+
+// 状态相同也可能已经多记了一天或移交了来源；必须核对读到的整份试吃状态。
+async function updateTrialIfUnchanged(trial, familyCode, data) {
+  const conditions = { _id: trial._id, familyCode }
+  const command = db.command
+  for (const field of ['status', 'trialCount', 'lastTriedDate', 'logDates', 'logSources', 'lastLogRecordId', 'manuallyUnlocked']) {
+    conditions[field] = Object.prototype.hasOwnProperty.call(trial, field)
+      ? command.eq(trial[field])
+      : command.exists(false)
+  }
+  const payload = { ...data }
+  // update 的普通对象会合并子字段；撤销和重开连续试吃必须真正移除旧日期。
+  if (Object.prototype.hasOwnProperty.call(payload, 'logSources')) payload.logSources = command.set(payload.logSources)
+  const res = await db.collection('food_trials').where(conditions).update({ data: payload })
+  return !!(res && res.stats && res.stats.updated)
 }
 
 async function updateStatusIfUnchanged(trial, familyCode, data) {
@@ -189,7 +206,8 @@ exports.main = async event => {
       }
       if (existing) {
         const payload = buildLogPayload(existing, familyCode, foodName, date, recordId, mode)
-        await db.collection('food_trials').doc(existing._id).update({ data: payload })
+        const updated = await updateTrialIfUnchanged(existing, familyCode, payload)
+        if (!updated) return { success: false, error: '食材记录已变化，请刷新后重试' }
         return { success: true, data: { ...existing, ...payload } }
       }
       const payload = buildLogPayload(null, familyCode, foodName, date, recordId, mode)
@@ -200,7 +218,8 @@ exports.main = async event => {
       const racedGuard = validateLogTarget(raced, date)
       if (racedGuard) return { success: false, error: racedGuard }
       const nextPayload = buildLogPayload(raced, familyCode, foodName, date, recordId, mode)
-      await db.collection('food_trials').doc(raced._id).update({ data: nextPayload })
+      const updated = await updateTrialIfUnchanged(raced, familyCode, nextPayload)
+      if (!updated) return { success: false, error: '食材记录已变化，请刷新后重试' }
       return { success: true, data: { ...raced, ...nextPayload } }
     }
 
@@ -211,12 +230,12 @@ exports.main = async event => {
 
     if (action === 'undoLog') {
       if (!date) return { success: false, error: 'date required' }
+      if (existing && existing.status === 'allergic') return { success: false, error: '该食材已标记疑似过敏，不能撤销试吃' }
       const nextState = getUndoTrialState(existing, date)
       if (!nextState) return { success: false, error: '只能撤销今天的试吃记录' }
       const { action: _ignored, ...data } = nextState
-      await db.collection('food_trials').doc(existing._id).update({
-        data: { ...data, updateTime: db.serverDate() }
-      })
+      const updated = await updateTrialIfUnchanged(existing, familyCode, { ...data, updateTime: db.serverDate() })
+      if (!updated) return { success: false, error: '食材记录已变化，请刷新后重试' }
       return { success: true }
     }
 

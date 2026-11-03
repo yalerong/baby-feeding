@@ -97,7 +97,7 @@
     </block>
   </view>
 
-  <photo-uploader initialImages="{{images}}" maxCount="{{3}}" bind:change="onImagesChange" />
+  <photo-uploader initialImages="{{images}}" recordId="{{_id}}" maxCount="{{3}}" bind:change="onImagesChange" />
 
   <view class="preview-card card" wx:if="{{breastMilk > 0 || formula > 0}}">
     <view class="preview-title">本次录入预览</view>
