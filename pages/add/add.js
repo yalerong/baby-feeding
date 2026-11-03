@@ -20,7 +20,7 @@ Page({
     stool: false,
     stoolDesc: '',
     total: 0,
-    stoolTextures: ['稀', '稠'],
+    stoolTextures: ['稀', '稠', '成型'],
     stoolColors: ['黄', '非黄色'],
     stoolAmounts: ['少', '中', '多'],
     stoolTextureIndex: -1,
