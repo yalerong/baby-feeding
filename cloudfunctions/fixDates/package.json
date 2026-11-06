@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "批量修改记录年份",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "4.0.2"
   }
 }

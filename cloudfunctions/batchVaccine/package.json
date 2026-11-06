@@ -4,6 +4,6 @@
   "description": "疫苗计划批量初始化/清空",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "4.0.2"
   }
 }

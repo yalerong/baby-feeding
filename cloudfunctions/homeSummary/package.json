@@ -4,6 +4,6 @@
   "description": "Aggregated home page launch data in one call",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "4.0.2"
   }
 }
