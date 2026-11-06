@@ -4,6 +4,6 @@
   "description": "Bind the only WeChat recipient for baby cry alerts",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "4.0.2"
   }
 }

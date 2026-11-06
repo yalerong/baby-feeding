@@ -30,6 +30,7 @@ function requestBody(event) {
 }
 
 function secretMatches(value) {
+  if (!config.webhookSecret) return false
   const actual = Buffer.from(String(value || ''))
   const expected = Buffer.from(String(config.webhookSecret || ''))
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected)

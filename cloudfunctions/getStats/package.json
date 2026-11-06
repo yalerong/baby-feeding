@@ -4,6 +4,6 @@
   "description": "获取统计汇总",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "4.0.2"
   }
 }

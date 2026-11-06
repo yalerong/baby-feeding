@@ -4,6 +4,6 @@
   "description": "Weekly menu reads and writes with family ownership",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "latest"
+    "wx-server-sdk": "4.0.2"
   }
 }
